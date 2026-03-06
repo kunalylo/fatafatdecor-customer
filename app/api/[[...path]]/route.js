@@ -44,6 +44,7 @@ function cors(res) {
 function ok(data) { return cors(NextResponse.json(data)) }
 function err(msg, status = 400) { return cors(NextResponse.json({ error: msg }, { status })) }
 function hashPwd(pwd) { return crypto.createHash('sha256').update(pwd).digest('hex') }
+function hashOtp(otp) { return crypto.createHash('sha256').update(`signup:${otp}`).digest('hex') }
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 200 }))
@@ -87,6 +88,75 @@ async function handleRoute(request, { params }) {
       return ok(safeUser)
     }
 
+        if (path[0] === 'auth' && path[1] === 'send-signup-otp' && method === 'POST') {
+      const body = await request.json()
+      const { name, email, phone, password } = body
+      if (!name || !email || !password) return err('Name, email, password required')
+      const existing = await db.collection('users').findOne({ email })
+      if (existing) return err('Email already registered')
+
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+      await db.collection('signup_otps').updateOne(
+        { email },
+        {
+          $set: {
+            email,
+            name,
+            phone: phone || '',
+            password: hashPwd(password),
+            otp_hash: hashOtp(otp),
+            expires_at: expiresAt,
+            updated_at: new Date()
+          },
+          $setOnInsert: {
+            created_at: new Date()
+          }
+        },
+        { upsert: true }
+      )
+
+      return ok({ message: 'OTP sent successfully', otp })
+    }
+
+    if (path[0] === 'auth' && path[1] === 'verify-signup-otp' && method === 'POST') {
+      const body = await request.json()
+      const { email, otp } = body
+      if (!email || !otp) return err('Email and OTP required')
+
+      const otpDoc = await db.collection('signup_otps').findOne({ email })
+      if (!otpDoc) return err('Please request OTP first', 404)
+      if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
+        await db.collection('signup_otps').deleteOne({ email })
+        return err('OTP expired. Please request a new OTP', 410)
+      }
+      if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
+
+      const existing = await db.collection('users').findOne({ email })
+      if (existing) return err('Email already registered')
+
+      const user = {
+        id: uuidv4(),
+        name: otpDoc.name,
+        email,
+        phone: otpDoc.phone || '',
+        password: otpDoc.password,
+        role: 'user',
+        credits: 3,
+        has_purchased_credits: false,
+        location: null,
+        city: null,
+        auth_provider: 'email',
+        created_at: new Date()
+      }
+
+      await db.collection('users').insertOne(user)
+      await db.collection('signup_otps').deleteOne({ email })
+      const { password: _, _id, ...safeUser } = user
+      return ok(safeUser)
+    }
+    
     if (path[0] === 'auth' && path[1] === 'login' && method === 'POST') {
       const { email, password } = await request.json()
       if (!email || !password) return err('Email and password required')
