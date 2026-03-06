@@ -67,32 +67,121 @@ async function handleRoute(request, { params }) {
     if ((path.length === 0 || (path.length === 1 && (path[0] === 'root' || path[0] === ''))) && method === 'GET') {
       return ok({ message: 'FatafatDecor API v2.0', status: 'running' })
     }
-
+    // ====== REQUEST PHONE OTP ======
+    if (path[0] === 'auth' && path[1] === 'register' && path[2] === 'request-otp' && method === 'POST') {
+      const { phone } = await request.json()
+      if (!phone) return err('Phone number required')
+    
+      const normalizedPhone = String(phone).replace(/\D/g, '')
+      if (normalizedPhone.length !== 10) return err('Enter a valid 10-digit phone number')
+    
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const now = new Date()
+      const expiresAt = new Date(now.getTime() + 10 * 60 * 1000)
+    
+      await db.collection('phone_otps').deleteMany({ phone: normalizedPhone, purpose: 'signup' })
+    
+      await db.collection('phone_otps').insertOne({
+        id: uuidv4(),
+        phone: normalizedPhone,
+        otp,
+        purpose: 'signup',
+        created_at: now,
+        expires_at: expiresAt,
+        verified: false
+      })
+    
+      const response = { success: true, message: 'OTP sent successfully' }
+      if (process.env.NODE_ENV !== 'production') response.dev_otp = otp
+    
+      return ok(response)
+    }
+    
+    
+    // ====== VERIFY PHONE OTP ======
+    if (path[0] === 'auth' && path[1] === 'register' && path[2] === 'verify-otp' && method === 'POST') {
+      const { phone, otp } = await request.json()
+    
+      if (!phone || !otp) return err('Phone number and OTP required')
+    
+      const normalizedPhone = String(phone).replace(/\D/g, '')
+      const normalizedOtp = String(otp).replace(/\D/g, '')
+    
+      if (normalizedPhone.length !== 10) return err('Enter a valid 10-digit phone number')
+      if (normalizedOtp.length !== 6) return err('Enter a valid 6-digit OTP')
+    
+      const now = new Date()
+    
+      const otpDoc = await db.collection('phone_otps').findOne({
+        phone: normalizedPhone,
+        otp: normalizedOtp,
+        purpose: 'signup',
+        verified: false,
+        expires_at: { $gt: now }
+      })
+    
+      if (!otpDoc) return err('Invalid or expired OTP', 400)
+    
+      await db.collection('phone_otps').updateOne(
+        { id: otpDoc.id },
+        { $set: { verified: true, verified_at: now } }
+      )
+    
+      return ok({ success: true, message: 'Phone number verified' })
+    }
     // ====== AUTH EMAIL ======
     if (path[0] === 'auth' && path[1] === 'register' && method === 'POST') {
       const body = await request.json()
       const { name, email, phone, password, role } = body
-      if (!name || !email || !password) return err('Name, email, password required')
+      
+      if (!name || !email || !phone || !password)
+        return err('Name, email, phone, password required')
+      
+      const normalizedPhone = String(phone).replace(/\D/g, '')
+      if (normalizedPhone.length !== 10)
+        return err('Enter a valid 10-digit phone number')
+      
+      // check OTP verified
+      const verifiedPhone = await db.collection('phone_otps').findOne(
+        {
+          phone: normalizedPhone,
+          purpose: 'signup',
+          verified: true,
+          verified_at: { $exists: true }
+        },
+        { sort: { verified_at: -1 } }
+      )
+      
+      if (!verifiedPhone)
+        return err('Please verify your phone number with OTP before sign up')
+      
       const existing = await db.collection('users').findOne({ email })
       if (existing) return err('Email already registered')
+      
       const user = {
-        id: uuidv4(), name, email, phone: phone || '',
-        password: hashPwd(password), role: role || 'user',
-        credits: 3, has_purchased_credits: false,
-        location: null, city: body.city || null,
-        auth_provider: 'email', created_at: new Date()
+        id: uuidv4(),
+        name,
+        email,
+        phone: normalizedPhone,
+        password: hashPwd(password),
+        role: role || 'user',
+        credits: 3,
+        has_purchased_credits: false,
+        location: null,
+        city: body.city || null,
+        auth_provider: 'email',
+        created_at: new Date()
       }
+      
       await db.collection('users').insertOne(user)
+      
+      await db.collection('phone_otps').deleteMany({
+        phone: normalizedPhone,
+        purpose: 'signup'
+      })
+      
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
-    }
-
-    if (path[0] === 'auth' && path[1] === 'login' && method === 'POST') {
-      const { email, password } = await request.json()
-      if (!email || !password) return err('Email and password required')
-      const user = await db.collection('users').findOne({ email, password: hashPwd(password) })
-      if (!user) return err('Invalid credentials', 401)
-      const { password: _, _id, ...safeUser } = user
+      
       return ok(safeUser)
     }
 
