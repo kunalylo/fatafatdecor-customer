@@ -67,6 +67,9 @@ export default function App() {
   const [slots, setSlots] = useState([])
   const [trackingData, setTrackingData] = useState(null)
   const [authForm, setAuthForm] = useState({ name: '', email: '', phone: '', password: '' })
+  const [signupOtp, setSignupOtp] = useState('')
+  const [signupOtpSent, setSignupOtpSent] = useState(false)
+  const [phoneVerified, setPhoneVerified] = useState(false)
   const [uploadForm, setUploadForm] = useState({ room_type: 'Dining Room', occasion: 'birthday', description: '', budget: null })
   const [originalImage, setOriginalImage] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -118,7 +121,15 @@ export default function App() {
       api('seed', { method: 'POST' }).then(() => setSeeded(true)).catch(() => {})
     }
   }, [seeded])
-
+  
+  useEffect(() => {
+    if (authMode !== 'register') {
+      setSignupOtp('')
+      setSignupOtpSent(false)
+      setPhoneVerified(false)
+    }
+  }, [authMode])
+  
   useEffect(() => {
     if (user) {
       api(`designs?user_id=${user.id}`).then(d => !d.error && setDesigns(d))
@@ -180,10 +191,39 @@ export default function App() {
     } catch (e) { showToast('Google Sign-In failed', 'error') }
     finally { setLoading(false) }
   }
+    const handleRequestSignupOtp = async () => {
+    const normalizedPhone = String(authForm.phone || '').replace(/\D/g, '')
+    if (normalizedPhone.length !== 10) { showToast('Enter a valid 10-digit phone number', 'error'); return }
+    setLoading(true)
+    try {
+      const data = await api('auth/register/request-otp', { method: 'POST', body: { phone: normalizedPhone } })
+      if (data.error) { showToast(data.error, 'error'); return }
+      setSignupOtpSent(true)
+      setPhoneVerified(false)
+      showToast(data.dev_otp ? `OTP sent. Dev OTP: ${data.dev_otp}` : 'OTP sent to your phone', 'success')
+    } catch (e) { showToast('Failed to send OTP', 'error') }
+    finally { setLoading(false) }
+  }
+
+  const handleVerifySignupOtp = async () => {
+    const normalizedPhone = String(authForm.phone || '').replace(/\D/g, '')
+    const normalizedOtp = String(signupOtp || '').replace(/\D/g, '')
+    if (normalizedPhone.length !== 10) { showToast('Enter a valid 10-digit phone number', 'error'); return }
+    if (normalizedOtp.length !== 6) { showToast('Enter the 6-digit OTP', 'error'); return }
+    setLoading(true)
+    try {
+      const data = await api('auth/register/verify-otp', { method: 'POST', body: { phone: normalizedPhone, otp: normalizedOtp } })
+      if (data.error) { showToast(data.error, 'error'); return }
+      setPhoneVerified(true)
+      showToast('Phone number verified successfully', 'success')
+    } catch (e) { showToast('OTP verification failed', 'error') }
+    finally { setLoading(false) }
+  }
 
   const handleAuth = async () => {
     setLoading(true)
     try {
+      if (authMode === 'register' && !phoneVerified) { showToast('Verify phone number with OTP before sign up', 'error'); return }
       const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register'
       const body = authMode === 'login' ? { email: authForm.email, password: authForm.password }
         : { name: authForm.name, email: authForm.email, phone: authForm.phone, password: authForm.password }
@@ -439,8 +479,7 @@ export default function App() {
   }
 
   // ===== DECORATOR SCREENS =====
-  const ctxValue = {screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer}
-  return (
+  const ctxValue = {screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, signupOtp, setSignupOtp, signupOtpSent, setSignupOtpSent, phoneVerified, setPhoneVerified, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleRequestSignupOtp, handleVerifySignupOtp, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer}  return (
     <AppContext.Provider value={ctxValue}>
     <div className="min-h-screen bg-white max-w-md mx-auto relative overflow-hidden">
       <Toast />
@@ -477,8 +516,7 @@ export default function App() {
 
 
 const AuthScreen = () => {
-  const { screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer } = useApp()
-  return (
+  const { authMode, setAuthMode, loading, authForm, setAuthForm, signupOtp, setSignupOtp, signupOtpSent, phoneVerified, setSignupOtpSent, setPhoneVerified, handleGoogleAuth, handleRequestSignupOtp, handleVerifySignupOtp, handleAuth } = useApp()  return (
   <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
     <div className="mb-8 text-center">
       <div className="w-20 h-20 gradient-pink rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-pink">
@@ -491,7 +529,7 @@ const AuthScreen = () => {
       <CardContent className="p-6 space-y-4">
         <div className="flex gap-2 mb-4">
           {['login', 'register'].map(m => (
-            <button key={m} onClick={() => setAuthMode(m)}
+            <button key={m} onClick={() => { setAuthMode(m); setSignupOtp(''); setSignupOtpSent(false); setPhoneVerified(false) }}
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${authMode === m ? 'gradient-pink text-white shadow-pink' : 'bg-gray-50 text-gray-400'}`}>
               {m === 'login' ? 'Login' : 'Sign Up'}
             </button>
@@ -503,15 +541,23 @@ const AuthScreen = () => {
               className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
             <Input placeholder="Phone Number" value={authForm.phone} onChange={e => setAuthForm(p => ({ ...p, phone: e.target.value }))}
               className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
+              <div className="flex gap-2">
+                  <Button type="button" onClick={handleRequestSignupOtp} disabled={loading || !authForm.phone} className="flex-1 h-11 bg-gray-900 hover:bg-black text-white rounded-xl">
+                    Send OTP
+                  </Button>
+                  <Input placeholder="Enter OTP" value={signupOtp} onChange={e => setSignupOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                </div>
+                <Button type="button" onClick={handleVerifySignupOtp} disabled={loading || !signupOtpSent || signupOtp.length !== 6 || phoneVerified} className="w-full h-11 rounded-xl bg-green-600 hover:bg-green-700 text-white">
+                  {phoneVerified ? 'Phone Verified' : 'Verify OTP'}
+                </Button>
           </>
         )}
         <Input placeholder="Email" type="email" value={authForm.email} onChange={e => setAuthForm(p => ({ ...p, email: e.target.value }))}
           className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
         <Input placeholder="Password" type="password" value={authForm.password} onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
           className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
-        <Button onClick={handleAuth} disabled={loading} className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink">
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : authMode === 'login' ? 'Login' : 'Create Account'}
-        </Button>
+        <Button onClick={handleAuth} disabled={loading || (authMode === 'register' && !phoneVerified)} className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink">
         <div className="flex items-center gap-3 my-1">
           <div className="flex-1 h-px bg-gray-200" />
           <span className="text-xs text-gray-400">or</span>
