@@ -523,9 +523,9 @@ const AuthScreen = () => {
           Continue with Google
         </button>
         <p className="text-center text-xs text-gray-400 mt-2">Demo: admin@fatafatdecor.com / admin123</p>
-        <button onClick={() => { setAppMode('decorator'); navigate(SCREENS.DP_AUTH) }} className="w-full text-center text-sm text-pink-400 mt-1 pt-2 border-t border-gray-100">
-          I'm a Decorator / Delivery Partner
-        </button>
+        // <button onClick={() => { setAppMode('decorator'); navigate(SCREENS.DP_AUTH) }} className="w-full text-center text-sm text-pink-400 mt-1 pt-2 border-t border-gray-100">
+        //   I'm a Decorator / Delivery Partner
+        // </button>
       </CardContent>
     </Card>
   </div>
