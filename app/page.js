@@ -67,6 +67,8 @@ export default function App() {
   const [slots, setSlots] = useState([])
   const [trackingData, setTrackingData] = useState(null)
   const [authForm, setAuthForm] = useState({ name: '', email: '', phone: '', password: '' })
+  const [signupOtp, setSignupOtp] = useState('')
+  const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [uploadForm, setUploadForm] = useState({ room_type: 'Dining Room', occasion: 'birthday', description: '', budget: null })
   const [originalImage, setOriginalImage] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -184,13 +186,30 @@ export default function App() {
   const handleAuth = async () => {
     setLoading(true)
     try {
-      const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register'
-      const body = authMode === 'login' ? { email: authForm.email, password: authForm.password }
-        : { name: authForm.name, email: authForm.email, phone: authForm.phone, password: authForm.password }
-      const data = await api(endpoint, { method: 'POST', body })
+      let data
+      if (authMode === 'login') {
+        data = await api('auth/login', { method: 'POST', body: { email: authForm.email, password: authForm.password } })
+      } else if (!signupOtpSent) {
+        data = await api('auth/send-signup-otp', {
+          method: 'POST',
+          body: { name: authForm.name, email: authForm.email, phone: authForm.phone, password: authForm.password }
+        })
+        if (data.error) { showToast(data.error, 'error'); return }
+        setSignupOtpSent(true)
+        showToast('OTP sent to your email (demo OTP shown in backend response).', 'success')
+        return
+      } else {
+        data = await api('auth/verify-signup-otp', {
+          method: 'POST',
+          body: { email: authForm.email, otp: signupOtp }
+        })
+      }
+
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
       showToast(`Welcome${authMode === 'login' ? ' back' : ''}, ${data.name}!`, 'success')
+      setSignupOtp('')
+      setSignupOtpSent(false)
       navigate(SCREENS.HOME)
     } catch (e) { showToast('Something went wrong', 'error') }
     finally { setLoading(false) }
@@ -439,8 +458,7 @@ export default function App() {
   }
 
   // ===== DECORATOR SCREENS =====
-  const ctxValue = {screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer}
-  return (
+  const ctxValue = {screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, signupOtp, setSignupOtp, signupOtpSent, setSignupOtpSent, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer}  return (
     <AppContext.Provider value={ctxValue}>
     <div className="min-h-screen bg-white max-w-md mx-auto relative overflow-hidden">
       <Toast />
@@ -477,8 +495,7 @@ export default function App() {
 
 
 const AuthScreen = () => {
-  const { screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer } = useApp()
-  return (
+  const { screen, setScreen, prevScreen, setPrevScreen, user, setUser, authMode, setAuthMode, loading, setLoading, toast, setToast, designs, setDesigns, orders, setOrders, items, setItems, deliveryPersons, setDeliveryPersons, selectedDesign, setSelectedDesign, selectedOrder, setSelectedOrder, slots, setSlots, trackingData, setTrackingData, authForm, setAuthForm, signupOtp, setSignupOtp, signupOtpSent, setSignupOtpSent, uploadForm, setUploadForm, originalImage, setOriginalImage, selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour, seeded, setSeeded, dpUser, setDpUser, dpDashboard, setDpDashboard, dpOrders, setDpOrders, dpSelectedOrder, setDpSelectedOrder, dpEarnings, setDpEarnings, dpCalendarData, setDpCalendarData, calMonth, setCalMonth, dpAuthForm, setDpAuthForm, dpActiveTimer, setDpActiveTimer, dpTimerSeconds, setDpTimerSeconds, faceScanImage, setFaceScanImage, otpInput, setOtpInput, appMode, setAppMode, scanImage, setScanImage, scanName, setScanName, scanning, setScanning, scanAnalysis, setScanAnalysis, adminTab, setAdminTab, mapRef, mapInstance, dpVideoRef, dpTimerRef, showToast, navigate, goBack, handleGoogleAuth, handleAuth, handleGenerate, handleCreateOrder, handlePayment, handleBookSlot, loadSlots, handleFileUpload, handleDpLogin, startFaceScan, captureFace, submitFaceScan, verifyOtp, formatTimer } = useApp()  return (
   <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
     <div className="mb-8 text-center">
       <div className="w-20 h-20 gradient-pink rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-pink">
@@ -491,7 +508,7 @@ const AuthScreen = () => {
       <CardContent className="p-6 space-y-4">
         <div className="flex gap-2 mb-4">
           {['login', 'register'].map(m => (
-            <button key={m} onClick={() => setAuthMode(m)}
+            <button key={m} onClick={() => { setAuthMode(m); setSignupOtpSent(false); setSignupOtp('') }}
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${authMode === m ? 'gradient-pink text-white shadow-pink' : 'bg-gray-50 text-gray-400'}`}>
               {m === 'login' ? 'Login' : 'Sign Up'}
             </button>
@@ -509,8 +526,12 @@ const AuthScreen = () => {
           className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
         <Input placeholder="Password" type="password" value={authForm.password} onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
           className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
+                {authMode === 'register' && signupOtpSent && (
+          <Input placeholder="Enter 6-digit OTP" value={signupOtp} onChange={e => setSignupOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
+        )}
         <Button onClick={handleAuth} disabled={loading} className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink">
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : authMode === 'login' ? 'Login' : 'Create Account'}
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : authMode === 'login' ? 'Login' : signupOtpSent ? 'Verify OTP & Create Account' : 'Send OTP'}
         </Button>
         <div className="flex items-center gap-3 my-1">
           <div className="flex-1 h-px bg-gray-200" />
