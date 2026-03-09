@@ -19,7 +19,8 @@ export default function BookingScreen() {
   })
   const partialAmount = Math.round((selectedOrder?.total_cost || 0) * 0.5)
   const isPaid = selectedOrder?.payment_status === 'partial' || selectedOrder?.payment_status === 'full'
-  const isBooked = selectedOrder?.delivery_status === 'assigned'
+  // isBooked = slot has actually been confirmed (delivery_slot.date is set + paid)
+  const isBooked = !!(selectedOrder?.delivery_slot?.date && selectedOrder?.payment_status !== 'pending')
   const isSlotSelected = selectedDate && selectedSlotHour !== null
 
   return (
