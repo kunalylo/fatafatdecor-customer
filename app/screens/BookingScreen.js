@@ -10,7 +10,7 @@ import { SCREENS } from '../lib/constants'
 export default function BookingScreen() {
   const {
     selectedOrder, slots, selectedDate, selectedSlotHour, setSelectedSlotHour,
-    loading, goBack, navigate, handlePayment, handleBookSlot, loadSlots
+    loading, goBack, navigate, handlePayment, loadSlots
   } = useApp()
   const today = new Date()
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -20,6 +20,8 @@ export default function BookingScreen() {
   const partialAmount = Math.round((selectedOrder?.total_cost || 0) * 0.5)
   const isPaid = selectedOrder?.payment_status === 'partial' || selectedOrder?.payment_status === 'full'
   const isBooked = selectedOrder?.delivery_status === 'assigned'
+  const isSlotSelected = selectedDate && selectedSlotHour !== null
+
   return (
     <div className="slide-up pb-24 bg-white min-h-screen">
       <div className="flex items-center gap-3 p-4">
@@ -27,30 +29,13 @@ export default function BookingScreen() {
         <h1 className="font-bold text-lg text-gray-800">Book Delivery</h1>
       </div>
       <div className="px-4 space-y-4">
-        <Card className={`border ${isPaid ? 'border-green-200 bg-green-50/30' : 'border-pink-100'}`}>
+
+        {/* STEP 1: Select Date */}
+        <Card className={`border ${selectedDate ? 'border-green-200 bg-green-50/30' : 'border-pink-100'}`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500' : 'gradient-pink'} text-white`}>
-                {isPaid ? <CheckCircle2 className="w-4 h-4" /> : '1'}
-              </div>
-              <h3 className="font-bold text-sm text-gray-700">Advance Payment (50%)</h3>
-            </div>
-            <p className="text-xs text-gray-400 mb-3">Pay Rs {partialAmount} now, remaining on delivery.</p>
-            {!isPaid ? (
-              <Button onClick={() => handlePayment('delivery', partialAmount, selectedOrder?.id)}
-                disabled={loading} className="w-full h-11 gradient-pink border-0 text-white font-bold rounded-xl shadow-pink">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Pay Rs {partialAmount}</>}
-              </Button>
-            ) : (
-              <Badge className="bg-green-100 text-green-600 border-green-200">Payment Done</Badge>
-            )}
-          </CardContent>
-        </Card>
-        <Card className={`border border-gray-100 ${!isPaid ? 'opacity-40 pointer-events-none' : ''}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isBooked ? 'bg-green-500' : 'gradient-pink'} text-white`}>
-                {isBooked ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${selectedDate ? 'bg-green-500' : 'gradient-pink'} text-white`}>
+                {selectedDate ? <CheckCircle2 className="w-4 h-4" /> : '1'}
               </div>
               <h3 className="font-bold text-sm text-gray-700">Select Date</h3>
             </div>
@@ -69,11 +54,15 @@ export default function BookingScreen() {
             </div>
           </CardContent>
         </Card>
-        {selectedDate && isPaid && (
-          <Card className="border border-gray-100">
+
+        {/* STEP 2: Select Time (shown after date is picked) */}
+        {selectedDate && (
+          <Card className={`border ${selectedSlotHour !== null ? 'border-green-200 bg-green-50/30' : 'border-gray-100'}`}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-full gradient-pink flex items-center justify-center text-xs font-bold text-white">3</div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${selectedSlotHour !== null ? 'bg-green-500' : 'gradient-pink'} text-white`}>
+                  {selectedSlotHour !== null ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+                </div>
                 <h3 className="font-bold text-sm text-gray-700">Select Time</h3>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -82,18 +71,43 @@ export default function BookingScreen() {
                     className={`py-2 px-1 rounded-xl text-center transition-all ${selectedSlotHour === s.hour ? 'gradient-pink text-white shadow-pink' : s.available ? 'bg-gray-50 border border-gray-200 hover:border-pink-300' : 'bg-red-50 opacity-40 border border-red-100'}`}>
                     <Clock className="w-3 h-3 mx-auto mb-0.5" />
                     <p className="text-[10px] font-semibold">{s.time_label}</p>
-                    <p className={`text-[8px] ${s.available ? 'text-green-500' : 'text-red-400'}`}>{s.available ? `${s.available_count} free` : 'Full'}</p>
+                    <p className={`text-[8px] ${s.available ? 'text-green-500' : 'text-red-400'}`}>
+                      {s.admin_blocked ? 'Packed' : s.available ? `${s.available_count} free` : 'Full'}
+                    </p>
                   </button>
                 ))}
               </div>
             </CardContent>
           </Card>
         )}
-        {isPaid && selectedSlotHour !== null && !isBooked && (
-          <Button onClick={handleBookSlot} disabled={loading} className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Truck className="w-5 h-5 mr-2" /> Confirm Delivery</>}
-          </Button>
+
+        {/* STEP 3: Payment (shown after date + time selected, before paid) */}
+        {isSlotSelected && !isBooked && (
+          <Card className={`border ${isPaid ? 'border-green-200 bg-green-50/30' : 'border-pink-100'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500' : 'gradient-pink'} text-white`}>
+                  {isPaid ? <CheckCircle2 className="w-4 h-4" /> : '3'}
+                </div>
+                <h3 className="font-bold text-sm text-gray-700">Advance Payment (50%)</h3>
+              </div>
+              <p className="text-xs text-gray-400 mb-1">
+                Slot: <span className="font-semibold text-pink-500">{selectedDate} at {selectedSlotHour}:00 – {selectedSlotHour + 1}:00</span>
+              </p>
+              <p className="text-xs text-gray-400 mb-3">Pay Rs {partialAmount} now. Remaining 50% collected on delivery.</p>
+              {!isPaid ? (
+                <Button onClick={() => handlePayment('delivery', partialAmount, selectedOrder?.id)}
+                  disabled={loading} className="w-full h-11 gradient-pink border-0 text-white font-bold rounded-xl shadow-pink">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Pay Rs {partialAmount} & Confirm Slot</>}
+                </Button>
+              ) : (
+                <Badge className="bg-green-100 text-green-600 border-green-200">Payment Done</Badge>
+              )}
+            </CardContent>
+          </Card>
         )}
+
+        {/* Booking Confirmed */}
         {isBooked && (
           <Card className="border border-green-200 bg-green-50/30">
             <CardContent className="p-4 text-center">
