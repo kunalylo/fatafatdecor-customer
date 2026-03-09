@@ -1,3 +1,32 @@
+// ============================================================
+// FatafatDecor API - Customer App Route Handler
+// ============================================================
+//
+// TABLE OF CONTENTS:
+//   1.  SETUP & HELPERS         - DB connection, CORS, utilities
+//   2.  AUTH EMAIL              - POST /auth/register, POST /auth/login
+//                                 POST /auth/send-signup-otp
+//                                 POST /auth/verify-signup-otp
+//   3.  AUTH GOOGLE             - POST /auth/google
+//   4.  CITIES MANAGEMENT       - GET/POST /cities, PUT/DELETE /cities/:id, POST /city-check
+//   5.  ITEMS                   - GET/POST /items, PUT/DELETE /items/:id
+//   6.  RENT ITEMS              - GET /rent-items
+//   7.  KITS                    - GET/POST /kits, PUT/DELETE /kits/:id
+//                                 GET /kits/match, POST /kits/analyze
+//                                 GET/POST /kits/reference-images, DELETE /kits/reference-images/:id
+//   8.  DESIGNS                 - POST /designs/generate, GET /designs, GET /designs/:id
+//   9.  ORDERS                  - POST /orders, GET /orders, GET /orders/:id
+//  10.  PAYMENTS                - POST /payments/create-order, POST /payments/verify
+//  11.  DELIVERY SLOTS          - GET /delivery/slots, POST /delivery/book
+//                                 POST /delivery/update-location, GET /delivery/track/:id
+//                                 POST /delivery/status
+//  12.  CREDITS                 - GET /credits/:userId
+//  13.  DELIVERY PERSONS        - GET/POST /delivery-persons, PUT /delivery-persons/:id
+//  14.  USER LOCATION           - POST /user/location
+//  15.  IMAGEKIT                - GET /imagekit/reference, POST /imagekit/upload
+//  16.  SEED                    - GET/POST /seed
+// ============================================================
+
 import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
@@ -44,6 +73,7 @@ function cors(res) {
 function ok(data) { return cors(NextResponse.json(data)) }
 function err(msg, status = 400) { return cors(NextResponse.json({ error: msg }, { status })) }
 function hashPwd(pwd) { return crypto.createHash('sha256').update(pwd).digest('hex') }
+function hashOtp(otp) { return crypto.createHash('sha256').update(`signup:${otp}`).digest('hex') }
 
 export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 200 }))
@@ -87,6 +117,80 @@ async function handleRoute(request, { params }) {
       return ok(safeUser)
     }
 
+    if (path[0] === 'auth' && path[1] === 'send-signup-otp' && method === 'POST') {
+      const body = await request.json()
+      const { name, phone } = body
+      if (!name || !phone) return err('Name and phone number required')
+
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+      await db.collection('signup_otps').updateOne(
+        { phone },
+        {
+          $set: { phone, name, otp_hash: hashOtp(otp), expires_at: expiresAt, updated_at: new Date() },
+          $setOnInsert: { created_at: new Date() }
+        },
+        { upsert: true }
+      )
+
+      const fast2smsKey = process.env.FAST2SMS_API_KEY
+      if (fast2smsKey && fast2smsKey !== 'your_fast2sms_api_key_here') {
+        try {
+          const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '').slice(-10)
+          const smsRes = await fetch(
+            `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&route=otp&variables_values=${otp}&numbers=${cleanPhone}&flash=0`,
+            { headers: { 'cache-control': 'no-cache' } }
+          )
+          const smsData = await smsRes.json()
+          if (!smsData.return) console.error('Fast2SMS error:', JSON.stringify(smsData))
+        } catch (smsErr) {
+          console.error('SMS send error:', smsErr.message)
+        }
+      } else {
+        console.log(`[Dev] Signup OTP for ${phone}: ${otp}`)
+        return ok({ message: 'OTP generated (dev mode)', dev_otp: otp })
+      }
+      return ok({ message: 'OTP sent to your phone' })
+    }
+
+    if (path[0] === 'auth' && path[1] === 'verify-signup-otp' && method === 'POST') {
+      const body = await request.json()
+      const { phone, otp, name, email, password } = body
+      if (!phone || !otp || !email || !password) return err('Phone, OTP, email, and password required')
+
+      const otpDoc = await db.collection('signup_otps').findOne({ phone })
+      if (!otpDoc) return err('Please request OTP first', 404)
+      if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
+        await db.collection('signup_otps').deleteOne({ phone })
+        return err('OTP expired. Please request a new OTP', 410)
+      }
+      if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
+
+      const existing = await db.collection('users').findOne({ email })
+      if (existing) return err('Email already registered')
+
+      const user = {
+        id: uuidv4(),
+        name: name || otpDoc.name,
+        email,
+        phone,
+        password: hashPwd(password),
+        role: 'user',
+        credits: 3,
+        has_purchased_credits: false,
+        location: null,
+        city: null,
+        auth_provider: 'email',
+        created_at: new Date()
+      }
+
+      await db.collection('users').insertOne(user)
+      await db.collection('signup_otps').deleteOne({ phone })
+      const { password: _, _id, ...safeUser } = user
+      return ok(safeUser)
+    }
+    
     if (path[0] === 'auth' && path[1] === 'login' && method === 'POST') {
       const { email, password } = await request.json()
       if (!email || !password) return err('Email and password required')
@@ -278,7 +382,7 @@ async function handleRoute(request, { params }) {
           if (addonSpent >= budgetForAddons) break
           const price = item.selling_price_unit || item.price || 0
           if (price > 0 && addonSpent + price <= budgetForAddons) {
-            addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false })
+            addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting' })
             addonSpent += price
           }
         }
@@ -290,20 +394,29 @@ async function handleRoute(request, { params }) {
         for (const item of allItems.sort(() => Math.random() - 0.5)) {
           if (spent >= bMax) break
           const price = item.selling_price_unit || item.price || 0
-          if (price > 0 && spent + price <= bMax) { addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false }); spent += price }
+          if (price > 0 && spent + price <= bMax) { addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting' }); spent += price }
         }
         addOnCost = spent
       }
+      // Include relevant rentable items from rent_items collection
+      const allRentItems = await db.collection('rent_items').find({ active: true }).toArray()
+      const rentCategoryMap = { birthday: ['Lighting','Stands'], party: ['Lighting','Stands'], anniversary: ['Lighting','Floral'], wedding: ['Floral','Stands','Lighting'], engagement: ['Floral','Lighting'], baby_shower: ['Floral','Lighting'], housewarming: ['Floral','Lighting'], corporate: ['Stands','Lighting'] }
+      const rentCategories = rentCategoryMap[occasion] || ['Lighting']
+      const pickedRentItems = allRentItems.filter(r => rentCategories.includes(r.category)).slice(0, 2).map(r => ({ id: r.id, name: r.name, description: r.category, price: r.rental_cost, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true }))
+      addOnItems.push(...pickedRentItems)
+      addOnCost += pickedRentItems.reduce((s, i) => s + i.price, 0)
       const allSelectedItems = [...kitItems, ...addOnItems]
       const totalCost = kitCost + addOnCost
-      const itemDescriptions = allSelectedItems.slice(0, 15).map(i => `${i.quantity}x ${i.name}`).join(', ')
-      const ikFolder = getImageKitFolder(bMin, bMax)
+      const itemDescriptions = allSelectedItems.map(i => `${i.name}${i.type_finish ? ` (${i.type_finish})` : ''}${i.color && i.color !== i.type_finish ? ` in ${i.color}` : ''}`).join(', ')
+      const kitContext = selectedKit ? `Theme: ${selectedKit.name}.` : ''
+      const specialRequest = description ? `Special request: ${description}.` : ''
+      const noNumbers = description && /\d/.test(description) ? '' : 'Do NOT add any numbers, ages, dates, or numeric text on balloons or anywhere in the image.'
       let prompt, hasUserImage = false
       if (original_image && original_image.includes('base64')) {
         hasUserImage = true
-        prompt = `Add beautiful ${occasion} decorations to this exact room. Keep all existing furniture and walls EXACTLY as they are. Only add these decoration items: ${itemDescriptions}. Budget: Rs${bMin}-Rs${bMax}. Style: FatafatDecor ${ikFolder}. ${description || ''} Photorealistic, professional event decoration.`
+        prompt = `Decorate this exact room for a ${occasion} celebration. Keep all existing furniture, walls, ceiling and structure completely unchanged. Place only these specific FatafatDecor decoration items in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} Make it look like a real professional event decoration setup. Photorealistic, warm ambient lighting.`
       } else {
-        prompt = `Create a photorealistic beautifully decorated ${room_type} for ${occasion}. Budget: Rs${bMin}-Rs${bMax}. Include: ${itemDescriptions}. Style: FatafatDecor ${ikFolder} aesthetic. ${description || ''} Professional photography, 4k, warm lighting.`
+        prompt = `Professional photorealistic ${room_type} beautifully decorated for ${occasion}. Show these specific FatafatDecor decoration items clearly in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} High quality event decoration photography, warm lighting, 4K.`
       }
       let image_base64 = null
       try {
@@ -341,8 +454,19 @@ async function handleRoute(request, { params }) {
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: design.total_cost, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, created_at: new Date() }
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: design.total_cost, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
+      // Auto-assign 2 decorators immediately on order creation
+      const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
+      const assigned = availablePersons.slice(0, 2)
+      if (assigned.length > 0) {
+        const assignedIds = assigned.map(p => p.id)
+        const assignedInfo = assigned.map(p => ({ id: p.id, name: p.name, phone: p.phone }))
+        await db.collection('orders').updateOne({ id: order.id }, { $set: { assigned_decorators: assignedIds, assigned_decorators_info: assignedInfo, delivery_status: 'assigned' } })
+        order.assigned_decorators = assignedIds
+        order.assigned_decorators_info = assignedInfo
+        order.delivery_status = 'assigned'
+      }
       await db.collection('designs').updateOne({ id: design_id }, { $set: { status: 'ordered' } })
       const { _id, ...clean } = order; return ok(clean)
     }
@@ -418,10 +542,10 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'delivery' && path[1] === 'track' && path[2] && method === 'GET') {
       const order = await db.collection('orders').findOne({ id: path[2] })
       if (!order) return err('Order not found', 404)
-      if (!order.delivery_person_id) return ok({ order_id: order.id, delivery_status: order.delivery_status || 'pending', delivery_slot: order.delivery_slot || null, delivery_person: null, delivery_location: null, user_location: order.delivery_location || null, message: 'Delivery person not yet assigned' })
-      const dp = await db.collection('delivery_persons').findOne({ id: order.delivery_person_id })
-      if (!dp) return ok({ order_id: order.id, delivery_status: order.delivery_status, delivery_slot: order.delivery_slot, delivery_person: null, delivery_location: null, user_location: order.delivery_location || null })
-      return ok({ order_id: order.id, delivery_status: order.delivery_status, delivery_slot: order.delivery_slot, delivery_person: { name: dp.name, phone: dp.phone }, delivery_location: dp.current_location || null, user_location: order.delivery_location || null, verification_otp: order.verification_otp || null, otp_verified: order.otp_verified || false })
+      const assignedInfo = order.assigned_decorators_info || []
+      if (!order.delivery_person_id && assignedInfo.length === 0) return ok({ order_id: order.id, delivery_status: order.delivery_status || 'pending', delivery_slot: order.delivery_slot || null, delivery_person: null, assigned_decorators: [], delivery_location: null, user_location: order.delivery_location || null, message: 'Decorators not yet assigned' })
+      const dp = order.delivery_person_id ? await db.collection('delivery_persons').findOne({ id: order.delivery_person_id }) : null
+      return ok({ order_id: order.id, delivery_status: order.delivery_status, delivery_slot: order.delivery_slot, delivery_person: dp ? { name: dp.name, phone: dp.phone } : null, assigned_decorators: assignedInfo, delivery_location: dp?.current_location || null, user_location: order.delivery_location || null, verification_otp: order.verification_otp || null, otp_verified: order.otp_verified || false })
     }
     if (path[0] === 'delivery' && path[1] === 'status' && method === 'POST') {
       const { order_id, status } = await request.json()
