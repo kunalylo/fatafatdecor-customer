@@ -68,23 +68,22 @@ export default function DesignScreen() {
             <h3 className="font-bold text-sm text-gray-700 mb-2">
               <Plus className="w-4 h-4 inline text-purple-500 mr-1" />
               Add-on Items
-              {displayAddonItems.some(i => i.is_rentable) && <span className="ml-2 text-[10px] text-amber-500 font-normal">(tap trash to remove rentable items)</span>}
+              {displayAddonItems.some(i => i.is_rentable) && <span className="ml-2 text-[10px] text-purple-400 font-normal">(tap trash to remove items)</span>}
             </h3>
             <div className="space-y-2">
               {displayAddonItems.map((item, i) => (
-                <Card key={item.id || i} className={`border ${item.is_rentable ? 'border-amber-200 bg-amber-50/20' : 'border-gray-100'}`}>
+                <Card key={item.id || i} className="border border-gray-100">
                   <CardContent className="p-3 flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.is_rentable ? 'bg-amber-50' : 'bg-purple-50'}`}>
-                      <Package className={`w-5 h-5 ${item.is_rentable ? 'text-amber-400' : 'text-purple-400'}`} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-purple-50">
+                      <Package className="w-5 h-5 text-purple-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-700 truncate">{item.name}</p>
                       <p className="text-[10px] text-gray-400">
                         {item.color ? `${item.color} • ` : ''}{item.category ? item.category.replace('_', ' ') : ''}
-                        {item.is_rentable ? ' • Rentable' : ''}
                       </p>
                     </div>
-                    <p className={`text-sm font-bold shrink-0 ${item.is_rentable ? 'text-amber-500' : 'text-purple-500'}`}>
+                    <p className="text-sm font-bold shrink-0 text-purple-500">
                       Rs {((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
                     </p>
                     {item.is_rentable && (

@@ -402,7 +402,7 @@ async function handleRoute(request, { params }) {
       const allRentItems = await db.collection('rent_items').find({ active: true }).toArray()
       const rentCategoryMap = { birthday: ['Lighting','Stands'], party: ['Lighting','Stands'], anniversary: ['Lighting','Floral'], wedding: ['Floral','Stands','Lighting'], engagement: ['Floral','Lighting'], baby_shower: ['Floral','Lighting'], housewarming: ['Floral','Lighting'], corporate: ['Stands','Lighting'] }
       const rentCategories = rentCategoryMap[occasion] || ['Lighting']
-      const pickedRentItems = allRentItems.filter(r => rentCategories.includes(r.category)).slice(0, 2).map(r => ({ id: r.id, name: r.name, description: r.category, price: r.rental_cost, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true }))
+      const pickedRentItems = allRentItems.filter(r => rentCategories.includes(r.category)).slice(0, 2).map(r => ({ id: r.id, name: r.name, description: r.category, price: r.selling_price || r.rental_cost, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true }))
       addOnItems.push(...pickedRentItems)
       addOnCost += pickedRentItems.reduce((s, i) => s + i.price, 0)
       const allSelectedItems = [...kitItems, ...addOnItems]
