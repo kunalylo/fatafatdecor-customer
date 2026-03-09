@@ -221,8 +221,8 @@ export function AppProvider({ children }) {
       if (data.error) { showToast(data.error, 'error'); return }
       setSelectedOrder(data)
       setOrders(prev => [data, ...prev])
-      showToast('Order placed! Decorators have been assigned.', 'success')
-      navigate(SCREENS.TRACKING)
+      showToast('Order placed! Now select your delivery date & time.', 'success')
+      navigate(SCREENS.BOOKING)
     } catch (e) { showToast('Failed to create order', 'error') }
     finally { setLoading(false) }
   }
