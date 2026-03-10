@@ -246,19 +246,13 @@ export function AppProvider({ children }) {
             showToast('Payment successful!', 'success')
             if (type === 'credits') { setUser(prev => ({ ...prev, credits: (prev.credits || 0) + creditsCount })); navigate(SCREENS.HOME) }
             if (type === 'delivery' && orderId) {
-              setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount }))
-              // Auto-book the selected slot right after payment
+              // Save requested slot to order — decorator will accept and confirm
               const slotDate = selectedDate
               const slotHour = selectedSlotHour
-              if (slotDate && slotHour !== null) {
-                const bookData = await api('delivery/book', { method: 'POST', body: { order_id: orderId, date: slotDate, hour: slotHour } })
-                if (!bookData.error) {
-                  setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount, delivery_person_id: bookData.delivery_person.id, delivery_slot: bookData.slot, delivery_status: 'assigned' }))
-                  showToast(`Booked! ${bookData.delivery_person.name} arrives at ${bookData.slot.time_label}`, 'success')
-                } else {
-                  showToast('Payment done, but slot booking failed: ' + bookData.error, 'error')
-                }
-              }
+              await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour } })
+              setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount, delivery_status: 'pending', requested_slot: { date: slotDate, hour: slotHour } }))
+              showToast('Payment done! Waiting for a decorator to accept your booking.', 'success')
+              navigate(SCREENS.TRACKING)
             }
           } else { showToast('Payment verification failed', 'error') }
         },

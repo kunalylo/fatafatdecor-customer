@@ -482,6 +482,13 @@ async function handleRoute(request, { params }) {
       if (!order) return err('Order not found', 404)
       const { _id, ...clean } = order; return ok(clean)
     }
+    // Save requested delivery slot (without booking — awaiting decorator acceptance)
+    if (path[0] === 'orders' && path[2] === 'request-slot' && method === 'POST') {
+      const { date, hour } = await request.json()
+      if (!date || hour === undefined) return err('date and hour required')
+      await db.collection('orders').updateOne({ id: path[1] }, { $set: { requested_slot: { date, hour }, delivery_status: 'pending' } })
+      return ok({ success: true })
+    }
 
     // ====== PAYMENTS ======
     if (path[0] === 'payments' && path[1] === 'create-order' && method === 'POST') {
