@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "FatafatDecor - Instant Decoration",
   "short_name": "FatafatDecor",
   "description": "AI-powered decoration suggestions delivered to your doorstep. Book a decorator instantly for birthdays, anniversaries, and special occasions.",
@@ -10,14 +11,10 @@
   "theme_color": "#EC4899",
   "orientation": "portrait",
   "lang": "en",
+  "dir": "ltr",
   "categories": ["lifestyle", "shopping"],
+  "iarc_rating_id": "",
   "icons": [
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "/icons/icon-48.png",
       "sizes": "48x48",
@@ -69,23 +66,14 @@
       "short_name": "Book",
       "description": "Quickly book a decoration service",
       "url": "/",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "My Orders",
       "short_name": "Orders",
       "description": "View your current orders",
       "url": "/",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/screen1.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Home Screen"
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
   "prefer_related_applications": false,
