@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.fatafatdecor.app",
-      "sha256_cert_fingerprints": [
-        "REPLACE_WITH_SHA256_FROM_PWABUILDER"
-      ]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "in.co.ylo.fatafatdecor.twa",
+    "sha256_cert_fingerprints": ["B7:87:F4:8F:81:B3:55:B8:75:44:9F:4A:BD:A7:88:96:3E:26:B4:50:F4:DE:1A:AF:1D:45:B8:58:80:CE:1C:BA"]
   }
-]
+}]
