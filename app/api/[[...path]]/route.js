@@ -200,6 +200,19 @@ async function handleRoute(request, { params }) {
       return ok(safeUser)
     }
 
+    // ====== DELETE ACCOUNT ======
+    if (path[0] === 'auth' && path[1] === 'delete-account' && method === 'POST') {
+      const { email, password } = await request.json()
+      if (!email || !password) return err('Email and password required')
+      const user = await db.collection('users').findOne({ email, password: hashPwd(password) })
+      if (!user) return err('Invalid email or password', 401)
+      // Delete user data
+      await db.collection('users').deleteOne({ id: user.id })
+      await db.collection('orders').deleteMany({ user_id: user.id })
+      await db.collection('designs').deleteMany({ user_id: user.id })
+      return ok({ success: true, message: 'Account deleted successfully' })
+    }
+
     // ====== AUTH GOOGLE ======
     if (path[0] === 'auth' && path[1] === 'google' && method === 'POST') {
       const { google_id, email, name, photo_url, city } = await request.json()
