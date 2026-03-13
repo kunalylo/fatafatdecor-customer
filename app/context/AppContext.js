@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react'
 import { SCREENS, BUDGET_BRACKETS, api } from '../lib/constants'
-import { auth } from '../firebase'
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
 
 export const AppContext = createContext({})
 export const useApp = () => useContext(AppContext)
@@ -31,8 +29,6 @@ export function AppProvider({ children }) {
   const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [signupOtpValue, setSignupOtpValue] = useState('')
   const [devOtp, setDevOtp] = useState('')
-  const confirmationResultRef = useRef(null)
-  const recaptchaVerifierRef = useRef(null)
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -122,33 +118,24 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
-  const setupRecaptcha = () => {
-    if (!recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {}
-      })
-    }
-    return recaptchaVerifierRef.current
-  }
-
   const handleSendSignupOtp = async () => {
     if (!authForm.name) { showToast('Enter your full name', 'error'); return }
     const cleanPhone = authForm.phone.replace(/\D/g, '')
     if (!/^\d{10}$/.test(cleanPhone)) { showToast('Enter a valid 10-digit phone number', 'error'); return }
     setLoading(true)
     try {
-      const verifier = setupRecaptcha()
-      const result = await signInWithPhoneNumber(auth, `+91${cleanPhone}`, verifier)
-      confirmationResultRef.current = result
+      const data = await api('auth/send-signup-otp', {
+        method: 'POST',
+        body: { name: authForm.name, phone: cleanPhone }
+      })
+      if (data.error) { showToast(data.error, 'error'); return }
       setSignupOtpSent(true)
       setSignupOtpValue('')
-      setDevOtp('')
+      if (data.dev_otp) setDevOtp(data.dev_otp)
+      else setDevOtp('')
       showToast('OTP sent to your phone!', 'success')
     } catch (e) {
-      // Reset recaptcha on error so it can be retried
-      recaptchaVerifierRef.current = null
-      showToast(e.message?.includes('invalid-phone') ? 'Invalid phone number' : 'Failed to send OTP. Try again.', 'error')
+      showToast('Failed to send OTP. Try again.', 'error')
     }
     finally { setLoading(false) }
   }
@@ -157,15 +144,11 @@ export function AppProvider({ children }) {
     if (!signupOtpValue || signupOtpValue.trim().length < 6) { showToast('Enter the 6-digit OTP sent to your phone', 'error'); return }
     if (!authForm.email) { showToast('Enter your email', 'error'); return }
     if (!authForm.password) { showToast('Enter a password', 'error'); return }
-    if (!confirmationResultRef.current) { showToast('Please request OTP first', 'error'); return }
     setLoading(true)
     try {
-      // Verify OTP with Firebase
-      await confirmationResultRef.current.confirm(signupOtpValue.trim())
-      // Firebase verified — now create account in our database
       const data = await api('auth/verify-signup-otp', {
         method: 'POST',
-        body: { phone: authForm.phone, otp: signupOtpValue.trim(), name: authForm.name, email: authForm.email, password: authForm.password, firebase_verified: true }
+        body: { phone: authForm.phone, otp: signupOtpValue.trim(), name: authForm.name, email: authForm.email, password: authForm.password }
       })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
@@ -174,9 +157,7 @@ export function AppProvider({ children }) {
       showToast('Account created! Welcome!', 'success')
       navigate(SCREENS.HOME)
     } catch (e) {
-      if (e.code === 'auth/invalid-verification-code') showToast('Invalid OTP. Please check and try again.', 'error')
-      else if (e.code === 'auth/code-expired') showToast('OTP expired. Please request a new one.', 'error')
-      else showToast(e.error || 'Verification failed. Try again.', 'error')
+      showToast(e.message || 'Verification failed. Try again.', 'error')
     }
     finally { setLoading(false) }
   }

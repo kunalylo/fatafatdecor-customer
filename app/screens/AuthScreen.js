@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Sparkles, Loader2, Phone } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 export default function AuthScreen() {
@@ -12,66 +12,8 @@ export default function AuthScreen() {
     authMode, setAuthMode, loading, authForm, setAuthForm,
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp, showToast, handleGoogleAuth, handleAuth,
-    handleSendSignupOtp, handleVerifySignupOtp, API
+    handleSendSignupOtp, handleVerifySignupOtp
   } = useApp()
-
-  // Phone OTP login state
-  const [loginMode, setLoginMode] = useState('email') // 'email' | 'phone'
-  const [loginPhone, setLoginPhone] = useState('')
-  const [loginOtpSent, setLoginOtpSent] = useState(false)
-  const [loginOtp, setLoginOtp] = useState('')
-  const [loginDevOtp, setLoginDevOtp] = useState('')
-  const [loginLoading, setLoginLoading] = useState(false)
-
-  async function handleSendLoginOtp() {
-    if (loginPhone.length !== 10) return showToast('Enter a valid 10-digit phone number', 'error')
-    setLoginLoading(true)
-    try {
-      const res = await fetch(`${API}/auth/send-login-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone })
-      })
-      const data = await res.json()
-      if (!res.ok) return showToast(data.error || 'Failed to send OTP', 'error')
-      setLoginOtpSent(true)
-      if (data.dev_otp) setLoginDevOtp(data.dev_otp)
-      showToast('OTP sent to your phone!', 'success')
-    } catch {
-      showToast('Network error. Try again.', 'error')
-    } finally {
-      setLoginLoading(false)
-    }
-  }
-
-  async function handleVerifyLoginOtp() {
-    if (loginOtp.length !== 6) return showToast('Enter the 6-digit OTP', 'error')
-    setLoginLoading(true)
-    try {
-      const res = await fetch(`${API}/auth/verify-login-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, otp: loginOtp })
-      })
-      const data = await res.json()
-      if (!res.ok) return showToast(data.error || 'Invalid OTP', 'error')
-      // Use the same login handler pattern — store user in context
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(data))
-        window.location.reload()
-      }
-    } catch {
-      showToast('Network error. Try again.', 'error')
-    } finally {
-      setLoginLoading(false)
-    }
-  }
-
-  function resetLoginPhone() {
-    setLoginOtpSent(false)
-    setLoginOtp('')
-    setLoginDevOtp('')
-  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
@@ -92,7 +34,6 @@ export default function AuthScreen() {
               <button key={m} onClick={() => {
                 setAuthMode(m)
                 setSignupOtpSent(false); setSignupOtpValue(''); setDevOtp('')
-                setLoginMode('email'); resetLoginPhone()
               }}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${authMode === m ? 'gradient-pink text-white shadow-pink' : 'bg-gray-50 text-gray-400'}`}>
                 {m === 'login' ? 'Login' : 'Sign Up'}
@@ -103,64 +44,16 @@ export default function AuthScreen() {
           {/* ===== LOGIN ===== */}
           {authMode === 'login' && (
             <>
-              {/* Email / Phone toggle */}
-              <div className="flex gap-2">
-                <button onClick={() => { setLoginMode('email'); resetLoginPhone() }}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${loginMode === 'email' ? 'bg-pink-100 text-pink-600' : 'bg-gray-50 text-gray-400'}`}>
-                  Email
-                </button>
-                <button onClick={() => setLoginMode('phone')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${loginMode === 'phone' ? 'bg-pink-100 text-pink-600' : 'bg-gray-50 text-gray-400'}`}>
-                  <Phone className="w-3 h-3" /> Phone OTP
-                </button>
-              </div>
-
-              {/* Email login */}
-              {loginMode === 'email' && (
-                <>
-                  <Input placeholder="Email" type="email" value={authForm.email}
-                    onChange={e => setAuthForm(p => ({ ...p, email: e.target.value }))}
-                    className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
-                  <Input placeholder="Password" type="password" value={authForm.password}
-                    onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
-                    className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
-                  <Button onClick={handleAuth} disabled={loading}
-                    className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink">
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
-                  </Button>
-                </>
-              )}
-
-              {/* Phone OTP login */}
-              {loginMode === 'phone' && (
-                <>
-                  <Input placeholder="Phone Number (10 digits)" type="tel"
-                    value={loginPhone}
-                    onChange={e => { setLoginPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); resetLoginPhone() }}
-                    className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
-                  <Button onClick={handleSendLoginOtp} disabled={loginLoading || loginPhone.length !== 10}
-                    className="w-full h-10 gradient-pink border-0 text-white font-semibold text-sm rounded-xl shadow-pink disabled:opacity-50">
-                    {loginLoading && !loginOtpSent ? <Loader2 className="w-4 h-4 animate-spin" /> : loginOtpSent ? 'Resend OTP' : 'Send OTP'}
-                  </Button>
-                  {loginOtpSent && (
-                    <>
-                      {loginDevOtp && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                          <p className="text-xs text-amber-600 font-medium mb-1">Dev Mode OTP</p>
-                          <p className="text-2xl font-bold tracking-[0.4em] text-amber-800">{loginDevOtp}</p>
-                        </div>
-                      )}
-                      <Input placeholder="Enter 6-digit OTP" value={loginOtp}
-                        onChange={e => setLoginOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        maxLength={6} className="bg-gray-50 border-gray-200 h-12 rounded-xl text-center text-lg tracking-widest" />
-                      <Button onClick={handleVerifyLoginOtp} disabled={loginLoading || loginOtp.length !== 6}
-                        className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink disabled:opacity-50">
-                        {loginLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
+              <Input placeholder="Email" type="email" value={authForm.email}
+                onChange={e => setAuthForm(p => ({ ...p, email: e.target.value }))}
+                className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
+              <Input placeholder="Password" type="password" value={authForm.password}
+                onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
+                className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
+              <Button onClick={handleAuth} disabled={loading}
+                className="w-full h-12 gradient-pink border-0 text-white font-bold text-base rounded-xl shadow-pink">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
+              </Button>
             </>
           )}
 
