@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowLeft, MapPin, Navigation, Home, Briefcase, MoreHorizontal, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
 
 const ADDRESS_TYPES = [
   { id: 'home', label: 'Home', icon: Home },
@@ -15,7 +14,7 @@ const DEFAULT_LAT = 18.5204   // Pune fallback
 const DEFAULT_LNG = 73.8567
 
 export default function AddressScreen() {
-  const { goBack, userAddress, saveAddress, showToast, navigate } = useApp()
+  const { goBack, userAddress, saveAddress, showToast } = useApp()
 
   const [step, setStep] = useState(1)  // 1 = map, 2 = details
 
@@ -175,7 +174,7 @@ export default function AddressScreen() {
     }
     saveAddress(updated)
     showToast('Address saved!', 'success')
-    navigate(SCREENS.HOME)
+    goBack()   // returns to Design screen if came from Place Order, or Home if came from location bar
   }
 
   // ══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -10,17 +9,7 @@ export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign,
     userAddress, locationLoading, locationDenied, detectLocation,
-    showAddressModal, setShowAddressModal,
   } = useApp()
-
-  // When GPS detects location for the first time (no flat set),
-  // AppContext sets showAddressModal=true → we navigate to the ADDRESS screen
-  useEffect(() => {
-    if (showAddressModal) {
-      setShowAddressModal(false)
-      navigate(SCREENS.ADDRESS)
-    }
-  }, [showAddressModal])
 
   // What the location bar shows
   const locationTop = () => {

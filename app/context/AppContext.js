@@ -117,8 +117,7 @@ export function AppProvider({ children }) {
               formatted,
             }
             saveAddress(newAddr)
-            // Show modal to collect flat/building only if not yet set
-            if (!existingFlat) setShowAddressModal(true)
+            // Location saved silently — no popup on login
           }
           // else: no results — keep previously saved location unchanged
         } catch {
@@ -261,6 +260,12 @@ export function AppProvider({ children }) {
 
   const handleCreateOrder = async () => {
     if (!selectedDesign) return
+    // If delivery address not yet completed, send user to address screen first
+    if (!userAddress?.flat) {
+      showToast('Please add your delivery address first', 'error')
+      navigate(SCREENS.ADDRESS)
+      return
+    }
     setLoading(true)
     try {
       const isLocalDev = process.env.NODE_ENV === 'development'
