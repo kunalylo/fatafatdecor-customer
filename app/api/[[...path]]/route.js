@@ -77,7 +77,7 @@ async function sendOtpSms(phone, otp) {
   try {
     const cleanPhone = String(phone).replace(/\D/g, '').replace(/^91/, '').slice(-10)
     if (cleanPhone.length !== 10) return false
-    const res = await fetch(`https://2factor.in/API/V1/${key}/SMS/${cleanPhone}/${otp}`)
+    const res = await fetch(`https://2factor.in/API/V1/${key}/SMS/${cleanPhone}/${otp}/OTP1`)
     const data = await res.json()
     return data.Status === 'Success'
   } catch (e) {
