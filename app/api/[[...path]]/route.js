@@ -506,21 +506,45 @@ async function handleRoute(request, { params }) {
       addOnCost += pickedRentItems.reduce((s, i) => s + i.price, 0)
       const allSelectedItems = [...kitItems, ...addOnItems]
       const totalCost = kitCost + addOnCost
-      const itemDescriptions = allSelectedItems.map(i => `${i.name}${i.type_finish ? ` (${i.type_finish})` : ''}${i.color && i.color !== i.type_finish ? ` in ${i.color}` : ''}`).join(', ')
-      const kitContext = selectedKit ? `Theme: ${selectedKit.name}.` : ''
-      const specialRequest = description ? `Special request: ${description}.` : ''
-      const noNumbers = description && /\d/.test(description) ? '' : 'Do NOT add any numbers, ages, dates, or numeric text on balloons or anywhere in the image.'
+      // Build a focused decoration description (top items by type, not a huge flat list)
+      const kitItemNames  = kitItems.slice(0, 4).map(i => i.name).join(', ')
+      const addonNames    = addOnItems.slice(0, 4).map(i => i.name).join(', ')
+      const decorSummary  = [kitItemNames, addonNames].filter(Boolean).join(', ')
+      const kitContext    = selectedKit ? `Decoration theme: "${selectedKit.name}".` : ''
+      const specialRequest = description ? `Customer request: ${description}.` : ''
+      const noNumbers     = (description && /\d/.test(description)) ? '' : 'Do NOT place any numbers, ages, dates or text on balloons or anywhere in the image.'
+      const occasionLabel = occasion.replace('_', ' ')
+
       let prompt, hasUserImage = false
       if (original_image && original_image.includes('base64')) {
         hasUserImage = true
-        prompt = `Decorate this exact room for a ${occasion} celebration. Keep all existing furniture, walls, ceiling and structure completely unchanged. Place only these specific FatafatDecor decoration items in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} Make it look like a real professional event decoration setup. Photorealistic, warm ambient lighting.`
+        prompt = `You are a professional event decorator. Add ${occasionLabel} celebration decorations to this room photo.
+
+RULES — strictly follow:
+1. Keep the existing room EXACTLY as-is: walls, floor, furniture, windows, ceiling — do not change or remove anything.
+2. Only ADD decorations on top of the existing room.
+3. Place decorations naturally: balloons/garlands on walls & ceiling, backdrop behind the main area, fairy lights along ceiling edges, table decor on surfaces.
+
+Decorations to add: ${decorSummary || 'colourful balloons, streamers, fairy lights, floral backdrop'}.
+${kitContext}
+${specialRequest}
+${noNumbers}
+
+Final result must look like a real professional event setup photo. Photorealistic, warm festive lighting, vibrant colours.`
       } else {
-        prompt = `Professional photorealistic ${room_type} beautifully decorated for ${occasion}. Show these specific FatafatDecor decoration items clearly in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} High quality event decoration photography, warm lighting, 4K.`
+        prompt = `Professional event photography of a ${room_type} beautifully decorated for a ${occasionLabel} celebration.
+
+Decoration setup includes: ${decorSummary || 'colourful balloons, streamers, fairy lights, floral backdrop'}.
+${kitContext}
+${specialRequest}
+${noNumbers}
+
+Photorealistic, warm ambient lighting, vibrant festive atmosphere, 4K quality.`
       }
       let image_base64 = null
       try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 120000)
+        const timeout = setTimeout(() => controller.abort(), 180000)  // 3 min — gpt-image-1 edit can take 60-90s
         const aiBody = { prompt }; if (hasUserImage) aiBody.image_base64 = original_image
         const aiRes = await fetch(`${AI_SERVICE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aiBody), signal: controller.signal })
         clearTimeout(timeout)
