@@ -70,7 +70,7 @@ function cors(res) {
   return res
 }
 
-// ---- 2Factor.in helpers ----
+// ---- 2Factor.in helper (OTP only) ----
 async function sendOtpSms(phone, otp) {
   const key = process.env.TWO_FACTOR_API_KEY
   if (!key) return false
@@ -86,23 +86,38 @@ async function sendOtpSms(phone, otp) {
   }
 }
 
-async function sendSms(phone, message) {
-  const key = process.env.TWO_FACTOR_API_KEY
-  if (!key) return
+// ---- WhatsApp Cloud API (Meta) — order notifications ----
+async function sendWhatsApp(phone, message) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
+  const accessToken   = process.env.WHATSAPP_ACCESS_TOKEN
+  if (!phoneNumberId || !accessToken) {
+    console.log('[WhatsApp] env vars not set — skipping notification')
+    return
+  }
   try {
     const cleanPhone = String(phone).replace(/\D/g, '').replace(/^91/, '').slice(-10)
     if (cleanPhone.length !== 10) return
-    // 2Factor transactional SMS
-    await fetch(
-      `https://2factor.in/API/V1/${key}/ADDON_SERVICES/SEND/TSMS`,
+    const waPhone = '91' + cleanPhone   // e.g. 919876543210
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `To=${cleanPhone}&Msg=${encodeURIComponent(message)}&From=FTDCOR`
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: waPhone,
+          type: 'text',
+          text: { body: message }
+        })
       }
     )
+    const data = await res.json()
+    if (!res.ok) console.error('WhatsApp API error:', JSON.stringify(data))
   } catch (e) {
-    console.error('2Factor SMS error:', e.message)
+    console.error('WhatsApp send error:', e.message)
   }
 }
 
@@ -555,7 +570,7 @@ async function handleRoute(request, { params }) {
       // SMS: order placed
       const orderUser = await db.collection('users').findOne({ id: user_id })
       if (orderUser?.phone) {
-        await sendSms(orderUser.phone, `FatafatDecor: Your decoration order has been placed successfully! Total: Rs.${order.total_cost}. We will assign a decorator shortly. -FatafatDecor`)
+        await sendWhatsApp(orderUser.phone, `FatafatDecor: Your decoration order has been placed successfully! Total: Rs.${order.total_cost}. We will assign a decorator shortly. -FatafatDecor`)
       }
       const { _id, ...clean } = order; return ok(clean)
     }
@@ -605,7 +620,7 @@ async function handleRoute(request, { params }) {
         // SMS: payment received
         const payUser = await db.collection('users').findOne({ id: payment.user_id })
         if (payUser?.phone) {
-          await sendSms(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. Decorator will arrive at the selected time. -FatafatDecor`)
+          await sendWhatsApp(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. Decorator will arrive at the selected time. -FatafatDecor`)
         }
       }
       return ok({ success: true, type: payment.type })
@@ -660,7 +675,7 @@ async function handleRoute(request, { params }) {
       // SMS: slot confirmed
       const slotUser = await db.collection('users').findOne({ id: order.user_id })
       if (slotUser?.phone) {
-        await sendSms(slotUser.phone, `FatafatDecor: Slot confirmed! Your decorator ${assignedPerson.name} will arrive on ${date} between ${hour}:00 - ${hour+1}:00. Contact: ${assignedPerson.phone} -FatafatDecor`)
+        await sendWhatsApp(slotUser.phone, `FatafatDecor: Slot confirmed! Your decorator ${assignedPerson.name} will arrive on ${date} between ${hour}:00 - ${hour+1}:00. Contact: ${assignedPerson.phone} -FatafatDecor`)
       }
       return ok({ success: true, delivery_person: { id: assignedPerson.id, name: assignedPerson.name, phone: assignedPerson.phone }, slot: { date, hour, time_label: `${hour}:00 - ${hour + 1}:00` } })
     }
@@ -808,7 +823,7 @@ async function handleRoute(request, { params }) {
       if (doneOrder) {
         const doneUser = await db.collection('users').findOne({ id: doneOrder.user_id })
         if (doneUser?.phone) {
-          await sendSms(doneUser.phone, `FatafatDecor: Your decoration is complete! We hope you love it. Enjoy your celebration! Thank you for choosing FatafatDecor. -FatafatDecor`)
+          await sendWhatsApp(doneUser.phone, `FatafatDecor: Your decoration is complete! We hope you love it. Enjoy your celebration! Thank you for choosing FatafatDecor. -FatafatDecor`)
         }
       }
       return ok({ success: true, completed_at: completedAt })
@@ -857,7 +872,7 @@ async function handleRoute(request, { params }) {
             decorating: 'FatafatDecor: Decoration work has started at your location! Sit back and relax. -FatafatDecor',
             delivered: 'FatafatDecor: Your decoration is complete! We hope you love it. Thank you for choosing FatafatDecor! -FatafatDecor',
           }
-          if (msgs[status]) await sendSms(statusUser.phone, msgs[status])
+          if (msgs[status]) await sendWhatsApp(statusUser.phone, msgs[status])
         }
       }
       return ok({ success: true })
