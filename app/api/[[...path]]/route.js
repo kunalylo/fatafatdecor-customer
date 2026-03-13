@@ -183,16 +183,20 @@ async function handleRoute(request, { params }) {
 
     if (path[0] === 'auth' && path[1] === 'verify-signup-otp' && method === 'POST') {
       const body = await request.json()
-      const { phone, otp, name, email, password } = body
-      if (!phone || !otp || !email || !password) return err('Phone, OTP, email, and password required')
+      const { phone, otp, name, email, password, firebase_verified } = body
+      if (!phone || !email || !password) return err('Phone, email, and password required')
 
-      const otpDoc = await db.collection('signup_otps').findOne({ phone })
-      if (!otpDoc) return err('Please request OTP first', 404)
-      if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
-        await db.collection('signup_otps').deleteOne({ phone })
-        return err('OTP expired. Please request a new OTP', 410)
+      // Firebase already verified OTP on the client — skip our own OTP check
+      if (!firebase_verified) {
+        if (!otp) return err('OTP required')
+        const otpDoc = await db.collection('signup_otps').findOne({ phone })
+        if (!otpDoc) return err('Please request OTP first', 404)
+        if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
+          await db.collection('signup_otps').deleteOne({ phone })
+          return err('OTP expired. Please request a new OTP', 410)
+        }
+        if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
       }
-      if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
 
       const existing = await db.collection('users').findOne({ email })
       if (existing) return err('Email already registered')

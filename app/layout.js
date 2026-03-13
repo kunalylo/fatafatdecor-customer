@@ -73,6 +73,8 @@ export default function RootLayout({ children }) {
       </head>
       <body className="font-sans bg-white">
         {children}
+        {/* Firebase invisible reCAPTCHA container */}
+        <div id="recaptcha-container"></div>
       </body>
     </html>
   )
