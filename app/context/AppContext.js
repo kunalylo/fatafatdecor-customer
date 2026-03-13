@@ -29,7 +29,9 @@ export function AppProvider({ children }) {
   const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [signupOtpValue, setSignupOtpValue] = useState('')
   const [devOtp, setDevOtp] = useState('')
-  const [userAddress, setUserAddress] = useState(null)   // { area, city, full }
+  const [userAddress, setUserAddress] = useState(() => {
+    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_location'); return s ? JSON.parse(s) : null } catch { return null }
+  })
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
 
@@ -68,6 +70,11 @@ export function AppProvider({ children }) {
     }
   }, [screen, selectedOrder])
 
+  const saveAddress = useCallback((addr) => {
+    setUserAddress(addr)
+    try { if (addr) localStorage.setItem('fd_location', JSON.stringify(addr)); else localStorage.removeItem('fd_location') } catch {}
+  }, [])
+
   const detectLocation = useCallback(async (userId) => {
     if (!navigator.geolocation) return
     setLocationLoading(true)
@@ -75,32 +82,39 @@ export function AppProvider({ children }) {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords
-        // Save coordinates to backend
         if (userId) api('user/location', { method: 'POST', body: { user_id: userId, lat, lng } })
         try {
-          // Reverse geocode using Google Maps Geocoding API
           const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-          const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey}`
-          )
+          const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey}`)
           const geo = await res.json()
-          const components = geo.results?.[0]?.address_components || []
-          const get = (...types) => components.find(c => types.some(t => c.types.includes(t)))?.long_name || ''
-          const area = get('sublocality_level_1', 'sublocality', 'neighborhood')
-          const city = get('locality', 'administrative_area_level_2')
-          setUserAddress({ area, city, full: area ? `${area}, ${city}` : city })
+          if (geo.status === 'OK' && geo.results?.length) {
+            const components = geo.results[0].address_components || []
+            const get = (...types) => components.find(c => types.some(t => c.types.includes(t)))?.long_name || ''
+            const area = get('sublocality_level_1', 'sublocality_level_2', 'sublocality', 'neighborhood', 'premise')
+            const city = get('locality', 'administrative_area_level_3', 'administrative_area_level_2')
+            const state = get('administrative_area_level_1')
+            // If we couldn't extract area/city, fall back to parts of formatted_address
+            const formatted = geo.results[0].formatted_address || ''
+            const parts = formatted.split(',').map(s => s.trim()).filter(Boolean)
+            const fallbackArea = area || parts[parts.length - 4] || ''
+            const fallbackCity = city || parts[parts.length - 3] || state || ''
+            saveAddress({ area: fallbackArea, city: fallbackCity, full: fallbackArea ? `${fallbackArea}, ${fallbackCity}` : fallbackCity })
+          } else {
+            // API responded but no results — keep previously saved location unchanged
+          }
         } catch {
-          setUserAddress({ area: '', city: '', full: 'Location detected' })
+          // Network error — keep previously saved location if any
         }
         setLocationLoading(false)
       },
-      () => {
-        setLocationDenied(true)
+      (err) => {
+        // Permission denied (1) or unavailable (2) or timeout (3)
+        if (err.code === 1) setLocationDenied(true)
         setLocationLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
-  }, [])
+  }, [saveAddress])
 
   useEffect(() => {
     if (user) detectLocation(user.id)
@@ -343,7 +357,7 @@ export function AppProvider({ children }) {
     selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour,
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp,
-    userAddress, locationLoading, locationDenied, detectLocation,
+    userAddress, locationLoading, locationDenied, detectLocation, saveAddress,
     mapRef, mapInstance,
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,

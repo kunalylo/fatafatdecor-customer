@@ -8,7 +8,7 @@ import { SCREENS } from '../lib/constants'
 export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign,
-    userAddress, locationLoading, locationDenied, detectLocation
+    userAddress, locationLoading, locationDenied, detectLocation, saveAddress
   } = useApp()
 
   return (
@@ -20,25 +20,27 @@ export default function HomeScreen() {
         onClick={() => detectLocation(user?.id)}
         className="flex items-center gap-1.5 mb-3 max-w-full"
       >
-        <MapPin className="w-4 h-4 text-yellow-200 shrink-0" />
+        <MapPin className={`w-4 h-4 shrink-0 ${locationDenied ? 'text-red-300' : 'text-yellow-200'}`} />
         <div className="flex-1 min-w-0 text-left">
           {locationLoading ? (
             <span className="flex items-center gap-1.5 text-white/80 text-xs">
               <Loader2 className="w-3 h-3 animate-spin" /> Detecting location...
             </span>
           ) : locationDenied ? (
-            <span className="text-yellow-200 text-xs font-medium">Tap to enable location</span>
-          ) : userAddress ? (
+            <span className="text-red-200 text-xs font-medium">Location blocked — tap to retry</span>
+          ) : userAddress?.area || userAddress?.city ? (
             <>
               <p className="text-white font-bold text-sm leading-tight truncate">
                 {userAddress.area || userAddress.city}
               </p>
-              {userAddress.area && (
+              {userAddress.area && userAddress.city && (
                 <p className="text-white/70 text-xs truncate">{userAddress.city}</p>
               )}
             </>
+          ) : locationLoading === false && !userAddress ? (
+            <span className="text-white/70 text-xs">Tap to detect location</span>
           ) : (
-            <span className="text-white/70 text-xs">Tap to set location</span>
+            <span className="text-white/70 text-xs">Tap to detect location</span>
           )}
         </div>
         <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
