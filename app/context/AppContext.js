@@ -7,9 +7,13 @@ export const AppContext = createContext({})
 export const useApp = () => useContext(AppContext)
 
 export function AppProvider({ children }) {
-  const [screen, setScreen] = useState(SCREENS.AUTH)
+  const [user, setUser] = useState(() => {
+    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_user'); return s ? JSON.parse(s) : null } catch { return null }
+  })
+  const [screen, setScreen] = useState(() => {
+    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_user'); return s ? SCREENS.HOME : SCREENS.AUTH } catch { return SCREENS.AUTH }
+  })
   const [prevScreen, setPrevScreen] = useState(null)
-  const [user, setUser] = useState(null)
   const [authMode, setAuthMode] = useState('login')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState(null)
@@ -168,6 +172,7 @@ export function AppProvider({ children }) {
           })
           if (data.error) { showToast(data.error, 'error'); return }
           setUser(data)
+          try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
           showToast(`Welcome, ${data.name}!`, 'success')
           navigate(SCREENS.HOME)
         }
@@ -186,6 +191,7 @@ export function AppProvider({ children }) {
       const data = await api(endpoint, { method: 'POST', body })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
+      try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
       showToast(`Welcome${authMode === 'login' ? ' back' : ''}, ${data.name}!`, 'success')
       navigate(SCREENS.HOME)
     } catch (e) { showToast('Something went wrong', 'error') }
@@ -226,6 +232,7 @@ export function AppProvider({ children }) {
       })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
+      try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
       setSignupOtpSent(false)
       setSignupOtpValue('')
       showToast('Account created! Welcome!', 'success')
@@ -358,6 +365,16 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
+  const handleLogout = useCallback(() => {
+    setUser(null)
+    setDesigns([])
+    setOrders([])
+    setSelectedDesign(null)
+    setSelectedOrder(null)
+    setScreen(SCREENS.AUTH)
+    try { localStorage.removeItem('fd_user') } catch {}
+  }, [])
+
   const handleBookSlot = async () => {
     if (!selectedOrder || !selectedDate || selectedSlotHour === null) { showToast('Please select date and time', 'error'); return }
     setLoading(true)
@@ -404,7 +421,7 @@ export function AppProvider({ children }) {
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,
     handleGenerate, handleCreateOrder, handlePayment,
-    handleBookSlot, loadSlots, handleFileUpload
+    handleBookSlot, loadSlots, handleFileUpload, handleLogout
   }
 
   return <AppContext.Provider value={ctxValue}>{children}</AppContext.Provider>

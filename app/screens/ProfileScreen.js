@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
 export default function ProfileScreen() {
-  const { user, setUser, setScreen, setDesigns, setOrders, navigate } = useApp()
+  const { user, navigate, handleLogout } = useApp()
   return (
   <div className="slide-up pb-24 bg-white min-h-screen">
     <div className="p-4"><h1 className="font-bold text-lg text-gray-800">Profile</h1></div>
@@ -34,7 +34,7 @@ export default function ProfileScreen() {
           </button>
         </CardContent>
       </Card>
-      <Button onClick={() => { setUser(null); setScreen(SCREENS.AUTH); setDesigns([]); setOrders([]) }}
+      <Button onClick={handleLogout}
         variant="outline" className="w-full h-12 border-red-200 text-red-400 font-semibold rounded-2xl hover:bg-red-50">
         <LogOut className="w-4 h-4 mr-2" /> Logout
       </Button>
