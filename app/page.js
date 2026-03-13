@@ -16,6 +16,7 @@ import CreditsScreen from './screens/CreditsScreen'
 import OrdersScreen from './screens/OrdersScreen'
 import OrderDetailScreen from './screens/OrderDetailScreen'
 import ProfileScreen from './screens/ProfileScreen'
+import AddressScreen from './screens/AddressScreen'
 
 function AppContent() {
   const { screen, user } = useApp()
@@ -33,7 +34,8 @@ function AppContent() {
       {screen === SCREENS.ORDERS && <OrdersScreen />}
       {screen === SCREENS.ORDER_DETAIL && <OrderDetailScreen />}
       {screen === SCREENS.PROFILE && <ProfileScreen />}
-      {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && <BottomNav />}
+      {screen === SCREENS.ADDRESS && <AddressScreen />}
+      {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && screen !== SCREENS.ADDRESS && <BottomNav />}
     </div>
   )
 }
