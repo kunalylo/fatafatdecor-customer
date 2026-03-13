@@ -78,15 +78,16 @@ export function AppProvider({ children }) {
         // Save coordinates to backend
         if (userId) api('user/location', { method: 'POST', body: { user_id: userId, lat, lng } })
         try {
-          // Reverse geocode using free Nominatim API
+          // Reverse geocode using Google Maps Geocoding API
+          const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-            { headers: { 'Accept-Language': 'en' } }
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey}`
           )
           const geo = await res.json()
-          const a = geo.address || {}
-          const area = a.suburb || a.neighbourhood || a.village || a.town || a.county || ''
-          const city = a.city || a.town || a.county || a.state_district || a.state || ''
+          const components = geo.results?.[0]?.address_components || []
+          const get = (...types) => components.find(c => types.some(t => c.types.includes(t)))?.long_name || ''
+          const area = get('sublocality_level_1', 'sublocality', 'neighborhood')
+          const city = get('locality', 'administrative_area_level_2')
           setUserAddress({ area, city, full: area ? `${area}, ${city}` : city })
         } catch {
           setUserAddress({ area: '', city: '', full: 'Location detected' })
