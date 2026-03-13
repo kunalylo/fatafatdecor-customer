@@ -38,11 +38,11 @@ export default function RootLayout({ children }) {
         <meta name="application-name" content="FatafatDecor" />
 
         {/* App Icons */}
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-144.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192.png" />
+        <link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512" />
+        <link rel="apple-touch-icon" href="/icons/icon-512.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-512.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-512.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-512.png" />
 
         {/* Splash screens for iOS */}
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
