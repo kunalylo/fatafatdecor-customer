@@ -70,6 +70,42 @@ function cors(res) {
   return res
 }
 
+// ---- 2Factor.in helpers ----
+async function sendOtpSms(phone, otp) {
+  const key = process.env.TWO_FACTOR_API_KEY
+  if (!key) return false
+  try {
+    const cleanPhone = String(phone).replace(/\D/g, '').replace(/^91/, '').slice(-10)
+    if (cleanPhone.length !== 10) return false
+    const res = await fetch(`https://2factor.in/API/V1/${key}/SMS/${cleanPhone}/${otp}`)
+    const data = await res.json()
+    return data.Status === 'Success'
+  } catch (e) {
+    console.error('2Factor OTP error:', e.message)
+    return false
+  }
+}
+
+async function sendSms(phone, message) {
+  const key = process.env.TWO_FACTOR_API_KEY
+  if (!key) return
+  try {
+    const cleanPhone = String(phone).replace(/\D/g, '').replace(/^91/, '').slice(-10)
+    if (cleanPhone.length !== 10) return
+    // 2Factor transactional SMS
+    await fetch(
+      `https://2factor.in/API/V1/${key}/ADDON_SERVICES/SEND/TSMS`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `To=${cleanPhone}&Msg=${encodeURIComponent(message)}&From=FTDCOR`
+      }
+    )
+  } catch (e) {
+    console.error('2Factor SMS error:', e.message)
+  }
+}
+
 function ok(data) { return cors(NextResponse.json(data)) }
 function err(msg, status = 400) { return cors(NextResponse.json({ error: msg }, { status })) }
 function hashPwd(pwd) { return crypto.createHash('sha256').update(pwd).digest('hex') }
@@ -134,19 +170,10 @@ async function handleRoute(request, { params }) {
         { upsert: true }
       )
 
-      const fast2smsKey = process.env.FAST2SMS_API_KEY
-      if (fast2smsKey && fast2smsKey !== 'your_fast2sms_api_key_here') {
-        try {
-          const cleanPhone = phone.replace(/\D/g, '').replace(/^91/, '').slice(-10)
-          const smsRes = await fetch(
-            `https://www.fast2sms.com/dev/bulkV2?authorization=${fast2smsKey}&route=otp&variables_values=${otp}&numbers=${cleanPhone}&flash=0`,
-            { headers: { 'cache-control': 'no-cache' } }
-          )
-          const smsData = await smsRes.json()
-          if (!smsData.return) console.error('Fast2SMS error:', JSON.stringify(smsData))
-        } catch (smsErr) {
-          console.error('SMS send error:', smsErr.message)
-        }
+      const twoFactorKey = process.env.TWO_FACTOR_API_KEY
+      if (twoFactorKey) {
+        const sent = await sendOtpSms(phone, otp)
+        if (!sent) console.error('Failed to send signup OTP via 2Factor')
       } else {
         console.log(`[Dev] Signup OTP for ${phone}: ${otp}`)
         return ok({ message: 'OTP generated (dev mode)', dev_otp: otp })
@@ -196,6 +223,46 @@ async function handleRoute(request, { params }) {
       if (!email || !password) return err('Email and password required')
       const user = await db.collection('users').findOne({ email, password: hashPwd(password) })
       if (!user) return err('Invalid credentials', 401)
+      const { password: _, _id, ...safeUser } = user
+      return ok(safeUser)
+    }
+
+    // ---- Phone OTP Login ----
+    if (path[0] === 'auth' && path[1] === 'send-login-otp' && method === 'POST') {
+      const { phone } = await request.json()
+      if (!phone) return err('Phone number required')
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+      if (!user) return err('No account found with this phone number', 404)
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+      await db.collection('login_otps').updateOne(
+        { phone: cleanPhone },
+        { $set: { phone: cleanPhone, otp_hash: hashOtp(otp), expires_at: expiresAt, updated_at: new Date() }, $setOnInsert: { created_at: new Date() } },
+        { upsert: true }
+      )
+      const twoFactorKey = process.env.TWO_FACTOR_API_KEY
+      if (twoFactorKey) {
+        await sendOtpSms(cleanPhone, otp)
+        return ok({ message: 'OTP sent to your phone' })
+      }
+      return ok({ message: 'OTP generated (dev mode)', dev_otp: otp })
+    }
+
+    if (path[0] === 'auth' && path[1] === 'verify-login-otp' && method === 'POST') {
+      const { phone, otp } = await request.json()
+      if (!phone || !otp) return err('Phone and OTP required')
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const otpDoc = await db.collection('login_otps').findOne({ phone: cleanPhone })
+      if (!otpDoc) return err('Please request OTP first', 404)
+      if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
+        await db.collection('login_otps').deleteOne({ phone: cleanPhone })
+        return err('OTP expired. Please request a new OTP', 410)
+      }
+      if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
+      await db.collection('login_otps').deleteOne({ phone: cleanPhone })
+      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+      if (!user) return err('User not found', 404)
       const { password: _, _id, ...safeUser } = user
       return ok(safeUser)
     }
@@ -481,6 +548,11 @@ async function handleRoute(request, { params }) {
         order.delivery_status = 'assigned'
       }
       await db.collection('designs').updateOne({ id: design_id }, { $set: { status: 'ordered' } })
+      // SMS: order placed
+      const orderUser = await db.collection('users').findOne({ id: user_id })
+      if (orderUser?.phone) {
+        await sendSms(orderUser.phone, `FatafatDecor: Your decoration order has been placed successfully! Total: Rs.${order.total_cost}. We will assign a decorator shortly. -FatafatDecor`)
+      }
       const { _id, ...clean } = order; return ok(clean)
     }
     if (path[0] === 'orders' && !path[1] && method === 'GET') {
@@ -524,7 +596,14 @@ async function handleRoute(request, { params }) {
       if (!payment) return err('Payment not found', 404)
       await db.collection('payments').updateOne({ razorpay_order_id }, { $set: { status: 'verified', razorpay_payment_id, razorpay_signature } })
       if (payment.type === 'credits') await db.collection('users').updateOne({ id: payment.user_id }, { $inc: { credits: payment.credits_count }, $set: { has_purchased_credits: true } })
-      if (payment.type === 'delivery' && payment.order_id) await db.collection('orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'partial', payment_amount: payment.amount } })
+      if (payment.type === 'delivery' && payment.order_id) {
+        await db.collection('orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'partial', payment_amount: payment.amount } })
+        // SMS: payment received
+        const payUser = await db.collection('users').findOne({ id: payment.user_id })
+        if (payUser?.phone) {
+          await sendSms(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. Decorator will arrive at the selected time. -FatafatDecor`)
+        }
+      }
       return ok({ success: true, type: payment.type })
     }
 
@@ -574,6 +653,11 @@ async function handleRoute(request, { params }) {
       if (!assignedPerson) return err('No delivery person available for this slot.', 409)
       await db.collection('delivery_persons').updateOne({ id: assignedPerson.id }, { $push: { [`schedule.${date}`]: hour } })
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_person_id: assignedPerson.id, delivery_slot: { date, hour }, delivery_status: 'assigned' } })
+      // SMS: slot confirmed
+      const slotUser = await db.collection('users').findOne({ id: order.user_id })
+      if (slotUser?.phone) {
+        await sendSms(slotUser.phone, `FatafatDecor: Slot confirmed! Your decorator ${assignedPerson.name} will arrive on ${date} between ${hour}:00 - ${hour+1}:00. Contact: ${assignedPerson.phone} -FatafatDecor`)
+      }
       return ok({ success: true, delivery_person: { id: assignedPerson.id, name: assignedPerson.name, phone: assignedPerson.phone }, slot: { date, hour, time_label: `${hour}:00 - ${hour + 1}:00` } })
     }
     if (path[0] === 'delivery' && path[1] === 'update-location' && method === 'POST') {
@@ -715,6 +799,14 @@ async function handleRoute(request, { params }) {
       if (!order_id) return err('order_id required')
       const completedAt = new Date()
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_status: 'delivered', decoration_completed_at: completedAt } })
+      // SMS: decoration complete
+      const doneOrder = await db.collection('orders').findOne({ id: order_id })
+      if (doneOrder) {
+        const doneUser = await db.collection('users').findOne({ id: doneOrder.user_id })
+        if (doneUser?.phone) {
+          await sendSms(doneUser.phone, `FatafatDecor: Your decoration is complete! We hope you love it. Enjoy your celebration! Thank you for choosing FatafatDecor. -FatafatDecor`)
+        }
+      }
       return ok({ success: true, completed_at: completedAt })
     }
     if (path[0] === 'dp' && path[1] === 'collect-payment' && method === 'POST') {
@@ -750,6 +842,20 @@ async function handleRoute(request, { params }) {
       if (status === 'arrived') update.arrived_at = new Date()
       if (notes) update.dp_notes = notes
       await db.collection('orders').updateOne({ id: order_id }, { $set: update })
+      // SMS on status change
+      const statusOrder = await db.collection('orders').findOne({ id: order_id })
+      if (statusOrder) {
+        const statusUser = await db.collection('users').findOne({ id: statusOrder.user_id })
+        if (statusUser?.phone) {
+          const msgs = {
+            en_route: 'FatafatDecor: Great news! Your decorator is on the way to your location. Please be available. -FatafatDecor',
+            arrived: 'FatafatDecor: Your decorator has arrived! Please open the door. Decoration will begin shortly. -FatafatDecor',
+            decorating: 'FatafatDecor: Decoration work has started at your location! Sit back and relax. -FatafatDecor',
+            delivered: 'FatafatDecor: Your decoration is complete! We hope you love it. Thank you for choosing FatafatDecor! -FatafatDecor',
+          }
+          if (msgs[status]) await sendSms(statusUser.phone, msgs[status])
+        }
+      }
       return ok({ success: true })
     }
     if (path[0] === 'dp' && path[1] === 'order-detail' && path[2] && method === 'GET') {
