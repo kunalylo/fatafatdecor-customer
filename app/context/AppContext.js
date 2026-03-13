@@ -243,37 +243,18 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
-  // Resize image to max 1024px JPEG before sending — reduces payload from ~10MB to ~300KB
-  const resizeImage = (base64, maxSize = 1024) => new Promise((resolve) => {
-    const img = new window.Image()
-    img.onload = () => {
-      let w = img.width, h = img.height
-      if (w > maxSize || h > maxSize) {
-        if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize }
-        else { w = Math.round(w * maxSize / h); h = maxSize }
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', 0.88))
-    }
-    img.onerror = () => resolve(base64) // fallback: use original if resize fails
-    img.src = base64
-  })
-
   const handleGenerate = async () => {
     if (!originalImage) { showToast('Please upload or take a photo of your space first!', 'error'); return }
     if (!uploadForm.budget) { showToast('Please select a budget bracket', 'error'); return }
     const budget = BUDGET_BRACKETS.find(b => b.id === uploadForm.budget)
     if (!budget) { showToast('Please select a budget', 'error'); return }
+    // Budget is the decoration budget the customer wants — no restrictions
     if (user.credits <= 0) { showToast('No credits! Please purchase credits.', 'error'); navigate(SCREENS.CREDITS); return }
     navigate(SCREENS.GENERATING)
     try {
-      // Resize image to max 1024px before sending — ~30x smaller payload, much faster AI processing
-      const resizedImage = await resizeImage(originalImage, 1024)
       const data = await api('designs/generate', {
         method: 'POST',
-        body: { user_id: user.id, room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: uploadForm.description, original_image: resizedImage, budget_min: budget.min, budget_max: budget.max }
+        body: { user_id: user.id, room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: uploadForm.description, original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
       })
       if (data.error) { showToast(data.error, 'error'); navigate(SCREENS.UPLOAD); return }
       setSelectedDesign(data)
@@ -281,7 +262,7 @@ export function AppProvider({ children }) {
       setDesigns(prev => [data, ...prev])
       navigate(SCREENS.DESIGN)
       showToast('Your space has been decorated!', 'success')
-    } catch (e) { showToast('Generation failed. Please try again.', 'error'); navigate(SCREENS.UPLOAD) }
+    } catch (e) { showToast('Generation failed. Try again.', 'error'); navigate(SCREENS.UPLOAD) }
   }
 
   const handleCreateOrder = async () => {

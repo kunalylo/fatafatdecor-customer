@@ -8,7 +8,6 @@ import io
 import json as json_lib
 import traceback
 import requests as http_requests
-from PIL import Image   # pip install Pillow
 
 app = FastAPI()
 
@@ -46,30 +45,6 @@ class AnalyzeRequest(BaseModel):
     name: str = ""
 
 
-def prepare_image_for_edit(b64_data: str) -> io.BytesIO:
-    """
-    Convert any image format to square RGBA PNG ≤ 4MB
-    (gpt-image-1 edit requires PNG with alpha, ≤ 20MB, ideally square).
-    """
-    # Strip data-URL prefix if present
-    if ',' in b64_data:
-        b64_data = b64_data.split(',', 1)[1]
-    raw = base64.b64decode(b64_data)
-
-    with Image.open(io.BytesIO(raw)) as img:
-        # Convert to RGBA
-        img = img.convert("RGBA")
-
-        # Resize to 1024×1024 (max gpt-image-1 supports efficiently)
-        img = img.resize((1024, 1024), Image.LANCZOS)
-
-        out = io.BytesIO()
-        img.save(out, format="PNG")
-        out.seek(0)
-        out.name = "room.png"
-        return out
-
-
 @app.get("/health")
 async def health():
     return {
@@ -81,60 +56,26 @@ async def health():
 
 @app.post("/generate")
 async def generate_decoration(req: GenerateRequest):
-    """
-    Generate or edit a decoration image.
-    - With image  → gpt-image-1 edit  (places decorations INTO the user's room photo)
-    - Without image → dall-e-3 generate (faster, better prompt-following for text-to-image)
-    Both paths retry once on failure.
-    """
-    client = get_client()
-    last_error = None
+    """Generate or edit a decoration image. Uses standard openai package only."""
+    try:
+        client = get_client()
 
-    # ── IMAGE EDITING (user uploaded their room photo) ──────────────────────
-    if req.image_base64:
-        for attempt in range(2):  # try up to 2 times
-            try:
-                image_file = prepare_image_for_edit(req.image_base64)
+        if req.image_base64:
+            # IMAGE EDITING — place decorations into the customer's actual room photo
+            img_data = req.image_base64
+            if ',' in img_data:
+                img_data = img_data.split(',', 1)[1]
 
-                response = client.images.edit(
-                    model="gpt-image-1",
-                    image=image_file,
-                    prompt=req.prompt,
-                    n=1,
-                    size="1024x1024"
-                )
+            image_bytes = base64.b64decode(img_data)
+            image_file = io.BytesIO(image_bytes)
+            image_file.name = "room.png"
 
-                if response.data:
-                    img = response.data[0]
-                    if hasattr(img, 'b64_json') and img.b64_json:
-                        return {"image_base64": img.b64_json, "success": True}
-                    if hasattr(img, 'url') and img.url:
-                        r = http_requests.get(img.url, timeout=60)
-                        return {"image_base64": base64.b64encode(r.content).decode(), "success": True}
-
-                raise Exception("No image data returned from AI on attempt " + str(attempt + 1))
-
-            except Exception as e:
-                last_error = e
-                print(f"Image edit attempt {attempt + 1} failed: {e}")
-                if attempt == 0:
-                    print("Retrying once...")
-                    # Reset image_file for next attempt
-                    continue
-
-        print(f"All image edit attempts failed:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Image generation failed after retry: {str(last_error)}")
-
-    # ── TEXT-TO-IMAGE (no user photo — generate a decorated room) ────────────
-    for attempt in range(2):  # try up to 2 times
-        try:
-            response = client.images.generate(
-                model="dall-e-3",       # dall-e-3 is faster + follows prompts much better
+            response = client.images.edit(
+                model="gpt-image-1",
+                image=image_file,
                 prompt=req.prompt,
                 n=1,
-                size="1024x1024",
-                quality="standard",    # "hd" is 2× slower; standard is fine for previews
-                response_format="b64_json"
+                size="1024x1024"
             )
 
             if response.data:
@@ -142,20 +83,35 @@ async def generate_decoration(req: GenerateRequest):
                 if hasattr(img, 'b64_json') and img.b64_json:
                     return {"image_base64": img.b64_json, "success": True}
                 if hasattr(img, 'url') and img.url:
-                    r = http_requests.get(img.url, timeout=60)
+                    r = http_requests.get(img.url, timeout=30)
                     return {"image_base64": base64.b64encode(r.content).decode(), "success": True}
 
-            raise Exception("No image data returned from DALL-E 3 on attempt " + str(attempt + 1))
+            raise HTTPException(status_code=500, detail="No image returned from AI")
 
-        except Exception as e:
-            last_error = e
-            print(f"Text-to-image attempt {attempt + 1} failed: {e}")
-            if attempt == 0:
-                print("Retrying once...")
-                continue
+        else:
+            # TEXT-TO-IMAGE — generate a full decorated room scene
+            response = client.images.generate(
+                model="gpt-image-1",
+                prompt=req.prompt,
+                n=1,
+                size="1024x1024"
+            )
 
-    print(f"All text-to-image attempts failed:\n{traceback.format_exc()}")
-    raise HTTPException(status_code=500, detail=f"Image generation failed after retry: {str(last_error)}")
+            if response.data:
+                img = response.data[0]
+                if hasattr(img, 'b64_json') and img.b64_json:
+                    return {"image_base64": img.b64_json, "success": True}
+                if hasattr(img, 'url') and img.url:
+                    r = http_requests.get(img.url, timeout=30)
+                    return {"image_base64": base64.b64encode(r.content).decode(), "success": True}
+
+            raise HTTPException(status_code=500, detail="No image returned from AI")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"AI Generation Error:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/analyze-decoration")
