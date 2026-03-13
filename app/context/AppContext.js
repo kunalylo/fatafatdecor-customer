@@ -34,6 +34,7 @@ export function AppProvider({ children }) {
   })
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
+  const [showAddressModal, setShowAddressModal] = useState(false)
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -93,15 +94,33 @@ export function AppProvider({ children }) {
             const area = get('sublocality_level_1', 'sublocality_level_2', 'sublocality', 'neighborhood', 'premise')
             const city = get('locality', 'administrative_area_level_3', 'administrative_area_level_2')
             const state = get('administrative_area_level_1')
-            // If we couldn't extract area/city, fall back to parts of formatted_address
+            const pincode = get('postal_code')
             const formatted = geo.results[0].formatted_address || ''
             const parts = formatted.split(',').map(s => s.trim()).filter(Boolean)
             const fallbackArea = area || parts[parts.length - 4] || ''
             const fallbackCity = city || parts[parts.length - 3] || state || ''
-            saveAddress({ area: fallbackArea, city: fallbackCity, full: fallbackArea ? `${fallbackArea}, ${fallbackCity}` : fallbackCity })
-          } else {
-            // API responded but no results — keep previously saved location unchanged
+            // Read existing flat/landmark from localStorage to preserve them
+            let existingFlat = '', existingLandmark = ''
+            try {
+              const saved = localStorage.getItem('fd_location')
+              if (saved) { const p = JSON.parse(saved); existingFlat = p.flat || ''; existingLandmark = p.landmark || '' }
+            } catch {}
+            const newAddr = {
+              flat: existingFlat,
+              landmark: existingLandmark,
+              area: fallbackArea,
+              city: fallbackCity,
+              state,
+              pincode,
+              lat,
+              lng,
+              formatted,
+            }
+            saveAddress(newAddr)
+            // Show modal to collect flat/building only if not yet set
+            if (!existingFlat) setShowAddressModal(true)
           }
+          // else: no results — keep previously saved location unchanged
         } catch {
           // Network error — keep previously saved location if any
         }
@@ -115,6 +134,15 @@ export function AppProvider({ children }) {
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }, [saveAddress])
+
+  const updateAddressDetails = useCallback((flat, landmark) => {
+    setUserAddress(prev => {
+      const updated = { ...(prev || {}), flat: flat.trim(), landmark: landmark.trim() }
+      try { localStorage.setItem('fd_location', JSON.stringify(updated)) } catch {}
+      return updated
+    })
+    setShowAddressModal(false)
+  }, [])
 
   useEffect(() => {
     if (user) detectLocation(user.id)
@@ -235,18 +263,10 @@ export function AppProvider({ children }) {
     if (!selectedDesign) return
     setLoading(true)
     try {
-      let lat = null, lng = null, detectedCity = null
       const isLocalDev = process.env.NODE_ENV === 'development'
       if (!isLocalDev) {
-        try {
-          const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }))
-          lat = pos.coords.latitude; lng = pos.coords.longitude
-          try {
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            const geoData = await geoRes.json()
-            detectedCity = geoData?.address?.city || geoData?.address?.town || geoData?.address?.county || null
-          } catch (e) {}
-        } catch (e) {}
+        // Use already-detected city from stored address
+        const detectedCity = userAddress?.city || null
         if (detectedCity) {
           const cityCheck = await api('city-check', { method: 'POST', body: { city: detectedCity } })
           if (!cityCheck.allowed) {
@@ -254,6 +274,7 @@ export function AppProvider({ children }) {
             setLoading(false); return
           }
         } else {
+          // Location not yet detected — ask user to pick city
           const citiesData = await api('cities')
           const cityNames = (citiesData || []).map(c => c.name)
           const userCity = window.prompt('Please enter your city to proceed.\nAvailable cities: ' + cityNames.join(', '))
@@ -263,12 +284,27 @@ export function AppProvider({ children }) {
             showToast('Sorry! We currently only serve: ' + (cityCheck.active_cities?.join(', ') || 'selected cities'), 'error')
             setLoading(false); return
           }
-          detectedCity = userCity.trim()
         }
       }
+      // Build full delivery address for decorator navigation
+      const delivery_address = [
+        userAddress?.flat,
+        userAddress?.area,
+        userAddress?.city,
+        userAddress?.state,
+        userAddress?.pincode
+      ].filter(Boolean).join(', ')
+
       const data = await api('orders', {
         method: 'POST',
-        body: { user_id: user.id, design_id: selectedDesign.id, delivery_address: detectedCity || '', delivery_lat: lat, delivery_lng: lng }
+        body: {
+          user_id: user.id,
+          design_id: selectedDesign.id,
+          delivery_address: delivery_address || userAddress?.city || '',
+          delivery_landmark: userAddress?.landmark || '',
+          delivery_lat: userAddress?.lat || null,
+          delivery_lng: userAddress?.lng || null
+        }
       })
       if (data.error) { showToast(data.error, 'error'); return }
       setSelectedOrder(data)
@@ -358,6 +394,7 @@ export function AppProvider({ children }) {
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp,
     userAddress, locationLoading, locationDenied, detectLocation, saveAddress,
+    showAddressModal, setShowAddressModal, updateAddressDetails,
     mapRef, mapInstance,
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,

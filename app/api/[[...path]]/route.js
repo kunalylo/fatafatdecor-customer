@@ -549,11 +549,11 @@ async function handleRoute(request, { params }) {
 
     // ====== ORDERS ======
     if (path[0] === 'orders' && !path[1] && method === 'POST') {
-      const { user_id, design_id, delivery_address, delivery_lat, delivery_lng } = await request.json()
+      const { user_id, design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng } = await request.json()
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: design.total_cost, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: design.total_cost, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Auto-assign 2 decorators immediately on order creation
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
