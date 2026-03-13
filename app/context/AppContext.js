@@ -29,6 +29,9 @@ export function AppProvider({ children }) {
   const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [signupOtpValue, setSignupOtpValue] = useState('')
   const [devOtp, setDevOtp] = useState('')
+  const [userAddress, setUserAddress] = useState(null)   // { area, city, full }
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [locationDenied, setLocationDenied] = useState(false)
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -65,12 +68,41 @@ export function AppProvider({ children }) {
     }
   }, [screen, selectedOrder])
 
+  const detectLocation = useCallback(async (userId) => {
+    if (!navigator.geolocation) return
+    setLocationLoading(true)
+    setLocationDenied(false)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        // Save coordinates to backend
+        if (userId) api('user/location', { method: 'POST', body: { user_id: userId, lat, lng } })
+        try {
+          // Reverse geocode using free Nominatim API
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          )
+          const geo = await res.json()
+          const a = geo.address || {}
+          const area = a.suburb || a.neighbourhood || a.village || a.town || a.county || ''
+          const city = a.city || a.town || a.county || a.state_district || a.state || ''
+          setUserAddress({ area, city, full: area ? `${area}, ${city}` : city })
+        } catch {
+          setUserAddress({ area: '', city: '', full: 'Location detected' })
+        }
+        setLocationLoading(false)
+      },
+      () => {
+        setLocationDenied(true)
+        setLocationLoading(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }, [])
+
   useEffect(() => {
-    if (user && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        api('user/location', { method: 'POST', body: { user_id: user.id, lat: pos.coords.latitude, lng: pos.coords.longitude } })
-      }, () => {}, { enableHighAccuracy: true })
-    }
+    if (user) detectLocation(user.id)
   }, [user])
 
   const handleGoogleAuth = async () => {
@@ -310,6 +342,7 @@ export function AppProvider({ children }) {
     selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour,
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp,
+    userAddress, locationLoading, locationDenied, detectLocation,
     mapRef, mapInstance,
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,

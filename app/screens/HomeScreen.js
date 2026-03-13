@@ -1,16 +1,51 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck } from 'lucide-react'
+import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
 export default function HomeScreen() {
-  const { user, designs, orders, navigate, setSelectedDesign } = useApp()
+  const {
+    user, designs, orders, navigate, setSelectedDesign,
+    userAddress, locationLoading, locationDenied, detectLocation
+  } = useApp()
+
   return (
   <div className="slide-up pb-24 bg-white min-h-screen">
     <div className="gradient-pink p-6 pb-10 rounded-b-3xl">
-      <div className="flex justify-between items-center mb-3">
+
+      {/* Location bar — Swiggy style */}
+      <button
+        onClick={() => detectLocation(user?.id)}
+        className="flex items-center gap-1.5 mb-3 max-w-full"
+      >
+        <MapPin className="w-4 h-4 text-yellow-200 shrink-0" />
+        <div className="flex-1 min-w-0 text-left">
+          {locationLoading ? (
+            <span className="flex items-center gap-1.5 text-white/80 text-xs">
+              <Loader2 className="w-3 h-3 animate-spin" /> Detecting location...
+            </span>
+          ) : locationDenied ? (
+            <span className="text-yellow-200 text-xs font-medium">Tap to enable location</span>
+          ) : userAddress ? (
+            <>
+              <p className="text-white font-bold text-sm leading-tight truncate">
+                {userAddress.area || userAddress.city}
+              </p>
+              {userAddress.area && (
+                <p className="text-white/70 text-xs truncate">{userAddress.city}</p>
+              )}
+            </>
+          ) : (
+            <span className="text-white/70 text-xs">Tap to set location</span>
+          )}
+        </div>
+        <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
+      </button>
+
+      {/* Header row */}
+      <div className="flex justify-between items-center">
         <div>
           <p className="text-white/70 text-xs">Welcome back</p>
           <h1 className="text-white text-xl font-bold">{user?.name}</h1>
