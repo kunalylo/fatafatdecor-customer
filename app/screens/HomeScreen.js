@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2 } from 'lucide-react'
+import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
@@ -32,25 +32,26 @@ export default function HomeScreen() {
   <div className="slide-up pb-24 bg-white min-h-screen">
     <div className="gradient-pink p-6 pb-10 rounded-b-3xl">
 
-      {/* Location bar — Swiggy style */}
-      <button
-        onClick={() => {
-          if (userAddress?.city) {
-            navigate(SCREENS.ADDRESS)          // already has location → open map to edit
-          } else {
-            detectLocation(user?.id)           // no location yet → start GPS detection
+      {/* Location bar — two-action: refresh GPS | edit exact address */}
+      <div className="flex items-center gap-1.5 mb-3 max-w-full">
+        {/* Left: GPS refresh */}
+        <button
+          onClick={() => detectLocation(user?.id)}
+          className="shrink-0 p-1"
+        >
+          {locationLoading
+            ? <Loader2 className="w-4 h-4 text-yellow-200 animate-spin" />
+            : <MapPin className={`w-4 h-4 ${locationDenied ? 'text-red-300' : 'text-yellow-200'}`} />
           }
-        }}
-        className="flex items-center gap-1.5 mb-3 max-w-full"
-      >
-        <MapPin className={`w-4 h-4 shrink-0 ${locationDenied ? 'text-red-300' : 'text-yellow-200'}`} />
-        <div className="flex-1 min-w-0 text-left">
-          {locationLoading ? (
-            <span className="flex items-center gap-1.5 text-white/80 text-xs">
-              <Loader2 className="w-3 h-3 animate-spin" /> Detecting location…
-            </span>
-          ) : locationDenied ? (
-            <span className="text-red-200 text-xs font-medium">Location blocked — tap to retry</span>
+        </button>
+
+        {/* Centre: address display → tap to set exact location */}
+        <button
+          onClick={() => navigate(SCREENS.ADDRESS)}
+          className="flex-1 min-w-0 text-left"
+        >
+          {locationDenied ? (
+            <span className="text-red-200 text-xs font-medium">Location blocked — tap GPS to retry</span>
           ) : locationTop() ? (
             <>
               <p className="text-white font-bold text-sm leading-tight truncate">{locationTop()}</p>
@@ -58,12 +59,18 @@ export default function HomeScreen() {
                 <p className="text-white/70 text-xs truncate">{locationSub()}</p>
               )}
             </>
+          ) : locationLoading ? (
+            <span className="text-white/70 text-xs">Detecting location…</span>
           ) : (
-            <span className="text-white/70 text-xs">Tap to detect location</span>
+            <span className="text-white/70 text-xs">Tap to set your location</span>
           )}
-        </div>
-        <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
-      </button>
+        </button>
+
+        {/* Right: chevron → also opens address */}
+        <button onClick={() => navigate(SCREENS.ADDRESS)} className="shrink-0">
+          <ChevronDown className="w-4 h-4 text-white/70" />
+        </button>
+      </div>
 
       {/* Header row */}
       <div className="flex justify-between items-center">
