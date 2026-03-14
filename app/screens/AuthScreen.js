@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 export default function AuthScreen() {
@@ -18,10 +18,9 @@ export default function AuthScreen() {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
       <div className="mb-8 text-center">
-        <div className="w-20 h-20 gradient-pink rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-pink">
-          <Sparkles className="w-10 h-10 text-white" />
+        <div className="w-40 h-40 rounded-full overflow-hidden mx-auto mb-2 shadow-xl">
+          <img src="/logo.png" alt="FatafatDecor" className="w-full h-full object-cover" />
         </div>
-        <h1 className="text-3xl font-extrabold text-gradient-pink mb-1">FatafatDecor</h1>
         <p className="text-gray-400 text-sm">Instant Decoration at Your Doorstep</p>
       </div>
 

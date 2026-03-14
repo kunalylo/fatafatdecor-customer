@@ -67,9 +67,14 @@ export default function HomeScreen() {
 
       {/* Header row */}
       <div className="flex justify-between items-center">
-        <div>
-          <p className="text-white/70 text-xs">Welcome back</p>
-          <h1 className="text-white text-xl font-bold">{user?.name}</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+            <img src="/logo.png" alt="FatafatDecor" className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <p className="text-white/70 text-xs">Welcome back</p>
+            <h1 className="text-white text-xl font-bold">{user?.name}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-white/20 rounded-full px-3 py-1.5 flex items-center gap-1">
