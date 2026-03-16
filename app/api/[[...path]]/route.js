@@ -518,16 +518,24 @@ async function handleRoute(request, { params }) {
       }
       const allSelectedItems = [...kitItems, ...addOnItems]
       const totalCost = kitCost + addOnCost
-      const itemDescriptions = allSelectedItems.map(i => `${i.name}${i.type_finish ? ` (${i.type_finish})` : ''}${i.color && i.color !== i.type_finish ? ` in ${i.color}` : ''}`).join(', ')
-      const kitContext = selectedKit ? `Theme: ${selectedKit.name}.` : ''
-      const specialRequest = description ? `Special request: ${description}.` : ''
-      const noNumbers = description && /\d/.test(description) ? '' : 'Do NOT add any numbers, ages, dates, or numeric text on balloons or anywhere in the image.'
+      // Build visual-only descriptions — strip product/brand names so AI does NOT render text on image
+      const itemDescriptions = allSelectedItems.map(i => {
+        const qty    = (i.quantity || 1) > 1 ? `${i.quantity}x ` : ''
+        const color  = i.color && i.color.toLowerCase() !== 'mixed' ? `${i.color} ` : ''
+        const finish = i.type_finish && i.type_finish !== i.color ? `${i.type_finish} ` : ''
+        const cat    = (i.category || 'decoration item').replace(/_/g, ' ')
+        return `${qty}${color}${finish}${cat}`
+      }).join(', ')
+      // Use occasion/theme — NOT kit name (names like "Boss Baby" cause AI to write text)
+      const kitContext = selectedKit ? `Decoration theme: ${occasion} celebration.` : ''
+      const specialRequest = description ? `Special visual request: ${description}.` : ''
+      const noText = 'CRITICAL: Do NOT write any text, words, letters, numbers, or labels anywhere in the image — no text on balloons, banners, backdrops, walls, floors, or any surface. The image must be completely text-free. No written words of any kind.'
       let prompt, hasUserImage = false
       if (original_image && original_image.includes('base64')) {
         hasUserImage = true
-        prompt = `Decorate this exact room for a ${occasion} celebration. Keep all existing furniture, walls, ceiling and structure completely unchanged. Place only these specific FatafatDecor decoration items in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} Make it look like a real professional event decoration setup. Photorealistic, warm ambient lighting.`
+        prompt = `Decorate this exact room for a ${occasion} celebration. Keep all existing furniture, walls, ceiling and structure completely unchanged. Add only these decoration items in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noText} Photorealistic professional event decoration, warm ambient lighting.`
       } else {
-        prompt = `Professional photorealistic ${room_type} beautifully decorated for ${occasion}. Show these specific FatafatDecor decoration items clearly in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noNumbers} High quality event decoration photography, warm lighting, 4K.`
+        prompt = `Professional photorealistic ${room_type} decorated for ${occasion}. Show these decoration items clearly: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noText} High quality event decoration photography, warm lighting, 4K.`
       }
       let image_base64 = null
       try {
