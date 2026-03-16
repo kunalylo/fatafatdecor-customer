@@ -497,13 +497,13 @@ async function handleRoute(request, { params }) {
         }
         addOnCost = spent
       }
-      // Include relevant rentable items ONLY when there is remaining budget for them
-      const allRentItems = await db.collection('rent_items').find({ active: true }).toArray()
+      // Include rentable items ONLY for budgets above 5000 and only when there is remaining budget
+      const allRentItems = bMax > 5000 ? await db.collection('rent_items').find({ active: true }).toArray() : []
       const rentCategoryMap = { birthday: ['Lighting','Stands'], party: ['Lighting','Stands'], anniversary: ['Lighting','Floral'], wedding: ['Floral','Stands','Lighting'], engagement: ['Floral','Lighting'], baby_shower: ['Floral','Lighting'], housewarming: ['Floral','Lighting'], corporate: ['Stands','Lighting'] }
       const rentCategories = rentCategoryMap[occasion] || ['Lighting']
       const currentSpend = kitCost + addOnCost
       const remainingForRent = Math.max(0, bMax - currentSpend)
-      if (remainingForRent > 0) {
+      if (allRentItems.length > 0 && remainingForRent > 0) {
         let rentSpent = 0
         const pickedRentItems = []
         for (const r of allRentItems.filter(ri => rentCategories.includes(ri.category))) {
