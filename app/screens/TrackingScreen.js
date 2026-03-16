@@ -196,12 +196,12 @@ export default function TrackingScreen() {
                       <p className="font-bold text-sm text-gray-700">Decorator Not Assigned Yet</p>
                       <p className="text-xs text-gray-400">Need help? Contact our support</p>
                     </div>
-                    <a href="tel:7009110035"
+                    <a href="tel:6204711205"
                       className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
                       <Phone className="w-5 h-5 text-white" />
                     </a>
                   </div>
-                  <p className="text-xs text-center text-gray-400 mt-3 font-medium">📞 Support: 7009110035</p>
+                  <p className="text-xs text-center text-gray-400 mt-3 font-medium">📞 Support: 6204711205</p>
                 </CardContent>
               </Card>
             )}
