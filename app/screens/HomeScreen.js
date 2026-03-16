@@ -164,7 +164,7 @@ export default function HomeScreen() {
         {[
           { step: 1, title: 'Capture Your Space', desc: 'Take a photo of the room to decorate', icon: Camera },
           { step: 2, title: 'AI Decorates It', desc: 'AI adds decorations to YOUR actual space', icon: Sparkles },
-          { step: 3, title: 'Fatafat Delivery', desc: 'We deliver all items to your doorstep', icon: Truck }
+          { step: 3, title: 'Decorator Arrives', desc: 'Our decorator comes to your home and sets everything up!', icon: Truck }
         ].map(s => (
           <div key={s.step} className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center shrink-0 shadow-pink">

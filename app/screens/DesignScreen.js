@@ -123,7 +123,7 @@ export default function DesignScreen() {
         <div className="space-y-3 pt-2">
           {d.status === 'generated' && (
             <>
-              <Button onClick={handleCreateOrder} disabled={loading}
+              <Button onClick={() => handleCreateOrder(displayTotal)} disabled={loading}
                 className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>

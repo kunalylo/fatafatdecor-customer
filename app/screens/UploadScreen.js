@@ -1,16 +1,59 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, IndianRupee, Camera, Trash2, Zap, Sparkles } from 'lucide-react'
+import { ChevronLeft, IndianRupee, Camera, Trash2, Zap, Sparkles, X } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { BUDGET_BRACKETS, ROOM_TYPES, OCCASIONS } from '../lib/constants'
+import { BUDGET_BRACKETS, ROOM_TYPES, OCCASIONS, SCREENS } from '../lib/constants'
 
 export default function UploadScreen() {
-  const { user, uploadForm, setUploadForm, originalImage, setOriginalImage, loading, goBack, navigate, handleGenerate, handleFileUpload } = useApp()
+  const { user, uploadForm, setUploadForm, originalImage, setOriginalImage, loading, goBack, navigate, handleGenerate, handleFileUpload, showToast } = useApp()
   const selectedBudget = BUDGET_BRACKETS.find(b => b.id === uploadForm.budget)
+  const [showCreditsModal, setShowCreditsModal] = useState(false)
+
+  const handleDecorateClick = () => {
+    if (!originalImage) { showToast('Please upload or take a photo of your space first!', 'error'); return }
+    if (!uploadForm.budget) { showToast('Please select a budget bracket', 'error'); return }
+    if ((user?.credits || 0) <= 0) { setShowCreditsModal(true); return }
+    handleGenerate()
+  }
+
   return (
   <div className="slide-up pb-24 bg-white min-h-screen">
+
+    {/* No Credits Popup */}
+    {showCreditsModal && (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+          <div className="gradient-pink p-6 text-center relative">
+            <button onClick={() => setShowCreditsModal(false)} className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <X className="w-4 h-4 text-white" />
+            </button>
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Zap className="w-8 h-8 text-yellow-200" />
+            </div>
+            <h2 className="text-white font-black text-xl">No Credits Left!</h2>
+            <p className="text-white/80 text-sm mt-1">You need credits to generate AI decorations</p>
+          </div>
+          <div className="p-6 space-y-3">
+            <p className="text-gray-500 text-sm text-center">Buy credits to continue decorating your space with AI magic ✨</p>
+            <Button
+              onClick={() => { setShowCreditsModal(false); navigate(SCREENS.CREDITS) }}
+              className="w-full h-12 gradient-pink border-0 text-white font-bold rounded-2xl shadow-pink">
+              <Zap className="w-4 h-4 mr-2 text-yellow-200" /> Add Credits Now
+            </Button>
+            <Button
+              onClick={() => setShowCreditsModal(false)}
+              variant="outline"
+              className="w-full h-10 border-gray-200 text-gray-400 rounded-2xl text-sm">
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="flex items-center gap-3 p-4">
       <button onClick={goBack} className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
         <ChevronLeft className="w-5 h-5 text-gray-600" />
@@ -38,7 +81,6 @@ export default function UploadScreen() {
               )
             })}
           </div>
-
         </CardContent>
       </Card>
 
@@ -110,7 +152,7 @@ export default function UploadScreen() {
         <span>Uses 1 credit. You have <strong className="text-gray-700">{user?.credits || 0}</strong> credits.</span>
       </div>
 
-      <Button onClick={handleGenerate} disabled={!originalImage || !uploadForm.budget || user?.credits <= 0}
+      <Button onClick={handleDecorateClick} disabled={loading}
         className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink disabled:opacity-40">
         <Sparkles className="w-5 h-5 mr-2" /> Decorate My Space {selectedBudget ? `(${selectedBudget.label})` : ''}
       </Button>

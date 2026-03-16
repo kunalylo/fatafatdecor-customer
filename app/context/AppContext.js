@@ -265,7 +265,7 @@ export function AppProvider({ children }) {
     } catch (e) { showToast('Generation failed. Try again.', 'error'); navigate(SCREENS.UPLOAD) }
   }
 
-  const handleCreateOrder = async () => {
+  const handleCreateOrder = async (overrideTotal = null) => {
     if (!selectedDesign) return
     // If delivery address not yet completed, send user to address screen first
     if (!userAddress?.flat) {
@@ -315,12 +315,16 @@ export function AppProvider({ children }) {
           delivery_address: delivery_address || userAddress?.city || '',
           delivery_landmark: userAddress?.landmark || '',
           delivery_lat: userAddress?.lat || null,
-          delivery_lng: userAddress?.lng || null
+          delivery_lng: userAddress?.lng || null,
+          // Pass override total if customer removed rentable items from design
+          total_override: overrideTotal ? Math.round(overrideTotal) : null
         }
       })
       if (data.error) { showToast(data.error, 'error'); return }
-      setSelectedOrder(data)
-      setOrders(prev => [data, ...prev])
+      // Use overrideTotal in local state so BookingScreen shows correct 50% amount
+      const finalOrder = overrideTotal ? { ...data, total_cost: Math.round(overrideTotal) } : data
+      setSelectedOrder(finalOrder)
+      setOrders(prev => [finalOrder, ...prev])
       showToast('Order placed! Now select your delivery date & time.', 'success')
       navigate(SCREENS.BOOKING)
     } catch (e) { showToast('Failed to create order', 'error') }

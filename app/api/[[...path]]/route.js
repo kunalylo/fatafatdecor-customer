@@ -497,13 +497,25 @@ async function handleRoute(request, { params }) {
         }
         addOnCost = spent
       }
-      // Include relevant rentable items from rent_items collection
+      // Include relevant rentable items ONLY when there is remaining budget for them
       const allRentItems = await db.collection('rent_items').find({ active: true }).toArray()
       const rentCategoryMap = { birthday: ['Lighting','Stands'], party: ['Lighting','Stands'], anniversary: ['Lighting','Floral'], wedding: ['Floral','Stands','Lighting'], engagement: ['Floral','Lighting'], baby_shower: ['Floral','Lighting'], housewarming: ['Floral','Lighting'], corporate: ['Stands','Lighting'] }
       const rentCategories = rentCategoryMap[occasion] || ['Lighting']
-      const pickedRentItems = allRentItems.filter(r => rentCategories.includes(r.category)).slice(0, 2).map(r => ({ id: r.id, name: r.name, description: r.category, price: r.selling_price || r.rental_cost, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true }))
-      addOnItems.push(...pickedRentItems)
-      addOnCost += pickedRentItems.reduce((s, i) => s + i.price, 0)
+      const currentSpend = kitCost + addOnCost
+      const remainingForRent = Math.max(0, bMax - currentSpend)
+      if (remainingForRent > 0) {
+        let rentSpent = 0
+        const pickedRentItems = []
+        for (const r of allRentItems.filter(ri => rentCategories.includes(ri.category))) {
+          const price = r.selling_price || r.rental_cost
+          if (price > 0 && rentSpent + price <= remainingForRent && pickedRentItems.length < 2) {
+            pickedRentItems.push({ id: r.id, name: r.name, description: r.category, price, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true })
+            rentSpent += price
+          }
+        }
+        addOnItems.push(...pickedRentItems)
+        addOnCost += rentSpent
+      }
       const allSelectedItems = [...kitItems, ...addOnItems]
       const totalCost = kitCost + addOnCost
       const itemDescriptions = allSelectedItems.map(i => `${i.name}${i.type_finish ? ` (${i.type_finish})` : ''}${i.color && i.color !== i.type_finish ? ` in ${i.color}` : ''}`).join(', ')
@@ -549,11 +561,12 @@ async function handleRoute(request, { params }) {
 
     // ====== ORDERS ======
     if (path[0] === 'orders' && !path[1] && method === 'POST') {
-      const { user_id, design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng } = await request.json()
+      const { user_id, design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng, total_override } = await request.json()
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: design.total_cost, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
+      const finalTotal = total_override ? Math.round(Number(total_override)) : design.total_cost
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Auto-assign 2 decorators immediately on order creation
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
