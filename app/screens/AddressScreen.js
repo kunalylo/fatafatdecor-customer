@@ -72,28 +72,28 @@ export default function AddressScreen() {
     }, 600)
   }, [])
 
-  // ─── Init Google Map ──────────────────────────────────────────────────────
+  // ─── Init Leaflet map (Google geocoding still used for address detection) ──
   const initMap = useCallback(() => {
     if (!mapRef.current || mapInstance.current) return
-    const google = window.google
-    if (!google?.maps) return
-
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: latestCenter.current.lat, lng: latestCenter.current.lng },
+    const L = window.L
+    if (!L) return
+    const map = L.map(mapRef.current, {
+      center: [latestCenter.current.lat, latestCenter.current.lng],
       zoom: 17,
-      disableDefaultUI: true,
-      gestureHandling: 'greedy',
-      styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
+      zoomControl: false,
+      attributionControl: false,
     })
-
-    google.maps.event.addListener(map, 'idle', () => {
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20 }
+    ).addTo(map)
+    map.on('moveend', () => {
       const c = map.getCenter()
-      latestCenter.current = { lat: c.lat(), lng: c.lng() }
-      setMapLat(c.lat())
-      setMapLng(c.lng())
-      reverseGeocode(c.lat(), c.lng())
+      latestCenter.current = { lat: c.lat, lng: c.lng }
+      setMapLat(c.lat)
+      setMapLng(c.lng)
+      reverseGeocode(c.lat, c.lng)
     })
-
     mapInstance.current = map
     reverseGeocode(latestCenter.current.lat, latestCenter.current.lng)
   }, [reverseGeocode])
@@ -102,20 +102,27 @@ export default function AddressScreen() {
     if (step !== 1) return
     if (typeof window === 'undefined') return
 
-    if (window.google?.maps) {
+    if (window.L) {
       initMap()
     } else {
-      // Poll until Google Maps script (loaded async in layout.js) is ready
-      const poll = setInterval(() => {
-        if (window.google?.maps) { clearInterval(poll); initMap() }
-      }, 100)
-      return () => { clearInterval(poll) }
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.async = true
+      script.onload = initMap
+      document.head.appendChild(script)
+      // Also inject Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        const css = document.createElement('link')
+        css.rel = 'stylesheet'
+        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        document.head.appendChild(css)
+      }
     }
 
     return () => {
       clearTimeout(geocodeTimer.current)
       if (mapInstance.current) {
-        window.google?.maps?.event?.clearInstanceListeners(mapInstance.current)
+        mapInstance.current.remove()
         mapInstance.current = null
       }
     }
@@ -130,10 +137,7 @@ export default function AddressScreen() {
         const { latitude: lat, longitude: lng } = pos.coords
         latestCenter.current = { lat, lng }
         setMapLat(lat); setMapLng(lng)
-        if (mapInstance.current) {
-          mapInstance.current.setCenter({ lat, lng })
-          mapInstance.current.setZoom(17)
-        }
+        if (mapInstance.current) mapInstance.current.setView([lat, lng], 17)
         reverseGeocode(lat, lng)
       },
       () => setGeocoding(false),
