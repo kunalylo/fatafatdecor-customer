@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "in.co.ylo.fatafatdecor.twa",
-    "sha256_cert_fingerprints": ["B7:87:F4:8F:81:B3:55:B8:75:44:9F:4A:BD:A7:88:96:3E:26:B4:50:F4:DE:1A:AF:1D:45:B8:58:80:CE:1C:BA"]
+    "sha256_cert_fingerprints": ["0A:59:AE:24:E1:AB:1B:1A:8D:34:36:E7:3F:37:3B:EA:A2:08:5A:44:8F:94:05:EB:C2:E1:32:F8:25:95:02:E6"]
   }
 }]
