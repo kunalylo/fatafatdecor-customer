@@ -11,15 +11,52 @@ export default function TrackingScreen() {
   const trackableOrders = orders.filter(o => o.delivery_status === 'assigned' || o.delivery_status === 'in_transit')
 
   useEffect(() => {
-    if (trackingData && mapRef.current && typeof window !== 'undefined' && window.L) {
-      if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null }
-      const dloc = trackingData.delivery_location, uloc = trackingData.user_location
-      const map = window.L.map(mapRef.current).setView([dloc?.lat || uloc?.lat || 28.6139, dloc?.lng || uloc?.lng || 77.2090], 14)
-      window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
-      if (dloc?.lat) window.L.marker([dloc.lat, dloc.lng]).addTo(map).bindPopup(`<b>${trackingData.delivery_person?.name || 'Decorator'}</b>`).openPopup()
-      if (uloc?.lat) window.L.marker([uloc.lat, uloc.lng]).addTo(map).bindPopup('<b>You</b>')
+    if (!trackingData || !mapRef.current || typeof window === 'undefined') return
+    const dloc = trackingData.delivery_location
+    const uloc = trackingData.user_location
+    if (!dloc?.lat && !uloc?.lat) return
+
+    const initGMap = () => {
+      if (mapInstance.current) {
+        window.google.maps.event.clearInstanceListeners(mapInstance.current)
+        mapInstance.current = null
+      }
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: dloc?.lat || uloc?.lat || 28.6139, lng: dloc?.lng || uloc?.lng || 77.2090 },
+        zoom: 14,
+        disableDefaultUI: true,
+        gestureHandling: 'cooperative',
+      })
+      if (dloc?.lat) {
+        new window.google.maps.Marker({
+          position: { lat: dloc.lat, lng: dloc.lng }, map,
+          title: trackingData.delivery_person?.name || 'Decorator',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/pink-dot.png',
+        })
+      }
+      if (uloc?.lat) {
+        new window.google.maps.Marker({
+          position: { lat: uloc.lat, lng: uloc.lng }, map,
+          title: 'Your Location',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+        })
+      }
       mapInstance.current = map
-      return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null } }
+    }
+
+    if (window.google?.maps) {
+      initGMap()
+    } else {
+      const poll = setInterval(() => {
+        if (window.google?.maps) { clearInterval(poll); initGMap() }
+      }, 100)
+      return () => clearInterval(poll)
+    }
+    return () => {
+      if (mapInstance.current) {
+        window.google?.maps?.event?.clearInstanceListeners(mapInstance.current)
+        mapInstance.current = null
+      }
     }
   }, [trackingData])
 
