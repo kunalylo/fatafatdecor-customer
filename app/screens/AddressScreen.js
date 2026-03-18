@@ -101,22 +101,26 @@ export default function AddressScreen() {
     if (step !== 1) return
     if (typeof window === 'undefined') return
 
-    if (window.google?.maps) {
-      initMap()
-    } else {
-      const poll = setInterval(() => {
-        if (window.google?.maps) { clearInterval(poll); initMap() }
-      }, 100)
-      return () => { clearInterval(poll); clearTimeout(geocodeTimer.current) }
-    }
+    let poll = null
 
-    return () => {
+    const cleanup = () => {
       clearTimeout(geocodeTimer.current)
+      if (poll) { clearInterval(poll); poll = null }
       if (mapInstance.current) {
         window.google?.maps?.event?.clearInstanceListeners(mapInstance.current)
         mapInstance.current = null
       }
     }
+
+    if (window.google?.maps) {
+      initMap()
+    } else {
+      poll = setInterval(() => {
+        if (window.google?.maps) { clearInterval(poll); poll = null; initMap() }
+      }, 100)
+    }
+
+    return cleanup
   }, [step, initMap])
 
   // ─── Use GPS current position ─────────────────────────────────────────────

@@ -53,7 +53,7 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
         {/* External Scripts */}
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHwz7UFa-hJVdU1XfvejIZm6RxvOjH3m0" async></script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHwz7UFa-hJVdU1XfvejIZm6RxvOjH3m0&loading=async" async></script>
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
 
