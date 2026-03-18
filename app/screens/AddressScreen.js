@@ -39,9 +39,16 @@ export default function AddressScreen() {
   const mapInstance = useRef(null)
   const geocodeTimer = useRef(null)
   const latestCenter = useRef({ lat: mapLat, lng: mapLng })
+  const lastGeocoded = useRef({ lat: null, lng: null })  // track last geocoded coords
 
   // ─── Reverse geocode helper ───────────────────────────────────────────────
   const reverseGeocode = useCallback((lat, lng) => {
+    // Skip if coords haven't moved more than ~10m since last successful geocode
+    if (lastGeocoded.current.lat !== null) {
+      const dlat = Math.abs(lat - lastGeocoded.current.lat)
+      const dlng = Math.abs(lng - lastGeocoded.current.lng)
+      if (dlat < 0.0001 && dlng < 0.0001) return
+    }
     clearTimeout(geocodeTimer.current)
     setGeocoding(true)
     geocodeTimer.current = setTimeout(async () => {
@@ -66,6 +73,7 @@ export default function AddressScreen() {
           setDetectedState(state)
           setDetectedPincode(pincode)
           setDetectedFormatted(formatted)
+          lastGeocoded.current = { lat, lng }  // mark as done — skip repeat idle events
         }
       } catch {}
       setGeocoding(false)
@@ -94,7 +102,7 @@ export default function AddressScreen() {
     })
 
     mapInstance.current = map
-    reverseGeocode(latestCenter.current.lat, latestCenter.current.lng)
+    // Note: no reverseGeocode() here — the 'idle' event fires immediately after init and handles it
   }, [reverseGeocode])
 
   useEffect(() => {
@@ -131,6 +139,7 @@ export default function AddressScreen() {
       pos => {
         const { latitude: lat, longitude: lng } = pos.coords
         latestCenter.current = { lat, lng }
+        lastGeocoded.current = { lat: null, lng: null }  // force re-geocode new GPS position
         setMapLat(lat); setMapLng(lng)
         if (mapInstance.current) {
           mapInstance.current.setCenter({ lat, lng })
