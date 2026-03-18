@@ -479,9 +479,11 @@ async function handleRoute(request, { params }) {
         const orderedItems = looseItems.sort(() => Math.random() - 0.5)
         for (const item of orderedItems) {
           if (addonSpent >= budgetForAddons) break
+          const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
+          if (bMax <= 5000 && isRentable) continue
           const price = item.selling_price_unit || item.price || 0
           if (price > 0 && addonSpent + price <= budgetForAddons) {
-            addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting' })
+            addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: isRentable })
             addonSpent += price
           }
         }
@@ -492,8 +494,10 @@ async function handleRoute(request, { params }) {
         let spent = 0
         for (const item of allItems.sort(() => Math.random() - 0.5)) {
           if (spent >= bMax) break
+          const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
+          if (bMax <= 5000 && isRentable) continue
           const price = item.selling_price_unit || item.price || 0
-          if (price > 0 && spent + price <= bMax) { addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting' }); spent += price }
+          if (price > 0 && spent + price <= bMax) { addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: isRentable }); spent += price }
         }
         addOnCost = spent
       }
