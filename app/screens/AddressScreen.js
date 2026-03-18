@@ -93,7 +93,9 @@ export default function AddressScreen() {
       styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
     })
 
-    window.google.maps.event.addListener(map, 'idle', () => {
+    // addListenerOnce: fires exactly once when map first finishes loading.
+    // Prevents repeated idle events (tile loads) from canceling the geocode timer.
+    window.google.maps.event.addListenerOnce(map, 'idle', () => {
       const c = map.getCenter()
       latestCenter.current = { lat: c.lat(), lng: c.lng() }
       setMapLat(c.lat())
@@ -101,8 +103,17 @@ export default function AddressScreen() {
       reverseGeocode(c.lat(), c.lng())
     })
 
+    // dragend: geocode when user stops dragging the map
+    window.google.maps.event.addListener(map, 'dragend', () => {
+      const c = map.getCenter()
+      latestCenter.current = { lat: c.lat(), lng: c.lng() }
+      setMapLat(c.lat())
+      setMapLng(c.lng())
+      lastGeocoded.current = { lat: null, lng: null }  // force fresh geocode on drag
+      reverseGeocode(c.lat(), c.lng())
+    })
+
     mapInstance.current = map
-    // Note: no reverseGeocode() here — the 'idle' event fires immediately after init and handles it
   }, [reverseGeocode])
 
   useEffect(() => {
