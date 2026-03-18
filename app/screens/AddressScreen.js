@@ -206,7 +206,7 @@ export default function AddressScreen() {
   // ══════════════════════════════════════════════════════════════════════════
   if (step === 1) {
     return (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+      <div key="step1" className="fixed inset-0 bg-white z-50 flex flex-col">
 
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white shadow-sm z-20 shrink-0">
@@ -285,7 +285,7 @@ export default function AddressScreen() {
   // STEP 2 — HOUSE DETAILS
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+    <div key="step2" className="fixed inset-0 bg-white z-50 flex flex-col">
 
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white shadow-sm shrink-0">
