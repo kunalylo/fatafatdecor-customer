@@ -1,82 +1,71 @@
-// FatafatDecor Service Worker v1.0
-const CACHE_NAME = 'fatafatdecor-v1'
-const OFFLINE_URL = '/'
+// FatafatDecor Service Worker v2.0
+// v2: network-first for HTML to prevent ChunkLoadError after deployments
+const CACHE_NAME = 'fatafatdecor-v2'
 
-// Assets to pre-cache on install
-const PRECACHE_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icon.svg',
-]
-
-// Install - pre-cache core assets
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch(() => {
-        // If precaching fails, continue anyway
-        return Promise.resolve()
-      })
-    }).then(() => self.skipWaiting())
-  )
+  // Take control immediately — don't wait for old SW to die
+  event.waitUntil(self.skipWaiting())
 })
 
-// Activate - clean up old caches
 self.addEventListener('activate', (event) => {
+  // Delete all old caches (v1, etc.)
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      )
+    caches.keys().then((names) =>
+      Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)))
     ).then(() => self.clients.claim())
   )
 })
 
-// Fetch - network first for API, cache first for static
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Skip non-GET requests
+  // Skip non-GET
   if (request.method !== 'GET') return
 
-  // Skip API routes - always go to network
+  // Skip API routes — always network
   if (url.pathname.startsWith('/api/')) return
 
-  // Skip external URLs (Razorpay, Google, etc.)
+  // Skip external URLs (Google Maps, Razorpay, etc.)
   if (url.origin !== self.location.origin) return
 
-  // Skip Next.js HMR and build files in development
+  // Skip Next.js HMR
   if (url.pathname.startsWith('/_next/webpack-hmr')) return
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      // Network-first strategy: try network, fall back to cache
-      const networkFetch = fetch(request)
-        .then((networkResponse) => {
-          // Cache successful responses
-          if (networkResponse && networkResponse.ok) {
-            const responseToCache = networkResponse.clone()
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache)
-            })
+  // ── Next.js static chunks: CACHE-FIRST ──────────────────────────────────
+  // These have content-hash in filename (e.g. page-abc123.js), so if they're
+  // in cache they're always valid. Safe to serve from cache.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached
+        return fetch(request).then((response) => {
+          if (response && response.ok) {
+            caches.open(CACHE_NAME).then(c => c.put(request, response.clone()))
           }
-          return networkResponse
-        })
-        .catch(() => {
-          // Network failed, return cached version or offline page
-          return cachedResponse || caches.match(OFFLINE_URL)
-        })
+          return response
+        }).catch(() => cached)
+      })
+    )
+    return
+  }
 
-      // Return cached immediately if available, update in background
-      return cachedResponse || networkFetch
-    })
+  // ── HTML pages & everything else: NETWORK-FIRST ──────────────────────────
+  // This ensures fresh HTML is always served after a new deployment.
+  // New HTML = new chunk hashes = no ChunkLoadError.
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) {
+          caches.open(CACHE_NAME).then(c => c.put(request, response.clone()))
+        }
+        return response
+      })
+      .catch(() => caches.match(request)) // offline fallback
   )
 })
 
-// Push notifications (for future order updates)
+// Push notifications
 self.addEventListener('push', (event) => {
   if (!event.data) return
   const data = event.data.json()
@@ -91,14 +80,12 @@ self.addEventListener('push', (event) => {
   )
 })
 
-// Notification click - open app
+// Notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {
-      if (clientList.length > 0) {
-        return clientList[0].focus()
-      }
+      if (clientList.length > 0) return clientList[0].focus()
       return clients.openWindow('/')
     })
   )
