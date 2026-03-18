@@ -19,7 +19,9 @@ import ProfileScreen from './screens/ProfileScreen'
 import AddressScreen from './screens/AddressScreen'
 
 function AppContent() {
-  const { screen, user } = useApp()
+  const { screen, user, mounted } = useApp()
+  // Don't render any screen until after hydration — prevents React #418 mismatch
+  if (!mounted) return <div className="min-h-screen bg-white" />
   return (
     <div className="min-h-screen bg-white max-w-md mx-auto relative overflow-hidden">
       <Toast />

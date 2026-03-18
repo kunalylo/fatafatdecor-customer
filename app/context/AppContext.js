@@ -7,12 +7,11 @@ export const AppContext = createContext({})
 export const useApp = () => useContext(AppContext)
 
 export function AppProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_user'); return s ? JSON.parse(s) : null } catch { return null }
-  })
-  const [screen, setScreen] = useState(() => {
-    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_user'); return s ? SCREENS.HOME : SCREENS.AUTH } catch { return SCREENS.AUTH }
-  })
+  // Always start with null/AUTH so server & client render identically (fixes React #418 hydration error).
+  // localStorage is read in useEffect after hydration.
+  const [mounted, setMounted] = useState(false)
+  const [user, setUser] = useState(null)
+  const [screen, setScreen] = useState(SCREENS.AUTH)
   const [prevScreen, setPrevScreen] = useState(null)
   const [authMode, setAuthMode] = useState('login')
   const [loading, setLoading] = useState(false)
@@ -33,9 +32,7 @@ export function AppProvider({ children }) {
   const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [signupOtpValue, setSignupOtpValue] = useState('')
   const [devOtp, setDevOtp] = useState('')
-  const [userAddress, setUserAddress] = useState(() => {
-    try { const s = typeof window !== 'undefined' && localStorage.getItem('fd_location'); return s ? JSON.parse(s) : null } catch { return null }
-  })
+  const [userAddress, setUserAddress] = useState(null)
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
@@ -43,6 +40,23 @@ export function AppProvider({ children }) {
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
+  }, [])
+
+  // Hydration guard: read localStorage only after client mounts to avoid React #418
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('fd_user')
+      if (s) {
+        const parsed = JSON.parse(s)
+        setUser(parsed)
+        setScreen(SCREENS.HOME)
+      }
+    } catch {}
+    try {
+      const loc = localStorage.getItem('fd_location')
+      if (loc) setUserAddress(JSON.parse(loc))
+    } catch {}
+    setMounted(true)
   }, [])
 
   const navigate = useCallback((s) => {
@@ -408,6 +422,7 @@ export function AppProvider({ children }) {
   }
 
   const ctxValue = {
+    mounted,
     screen, setScreen, prevScreen, setPrevScreen,
     user, setUser, authMode, setAuthMode,
     loading, setLoading, toast, setToast,
