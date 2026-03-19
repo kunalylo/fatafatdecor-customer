@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react'
+import { useState, useEffect, useRef, useCallback, createContext, useContext, useMemo } from 'react'
 import { SCREENS, BUDGET_BRACKETS, api } from '../lib/constants'
 
 export const AppContext = createContext({})
@@ -36,6 +36,8 @@ export function AppProvider({ children }) {
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
+  const [paymentFailed, setPaymentFailed] = useState(false)
+  const prevTrackingRef = useRef(null)
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -69,12 +71,83 @@ export function AppProvider({ children }) {
     else setScreen(SCREENS.HOME)
   }, [prevScreen])
 
+  // Request browser notification permission after login (Fix 2)
+  useEffect(() => {
+    if (user && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [user])
+
+  // Initial data fetch on login
   useEffect(() => {
     if (user) {
       api(`designs?user_id=${user.id}`).then(d => !d.error && setDesigns(d))
       api(`orders?user_id=${user.id}`).then(o => !o.error && setOrders(o))
     }
   }, [user])
+
+  // Background orders poll every 15s — refresh list + detect status changes (Fix 2 & 5)
+  useEffect(() => {
+    if (!user) return
+    const poll = setInterval(() => {
+      api(`orders?user_id=${user.id}`).then(freshOrders => {
+        if (freshOrders.error) return
+        setOrders(prev => {
+          // Detect decorator-assigned event and fire browser notification
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            freshOrders.forEach(newOrder => {
+              const oldOrder = prev.find(o => o.id === newOrder.id)
+              if (oldOrder && oldOrder.delivery_status === 'pending' && newOrder.delivery_status === 'assigned') {
+                new Notification('FatafatDecor 🎉', {
+                  body: 'A decorator has accepted your order! Tap to track.',
+                  icon: '/logo.png',
+                  badge: '/logo.png',
+                })
+              }
+              if (oldOrder && oldOrder.delivery_status === 'assigned' && newOrder.delivery_status === 'en_route') {
+                new Notification('FatafatDecor 🚗', {
+                  body: 'Your decorator is on the way!',
+                  icon: '/logo.png',
+                })
+              }
+              if (oldOrder && newOrder.delivery_status === 'delivered' && oldOrder.delivery_status !== 'delivered') {
+                new Notification('FatafatDecor ✅', {
+                  body: 'Decoration complete! Hope you love it 🎊',
+                  icon: '/logo.png',
+                })
+              }
+            })
+          }
+          return freshOrders
+        })
+        // Auto-reassign check: if any order pending > 30 min, trigger reassignment (Fix 3)
+        freshOrders.forEach(o => {
+          if ((o.delivery_status === 'pending' || o.delivery_status === 'assigned') && !o.delivery_person_id) {
+            const ageMs = Date.now() - new Date(o.created_at).getTime()
+            if (ageMs > 30 * 60 * 1000) {
+              api(`orders/auto-reassign`, { method: 'POST', body: { order_id: o.id } })
+            }
+          }
+        })
+      })
+    }, 15000)
+    return () => clearInterval(poll)
+  }, [user])
+
+  // Show browser notification when tracking data changes (decorator just assigned) (Fix 2)
+  useEffect(() => {
+    if (!trackingData) return
+    const prev = prevTrackingRef.current
+    if (prev && !prev.delivery_person && trackingData.delivery_person) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('FatafatDecor 🎉', {
+          body: `${trackingData.delivery_person.name} has accepted your order!`,
+          icon: '/logo.png',
+        })
+      }
+    }
+    prevTrackingRef.current = trackingData
+  }, [trackingData])
 
   useEffect(() => {
     if (screen === SCREENS.TRACKING && selectedOrder?.id) {
@@ -361,6 +434,7 @@ export function AppProvider({ children }) {
         handler: async (response) => {
           const verify = await api('payments/verify', { method: 'POST', body: { ...response, payment_id: orderData.payment_id } })
           if (verify.success) {
+            setPaymentFailed(false)
             showToast('Payment successful!', 'success')
             if (type === 'credits') { setUser(prev => ({ ...prev, credits: (prev.credits || 0) + creditsCount })); navigate(SCREENS.HOME) }
             if (type === 'delivery' && orderId) {
@@ -375,11 +449,21 @@ export function AppProvider({ children }) {
           } else { showToast('Payment verification failed', 'error') }
         },
         prefill: { name: user.name, email: user.email, contact: user.phone },
-        theme: { color: '#EC4899' }
+        theme: { color: '#EC4899' },
+        modal: {
+          // User closed Razorpay sheet without paying (Fix 4)
+          ondismiss: () => {
+            setPaymentFailed(true)
+            setLoading(false)
+            // Mark payment as failed in DB so it's trackable
+            api('payments/handle-failure', { method: 'POST', body: { payment_id: orderData.payment_id, reason: 'user_dismissed' } })
+            showToast('Payment cancelled. Tap "Pay Now" to try again.', 'error')
+          }
+        }
       }
       if (window.Razorpay) { new window.Razorpay(options).open() }
       else { showToast('Payment gateway loading...', 'error') }
-    } catch (e) { showToast('Payment failed', 'error') }
+    } catch (e) { showToast('Payment failed. Please try again.', 'error'); setPaymentFailed(true) }
     finally { setLoading(false) }
   }
 
@@ -412,13 +496,34 @@ export function AppProvider({ children }) {
     if (!data.error) setSlots(data.slots || [])
   }
 
+  // Compress room photo before sending to AI (Fix 6)
+  // Resizes to max 1024px and encodes as JPEG 82% quality — cuts payload from ~5MB to ~150KB
+  const compressImageForAI = useCallback((dataUrl) => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 1024
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.onerror = () => resolve(dataUrl) // fallback: use original if compression fails
+      img.src = dataUrl
+    })
+  }, [])
+
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (ev) => setOriginalImage(ev.target?.result)
-      reader.readAsDataURL(file)
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const compressed = await compressImageForAI(ev.target?.result)
+      setOriginalImage(compressed)
     }
+    reader.readAsDataURL(file)
   }
 
   const ctxValue = {
@@ -440,7 +545,8 @@ export function AppProvider({ children }) {
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,
     handleGenerate, handleCreateOrder, handlePayment,
-    handleBookSlot, loadSlots, handleFileUpload, handleLogout
+    handleBookSlot, loadSlots, handleFileUpload, handleLogout,
+    paymentFailed, setPaymentFailed
   }
 
   return <AppContext.Provider value={ctxValue}>{children}</AppContext.Provider>

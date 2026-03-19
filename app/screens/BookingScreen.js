@@ -3,14 +3,14 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, CheckCircle2, CreditCard, Clock, Truck, Navigation, Loader2 } from 'lucide-react'
+import { ChevronLeft, CheckCircle2, CreditCard, Clock, Truck, Navigation, Loader2, AlertCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
 export default function BookingScreen() {
   const {
     selectedOrder, slots, selectedDate, selectedSlotHour, setSelectedSlotHour,
-    loading, goBack, navigate, handlePayment, loadSlots
+    loading, goBack, navigate, handlePayment, loadSlots, paymentFailed, setPaymentFailed
   } = useApp()
   const today = new Date()
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -96,10 +96,20 @@ export default function BookingScreen() {
                 Slot: <span className="font-semibold text-pink-500">{selectedDate} at {selectedSlotHour}:00 – {selectedSlotHour + 1}:00</span>
               </p>
               <p className="text-xs text-gray-400 mb-3">Pay Rs {partialAmount} now. Remaining 50% collected on delivery.</p>
+              {/* Payment failure retry banner (Fix 4) */}
+              {paymentFailed && !isPaid && (
+                <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-red-600">Payment was not completed</p>
+                    <p className="text-xs text-red-400 mt-0.5">Your order is saved. Tap below to try again.</p>
+                  </div>
+                </div>
+              )}
               {!isPaid ? (
-                <Button onClick={() => handlePayment('delivery', partialAmount, selectedOrder?.id)}
+                <Button onClick={() => { setPaymentFailed(false); handlePayment('delivery', partialAmount, selectedOrder?.id) }}
                   disabled={loading} className="w-full h-11 gradient-pink border-0 text-white font-bold rounded-xl shadow-pink">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Pay Rs {partialAmount} & Confirm Slot</>}
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" />{paymentFailed ? 'Retry Payment' : `Pay ₹${partialAmount} & Confirm Slot`}</>}
                 </Button>
               ) : (
                 <Badge className="bg-green-100 text-green-600 border-green-200">Payment Done</Badge>

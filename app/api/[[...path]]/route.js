@@ -173,6 +173,11 @@ async function handleRoute(request, { params }) {
       const { name, phone } = body
       if (!name || !phone) return err('Name and phone number required')
 
+      // Phone uniqueness check — stop here so user sees error before waiting for OTP
+      const cleanPhoneCheck = String(phone).replace(/\D/g, '').slice(-10)
+      const existingPhone = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhoneCheck + '$') } })
+      if (existingPhone) return err('This phone number is already registered. Please login instead.')
+
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
 
@@ -632,6 +637,46 @@ async function handleRoute(request, { params }) {
         return ok({ razorpay_order_id: rzpOrder.id, amount: rzpOrder.amount, currency: 'INR', payment_id: payment.id })
       } catch (e) { return err('Payment creation failed: ' + e.message, 500) }
     }
+    // Payment failure — mark payment as failed so it's visible in DB
+    if (path[0] === 'payments' && path[1] === 'handle-failure' && method === 'POST') {
+      const { payment_id, reason } = await request.json()
+      if (payment_id) {
+        await db.collection('payments').updateOne(
+          { id: payment_id },
+          { $set: { status: 'failed', failed_at: new Date(), failure_reason: reason || 'user_cancelled' } }
+        )
+      }
+      return ok({ success: true })
+    }
+
+    // Order timeout / auto-reassign — called by client when order stays pending > 30 min
+    if (path[0] === 'orders' && path[1] === 'auto-reassign' && method === 'POST') {
+      const { order_id } = await request.json()
+      if (!order_id) return err('order_id required')
+      const order = await db.collection('orders').findOne({ id: order_id })
+      if (!order) return err('Order not found', 404)
+      // Only act if still pending with no decorator assigned
+      if (order.delivery_status !== 'pending' && order.delivery_status !== 'assigned') return ok({ reassigned: false, reason: 'already progressed' })
+      if (order.delivery_person_id) return ok({ reassigned: false, reason: 'decorator already assigned' })
+      const ageMs = Date.now() - new Date(order.created_at).getTime()
+      if (ageMs < 30 * 60 * 1000) return ok({ reassigned: false, reason: 'not timed out yet' })
+      // Pick fresh decorators not in current assigned list
+      const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
+      const currentIds = order.assigned_decorators || []
+      const fresh = availablePersons.filter(p => !currentIds.includes(p.id)).slice(0, 2)
+      const reassignedIds = [...currentIds, ...fresh.map(p => p.id)]
+      const reassignedInfo = [...(order.assigned_decorators_info || []), ...fresh.map(p => ({ id: p.id, name: p.name, phone: p.phone }))]
+      await db.collection('orders').updateOne({ id: order_id }, {
+        $set: { assigned_decorators: reassignedIds, assigned_decorators_info: reassignedInfo, last_reassigned_at: new Date() }
+      })
+      // Notify customer via WhatsApp
+      const orderUser = await db.collection('users').findOne({ id: order.user_id })
+      if (orderUser?.phone) {
+        await sendWhatsApp(orderUser.phone, `FatafatDecor: We are finding the best decorator for your order. Please wait a few more minutes. -FatafatDecor`)
+      }
+      return ok({ reassigned: true, new_decorators: fresh.length })
+    }
+
     if (path[0] === 'payments' && path[1] === 'verify' && method === 'POST') {
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
       const generatedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(razorpay_order_id + '|' + razorpay_payment_id).digest('hex')
