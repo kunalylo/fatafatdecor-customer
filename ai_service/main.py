@@ -75,8 +75,7 @@ async def generate_decoration(req: GenerateRequest):
                 image=image_file,
                 prompt=req.prompt,
                 n=1,
-                size="1024x1024",
-                quality="low"   # "low" cuts generation time by ~50% vs default "high"
+                size="1024x1024"
             )
 
             if response.data:
@@ -95,8 +94,7 @@ async def generate_decoration(req: GenerateRequest):
                 model="gpt-image-1",
                 prompt=req.prompt,
                 n=1,
-                size="1024x1024",
-                quality="low"   # "low" cuts generation time by ~50% vs default "high"
+                size="1024x1024"
             )
 
             if response.data:
