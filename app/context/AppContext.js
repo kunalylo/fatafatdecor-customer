@@ -183,7 +183,10 @@ export function AppProvider({ children }) {
             const components = geo.results[0].address_components || []
             const get = (...types) => components.find(c => types.some(t => c.types.includes(t)))?.long_name || ''
             const area = get('sublocality_level_1', 'sublocality_level_2', 'sublocality', 'neighborhood', 'premise')
-            const city = get('locality', 'administrative_area_level_3', 'administrative_area_level_2')
+            const rawCity = get('locality', 'administrative_area_level_3', 'administrative_area_level_2')
+            // Normalize regional language city names (e.g. पुणे → Pune)
+            const CITY_ALIASES = { 'पुणे':'Pune','पुना':'Pune','रांची':'Ranchi','राँची':'Ranchi','मुंबई':'Mumbai','बॉम्बे':'Mumbai','दिल्ली':'Delhi','नई दिल्ली':'Delhi','बेंगलुरु':'Bangalore','बैंगलोर':'Bangalore','हैदराबाद':'Hyderabad','चेन्नई':'Chennai','कोलकाता':'Kolkata','जयपुर':'Jaipur','अहमदाबाद':'Ahmedabad','सूरत':'Surat','नागपुर':'Nagpur','इंदौर':'Indore','भोपाल':'Bhopal','लखनऊ':'Lucknow','पटना':'Patna','गुरुग्राम':'Gurugram','गुड़गांव':'Gurugram','नोएडा':'Noida','नाशिक':'Nashik' }
+            const city = CITY_ALIASES[rawCity?.trim()] || rawCity
             const state = get('administrative_area_level_1')
             const pincode = get('postal_code')
             const formatted = geo.results[0].formatted_address || ''

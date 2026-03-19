@@ -130,10 +130,32 @@ export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 200 }))
 }
 
+// Regional language → English city name aliases
+const CITY_ALIASES = {
+  'पुणे': 'Pune', 'पुना': 'Pune',
+  'रांची': 'Ranchi', 'राँची': 'Ranchi',
+  'मुंबई': 'Mumbai', 'बॉम्बे': 'Mumbai',
+  'दिल्ली': 'Delhi', 'नई दिल्ली': 'Delhi', 'नयी दिल्ली': 'Delhi',
+  'बेंगलुरु': 'Bangalore', 'बेंगलूरु': 'Bangalore', 'बैंगलोर': 'Bangalore',
+  'हैदराबाद': 'Hyderabad', 'चेन्नई': 'Chennai', 'कोलकाता': 'Kolkata',
+  'जयपुर': 'Jaipur', 'अहमदाबाद': 'Ahmedabad', 'सूरत': 'Surat',
+  'नागपुर': 'Nagpur', 'इंदौर': 'Indore', 'भोपाल': 'Bhopal',
+  'लखनऊ': 'Lucknow', 'पटना': 'Patna', 'गुरुग्राम': 'Gurugram',
+  'गुड़गांव': 'Gurugram', 'नोएडा': 'Noida', 'कानपुर': 'Kanpur',
+  'नाशिक': 'Nashik', 'औरंगाबाद': 'Aurangabad', 'कोल्हापूर': 'Kolhapur',
+  'Pune': 'Pune', 'pune': 'Pune',
+}
+function normalizeCityName(city) {
+  if (!city) return city
+  const trimmed = city.trim()
+  return CITY_ALIASES[trimmed] || trimmed
+}
+
 async function isCityAllowed(db, city) {
   if (!city) return false
+  const normalized = normalizeCityName(city)
   const cityDoc = await db.collection('allowed_cities').findOne({
-    name: { $regex: new RegExp('^' + city.trim() + '$', 'i') },
+    name: { $regex: new RegExp('^' + normalized + '$', 'i') },
     active: true
   })
   return !!cityDoc
