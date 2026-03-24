@@ -20,15 +20,18 @@ app.add_middleware(
 
 # ============================================================
 # CREDENTIALS
-# Uses Emergent proxy (same interface as OpenAI, no special pkg).
-# To use your own OpenAI key: set OPENAI_API_KEY env var.
+# /generate          → fal.ai FLUX models (fast, cheap, high quality)
+# /analyze-decoration → OpenAI gpt-4o-mini vision (analysis only)
 # ============================================================
+FAL_KEY = os.environ.get("FAL_KEY", "")
+os.environ["FAL_KEY"] = FAL_KEY  # fal_client reads FAL_KEY from env
+
 EMERGENT_API_KEY = os.environ.get("EMERGENT_LLM_KEY", "sk-emergent-e1b3859D8366151216")
 EMERGENT_BASE_URL = "https://integrations.emergentagent.com/llm"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 USE_DIRECT_OPENAI = bool(OPENAI_API_KEY)
 
-def get_client():
+def get_openai_client():
     from openai import OpenAI
     if USE_DIRECT_OPENAI:
         return OpenAI(api_key=OPENAI_API_KEY)
@@ -49,68 +52,60 @@ class AnalyzeRequest(BaseModel):
 async def health():
     return {
         "status": "ok",
-        "mode": "direct_openai" if USE_DIRECT_OPENAI else "emergent_proxy",
-        "api_key_configured": bool(OPENAI_API_KEY or EMERGENT_API_KEY)
+        "ai_provider": "fal.ai FLUX",
+        "fal_key_configured": bool(FAL_KEY),
+        "analysis_provider": "openai gpt-4o-mini"
     }
 
 
 @app.post("/generate")
 async def generate_decoration(req: GenerateRequest):
-    """Generate or edit a decoration image. Uses standard openai package only."""
+    """Generate decoration image using fal.ai FLUX models. Returns image URL."""
+    import fal_client
     try:
-        client = get_client()
-
         if req.image_base64:
-            # IMAGE EDITING — place decorations into the customer's actual room photo
+            # IMAGE EDITING — customer uploaded room photo
+            # Upload base64 to fal.ai storage to get a URL, then run FLUX Pro Fill
             img_data = req.image_base64
             if ',' in img_data:
                 img_data = img_data.split(',', 1)[1]
-
             image_bytes = base64.b64decode(img_data)
             image_file = io.BytesIO(image_bytes)
             image_file.name = "room.png"
 
-            response = client.images.edit(
-                model="gpt-image-1",
-                image=image_file,
-                prompt=req.prompt,
-                n=1,
-                size="1024x1024"
+            # Upload to fal storage → temporary URL for inference
+            fal_image_url = fal_client.upload(image_file, content_type="image/png")
+
+            # FLUX Pro Fill — best for adding decorations to real room photos
+            result = fal_client.run(
+                "fal-ai/flux-pro/v1/fill",
+                arguments={
+                    "prompt": req.prompt,
+                    "image_url": fal_image_url,
+                    "num_images": 1,
+                    "safety_tolerance": "2",
+                    "output_format": "jpeg"
+                }
             )
-
-            if response.data:
-                img = response.data[0]
-                if hasattr(img, 'b64_json') and img.b64_json:
-                    return {"image_base64": img.b64_json, "success": True}
-                if hasattr(img, 'url') and img.url:
-                    r = http_requests.get(img.url, timeout=30)
-                    return {"image_base64": base64.b64encode(r.content).decode(), "success": True}
-
-            raise HTTPException(status_code=500, detail="No image returned from AI")
-
         else:
-            # TEXT-TO-IMAGE — generate a full decorated room scene
-            response = client.images.generate(
-                model="gpt-image-1",
-                prompt=req.prompt,
-                n=1,
-                size="1024x1024"
+            # TEXT-TO-IMAGE — generate full decorated room concept
+            # FLUX Schnell — fastest model, 1-2 seconds, great quality
+            result = fal_client.run(
+                "fal-ai/flux/schnell",
+                arguments={
+                    "prompt": req.prompt,
+                    "image_size": "square_hd",
+                    "num_images": 1,
+                    "num_inference_steps": 4,
+                    "output_format": "jpeg"
+                }
             )
 
-            if response.data:
-                img = response.data[0]
-                if hasattr(img, 'b64_json') and img.b64_json:
-                    return {"image_base64": img.b64_json, "success": True}
-                if hasattr(img, 'url') and img.url:
-                    r = http_requests.get(img.url, timeout=30)
-                    return {"image_base64": base64.b64encode(r.content).decode(), "success": True}
+        output_url = result["images"][0]["url"]
+        return {"image_url": output_url, "success": True}
 
-            raise HTTPException(status_code=500, detail="No image returned from AI")
-
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"AI Generation Error:\n{traceback.format_exc()}")
+        print(f"fal.ai Generation Error:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

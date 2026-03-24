@@ -4,3 +4,4 @@ pydantic==2.5.0
 python-multipart==0.0.6
 openai>=1.6.1
 requests==2.31.0
+fal-client>=0.5.0

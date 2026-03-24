@@ -568,19 +568,35 @@ async function handleRoute(request, { params }) {
       } else {
         prompt = `Professional photorealistic ${room_type} decorated for ${occasion}. Show these decoration items clearly: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noText} High quality event decoration photography, warm lighting, 4K.`
       }
-      let image_base64 = null
+      const designId = uuidv4()
+      let decoratedImageUrl = null
       try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 120000)
+        const timeout = setTimeout(() => controller.abort(), 60000)
         const aiBody = { prompt }; if (hasUserImage) aiBody.image_base64 = original_image
         const aiRes = await fetch(`${AI_SERVICE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aiBody), signal: controller.signal })
         clearTimeout(timeout)
         const aiData = await aiRes.json()
-        if (aiData.success) image_base64 = aiData.image_base64
-        else throw new Error(aiData.detail || 'AI generation failed')
+        if (!aiData.success) throw new Error(aiData.detail || 'AI generation failed')
+        // Upload fal.ai output to ImageKit CDN for permanent fast storage
+        try {
+          const falImageRes = await fetch(aiData.image_url)
+          const falBuffer = await falImageRes.arrayBuffer()
+          const falBase64 = Buffer.from(falBuffer).toString('base64')
+          const ikAuth = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY || '') + ':').toString('base64')
+          const ikBody = new URLSearchParams()
+          ikBody.append('file', falBase64)
+          ikBody.append('fileName', `design_${designId}.jpg`)
+          ikBody.append('folder', '/generated')
+          const ikRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', headers: { 'Authorization': `Basic ${ikAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: ikBody.toString() })
+          const ikData = await ikRes.json()
+          decoratedImageUrl = ikData.url || aiData.image_url
+        } catch (_ikErr) {
+          decoratedImageUrl = aiData.image_url // fallback to fal URL if ImageKit fails
+        }
       } catch (aiErr) { return err('AI image generation failed. Please try again.', 500) }
       await db.collection('users').updateOne({ id: user_id }, { $inc: { credits: -1 } })
-      const design = { id: uuidv4(), user_id, room_type, occasion, description: description || '', original_image: hasUserImage ? '[uploaded]' : null, decorated_image: image_base64, kit_id: selectedKit?.id || null, kit_name: selectedKit?.name || null, kit_items: kitItems, kit_cost: kitCost, addon_items: addOnItems, addon_cost: addOnCost, items_used: allSelectedItems, total_cost: totalCost, status: 'generated', created_at: new Date() }
+      const design = { id: designId, user_id, room_type, occasion, description: description || '', original_image: hasUserImage ? '[uploaded]' : null, decorated_image: decoratedImageUrl, kit_id: selectedKit?.id || null, kit_name: selectedKit?.name || null, kit_items: kitItems, kit_cost: kitCost, addon_items: addOnItems, addon_cost: addOnCost, items_used: allSelectedItems, total_cost: totalCost, status: 'generated', created_at: new Date() }
       await db.collection('designs').insertOne(design)
       const { _id, ...cleanDesign } = design
       return ok({ ...cleanDesign, remaining_credits: user.credits - 1, kit_used: kitUsed })
