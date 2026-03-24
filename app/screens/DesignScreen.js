@@ -18,7 +18,7 @@ export default function DesignScreen() {
   const [localAddonItems, setLocalAddonItems] = useState(null)
   const displayAddonItems = localAddonItems !== null ? localAddonItems : addonItems
   const deleteAddonItem = (id) => setLocalAddonItems((localAddonItems || addonItems).filter(i => i.id !== id))
-  const addonTotal = displayAddonItems.reduce((s, i) => s + (i.price || i.selling_price_unit || 0) * (i.quantity || 1), 0)
+  const addonTotal = displayAddonItems.reduce((s, i) => s + (Number(i.price) || Number(i.selling_price_unit) || 0) * (Number(i.quantity) || 1), 0)
   const displayTotal = (d.kit_cost || 0) + addonTotal
   return (
     <div className="slide-up pb-24 bg-white min-h-screen">
@@ -50,13 +50,13 @@ export default function DesignScreen() {
                   <div key={i} className="flex items-center gap-2 py-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-pink-400" />
                     <span className="text-xs text-gray-600 flex-1">{item.name} {item.color ? `(${item.color})` : ''}</span>
-                    <span className="text-xs font-semibold text-pink-500">Rs {((item.price || 0) * (item.quantity || 1)).toFixed(0)}</span>
+                    <span className="text-xs font-semibold text-pink-500">Rs {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
                   </div>
                 ))}
               </div>
               <div className="flex justify-between mt-2 pt-2 border-t border-pink-100">
                 <span className="text-xs font-bold text-gray-600">Kit Cost</span>
-                <span className="text-sm font-bold text-pink-500">Rs {d.kit_cost || kitItems.reduce((s, i) => s + i.price * i.quantity, 0)}</span>
+                <span className="text-sm font-bold text-pink-500">Rs {d.kit_cost || kitItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)}</span>
               </div>
             </CardContent>
           </Card>

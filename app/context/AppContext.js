@@ -90,6 +90,9 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!user) return
     const poll = setInterval(() => {
+      // Only poll if there are active (non-delivered) orders
+      const hasActiveOrders = orders.some(o => !['delivered', 'cancelled'].includes(o.delivery_status))
+      if (!hasActiveOrders && orders.length > 0) return
       api(`orders?user_id=${user.id}`).then(freshOrders => {
         if (freshOrders.error) return
         setOrders(prev => {
@@ -151,14 +154,23 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (screen === SCREENS.TRACKING && selectedOrder?.id) {
-      const poll = setInterval(() => {
+      let pollRef = null
+      const fetchTracking = () => {
         api(`delivery/track/${selectedOrder.id}`).then(d => {
-          if (!d.error) setTrackingData(d)
-          else if (d.status === 404) clearInterval(poll) // stop polling if order not found
+          if (!d.error) {
+            setTrackingData(d)
+            // Stop polling once delivered or order not found
+            if (d.delivery_status === 'delivered' || d.status === 404) {
+              if (pollRef) { clearInterval(pollRef); pollRef = null }
+            }
+          } else if (d.status === 404) {
+            if (pollRef) { clearInterval(pollRef); pollRef = null }
+          }
         })
-      }, 5000)
-      api(`delivery/track/${selectedOrder.id}`).then(d => { if (!d.error) setTrackingData(d) })
-      return () => clearInterval(poll)
+      }
+      fetchTracking()
+      pollRef = setInterval(fetchTracking, 5000)
+      return () => { if (pollRef) clearInterval(pollRef) }
     }
   }, [screen, selectedOrder])
 
@@ -523,9 +535,15 @@ export function AppProvider({ children }) {
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    // Validate file is an image
+    if (!file.type.startsWith('image/')) { showToast('Please upload an image file (JPG, PNG, etc.)', 'error'); return }
+    // Validate file size — max 15MB before compression
+    if (file.size > 15 * 1024 * 1024) { showToast('Image too large. Please use an image under 15MB.', 'error'); return }
     const reader = new FileReader()
     reader.onload = async (ev) => {
-      const compressed = await compressImageForAI(ev.target?.result)
+      const dataUrl = ev.target?.result
+      if (!dataUrl || !dataUrl.startsWith('data:image/')) { showToast('Invalid image file. Please try another.', 'error'); return }
+      const compressed = await compressImageForAI(dataUrl)
       setOriginalImage(compressed)
     }
     reader.readAsDataURL(file)

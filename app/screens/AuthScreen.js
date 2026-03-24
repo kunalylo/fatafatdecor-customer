@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,22 @@ export default function AuthScreen() {
     devOtp, setDevOtp, showToast, handleGoogleAuth, handleAuth,
     handleSendSignupOtp, handleVerifySignupOtp
   } = useApp()
+  const [otpCooldown, setOtpCooldown] = useState(0)
+  const cooldownRef = useRef(null)
+
+  const handleSendOtpWithCooldown = async () => {
+    if (otpCooldown > 0) return
+    await handleSendSignupOtp()
+    setOtpCooldown(60)
+    cooldownRef.current = setInterval(() => {
+      setOtpCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current) }, [])
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
@@ -65,9 +81,9 @@ export default function AuthScreen() {
               <Input placeholder="Phone Number (10 digits)" type="tel" value={authForm.phone}
                 onChange={e => setAuthForm(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 className="bg-gray-50 border-gray-200 h-12 rounded-xl" />
-              <Button onClick={handleSendSignupOtp} disabled={loading}
-                className="w-full h-10 gradient-pink border-0 text-white font-semibold text-sm rounded-xl shadow-pink">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : signupOtpSent ? 'Resend OTP' : 'Send OTP'}
+              <Button onClick={handleSendOtpWithCooldown} disabled={loading || otpCooldown > 0}
+                className="w-full h-10 gradient-pink border-0 text-white font-semibold text-sm rounded-xl shadow-pink disabled:opacity-60">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : signupOtpSent ? 'Resend OTP' : 'Send OTP'}
               </Button>
               {signupOtpSent && (
                 <>

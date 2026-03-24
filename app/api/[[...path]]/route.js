@@ -614,7 +614,10 @@ async function handleRoute(request, { params }) {
         } catch (_ikErr) {
           decoratedImageUrl = aiData.image_url // fallback to fal URL if ImageKit fails
         }
-      } catch (aiErr) { return err('AI image generation failed. Please try again.', 500) }
+      } catch (aiErr) {
+        const isTimeout = aiErr.name === 'AbortError' || aiErr.message?.includes('aborted')
+        return err(isTimeout ? 'AI generation timed out. Please try again.' : 'AI image generation failed. Please try again.', 500)
+      }
       // Deduct credit FIRST (atomic check+deduct to prevent race condition)
       const creditResult = await db.collection('users').findOneAndUpdate(
         { id: user_id, credits: { $gt: 0 } },
@@ -793,6 +796,7 @@ async function handleRoute(request, { params }) {
       const url = new URL(request.url)
       const date = url.searchParams.get('date')
       if (!date) return err('date required (YYYY-MM-DD)')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date).getTime())) return err('Invalid date format. Use YYYY-MM-DD', 400)
       const deliveryPersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
       const blockedDocs = await db.collection('blocked_slots').find({ date }).toArray()
       const blockedHours = blockedDocs.map(b => b.hour)

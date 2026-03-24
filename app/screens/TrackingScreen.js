@@ -8,7 +8,7 @@ import { SCREENS } from '../lib/constants'
 
 export default function TrackingScreen() {
   const { orders, selectedOrder, setSelectedOrder, trackingData, mapRef, mapInstance, navigate } = useApp()
-  const trackableOrders = orders.filter(o => o.delivery_status === 'assigned' || o.delivery_status === 'in_transit')
+  const trackableOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.delivery_status))
 
   useEffect(() => {
     if (!trackingData || !mapRef.current || typeof window === 'undefined') return

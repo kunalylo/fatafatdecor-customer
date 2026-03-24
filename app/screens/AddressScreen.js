@@ -289,7 +289,7 @@ export default function AddressScreen() {
 
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white shadow-sm shrink-0">
-        <button onClick={() => setStep(1)} className="p-2 rounded-full hover:bg-gray-100">
+        <button onClick={() => { setStep(1); setFlatInput(''); setLandmarkInput('') }} className="p-2 rounded-full hover:bg-gray-100">
           <ArrowLeft className="w-5 h-5 text-gray-700" />
         </button>
         <div>
@@ -315,7 +315,7 @@ export default function AddressScreen() {
             </p>
           </div>
           <button
-            onClick={() => setStep(1)}
+            onClick={() => { setStep(1); setFlatInput(''); setLandmarkInput('') }}
             className="text-pink-500 text-xs font-bold shrink-0 px-1"
           >
             Change

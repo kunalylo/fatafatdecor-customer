@@ -13,7 +13,7 @@ export default function GeneratingScreen() {
     return () => clearInterval(t)
   }, [])
   const step = STEPS[Math.min(Math.floor(elapsed / 2), STEPS.length - 1)]
-  const progress = Math.min(Math.round((elapsed / 15) * 100), 95)
+  const progress = Math.min(Math.round((elapsed / 15) * 100), 99)
   return (
   <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-white">
     <div className="relative mb-8">
