@@ -200,6 +200,13 @@ async function handleRoute(request, { params }) {
       const existingPhone = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhoneCheck + '$') } })
       if (existingPhone) return err('This phone number is already registered. Please login instead.')
 
+      // Rate limiting — max 3 OTPs per phone per 10 minutes
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000)
+      const recentOtp = await db.collection('signup_otps').findOne({ phone })
+      if (recentOtp && recentOtp.otp_count >= 3 && new Date(recentOtp.updated_at) > tenMinAgo) {
+        return err('Too many OTP requests. Please wait 10 minutes before trying again.', 429)
+      }
+
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
 
@@ -207,7 +214,8 @@ async function handleRoute(request, { params }) {
         { phone },
         {
           $set: { phone, name, otp_hash: hashOtp(otp), expires_at: expiresAt, updated_at: new Date() },
-          $setOnInsert: { created_at: new Date() }
+          $inc: { otp_count: 1 },
+          $setOnInsert: { created_at: new Date(), otp_count: 0 }
         },
         { upsert: true }
       )
@@ -215,7 +223,7 @@ async function handleRoute(request, { params }) {
       const twoFactorKey = process.env.TWO_FACTOR_API_KEY
       if (twoFactorKey) {
         const sent = await sendOtpSms(phone, otp)
-        if (!sent) console.error('Failed to send signup OTP via 2Factor')
+        if (!sent) return err('Failed to send OTP. Please check your number and try again.', 503)
       } else {
         console.log(`[Dev] Signup OTP for ${phone}: ${otp}`)
         return ok({ message: 'OTP generated (dev mode)', dev_otp: otp })
@@ -289,7 +297,8 @@ async function handleRoute(request, { params }) {
       )
       const twoFactorKey = process.env.TWO_FACTOR_API_KEY
       if (twoFactorKey) {
-        await sendOtpSms(cleanPhone, otp)
+        const sent = await sendOtpSms(cleanPhone, otp)
+        if (!sent) return err('Failed to send OTP. Please check your number and try again.', 503)
         return ok({ message: 'OTP sent to your phone' })
       }
       return ok({ message: 'OTP generated (dev mode)', dev_otp: otp })
@@ -484,11 +493,22 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'designs' && path[1] === 'generate' && method === 'POST') {
       const { user_id, room_type, occasion, description, original_image, budget_min, budget_max } = await request.json()
       if (!user_id || !room_type || !occasion) return err('user_id, room_type, occasion required')
+      // Validate room_type and occasion against allowed values
+      const VALID_ROOM_TYPES = ['Dining Room', 'Living Room', 'Bedroom', 'Balcony', 'Garden', 'Hall', 'Office', 'Terrace']
+      const VALID_OCCASIONS = ['birthday', 'anniversary', 'wedding', 'dinner', 'party', 'baby_shower', 'engagement', 'corporate', 'festival', 'housewarming']
+      if (!VALID_ROOM_TYPES.includes(room_type)) return err('Invalid room type', 400)
+      if (!VALID_OCCASIONS.includes(occasion)) return err('Invalid occasion', 400)
+      // Validate budget against allowed brackets
+      const VALID_BUDGETS = [[3000,5000],[5000,10000],[10000,15000],[15000,20000],[20000,30000],[30000,50000]]
+      const bMin = Number(budget_min) || 3000
+      const bMax = Number(budget_max) || 5000
+      const validBudget = VALID_BUDGETS.some(([mn, mx]) => mn === bMin && mx === bMax)
+      if (!validBudget) return err('Invalid budget range', 400)
+      // Sanitize description — limit length
+      const safeDescription = description ? String(description).slice(0, 200) : ''
       const user = await db.collection('users').findOne({ id: user_id })
       if (!user) return err('User not found', 404)
       if (user.credits <= 0) return err('No credits remaining. Please purchase credits.', 402)
-      const bMin = Number(budget_min) || 3000
-      const bMax = Number(budget_max) || 5000
       const occasionMap = { birthday: ['birthday','Birthday'], anniversary: ['anniversary','Anniversary'], wedding: ['wedding','Wedding'], baby_shower: ['Ceremony','baby_shower'], engagement: ['Proposal','engagement'], party: ['birthday','Birthday'], housewarming: ['housewarming'], corporate: ['corporate'], dinner: ['anniversary','Anniversary'], festival: ['Holi','festival'] }
       const tagVariants = occasionMap[occasion] || [occasion]
       let selectedKit = null, kitItems = [], kitCost = 0, addOnItems = [], addOnCost = 0, kitUsed = false
@@ -559,7 +579,7 @@ async function handleRoute(request, { params }) {
       }).join(', ')
       // Use occasion/theme — NOT kit name (names like "Boss Baby" cause AI to write text)
       const kitContext = selectedKit ? `Decoration theme: ${occasion} celebration.` : ''
-      const specialRequest = description ? `Special visual request: ${description}.` : ''
+      const specialRequest = safeDescription ? `Special visual request: ${safeDescription}.` : ''
       const noText = 'CRITICAL: Do NOT write any text, words, letters, numbers, or labels anywhere in the image — no text on balloons, banners, backdrops, walls, floors, or any surface. The image must be completely text-free. No written words of any kind.'
       let prompt, hasUserImage = false
       if (original_image && original_image.includes('base64')) {
@@ -595,11 +615,17 @@ async function handleRoute(request, { params }) {
           decoratedImageUrl = aiData.image_url // fallback to fal URL if ImageKit fails
         }
       } catch (aiErr) { return err('AI image generation failed. Please try again.', 500) }
-      await db.collection('users').updateOne({ id: user_id }, { $inc: { credits: -1 } })
-      const design = { id: designId, user_id, room_type, occasion, description: description || '', original_image: hasUserImage ? '[uploaded]' : null, decorated_image: decoratedImageUrl, kit_id: selectedKit?.id || null, kit_name: selectedKit?.name || null, kit_items: kitItems, kit_cost: kitCost, addon_items: addOnItems, addon_cost: addOnCost, items_used: allSelectedItems, total_cost: totalCost, status: 'generated', created_at: new Date() }
+      // Deduct credit FIRST (atomic check+deduct to prevent race condition)
+      const creditResult = await db.collection('users').findOneAndUpdate(
+        { id: user_id, credits: { $gt: 0 } },
+        { $inc: { credits: -1 } },
+        { returnDocument: 'after' }
+      )
+      if (!creditResult) return err('No credits remaining. Please purchase credits.', 402)
+      const design = { id: designId, user_id, room_type, occasion, description: safeDescription, original_image: hasUserImage ? '[uploaded]' : null, decorated_image: decoratedImageUrl, kit_id: selectedKit?.id || null, kit_name: selectedKit?.name || null, kit_items: kitItems, kit_cost: kitCost, addon_items: addOnItems, addon_cost: addOnCost, items_used: allSelectedItems, total_cost: totalCost, status: 'generated', created_at: new Date() }
       await db.collection('designs').insertOne(design)
       const { _id, ...cleanDesign } = design
-      return ok({ ...cleanDesign, remaining_credits: user.credits - 1, kit_used: kitUsed })
+      return ok({ ...cleanDesign, remaining_credits: creditResult.credits, kit_used: kitUsed })
     }
     if (path[0] === 'designs' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
@@ -620,7 +646,16 @@ async function handleRoute(request, { params }) {
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
-      const finalTotal = total_override ? Math.round(Number(total_override)) : design.total_cost
+      // Validate total_override — must be between 50% and 100% of original total
+      let finalTotal = design.total_cost
+      if (total_override) {
+        const overrideNum = Math.round(Number(total_override))
+        const minAllowed = Math.round(design.total_cost * 0.5)
+        if (overrideNum < minAllowed || overrideNum > design.total_cost) {
+          return err('Invalid total override amount', 400)
+        }
+        finalTotal = overrideNum
+      }
       const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Auto-assign 2 decorators immediately on order creation

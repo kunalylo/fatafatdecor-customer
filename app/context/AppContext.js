@@ -344,7 +344,7 @@ export function AppProvider({ children }) {
     try {
       const data = await api('designs/generate', {
         method: 'POST',
-        body: { user_id: user.id, room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: uploadForm.description, original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
+        body: { user_id: user.id, room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: (uploadForm.description || '').slice(0, 200), original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
       })
       if (data.error) { showToast(data.error, 'error'); navigate(SCREENS.UPLOAD); return }
       setSelectedDesign(data)
@@ -435,7 +435,9 @@ export function AppProvider({ children }) {
         name: 'FatafatDecor', description: type === 'credits' ? `${creditsCount} AI Credits` : 'Decoration Delivery',
         order_id: orderData.razorpay_order_id,
         handler: async (response) => {
-          const verify = await api('payments/verify', { method: 'POST', body: { ...response, payment_id: orderData.payment_id } })
+          let verify = {}
+          try { verify = await api('payments/verify', { method: 'POST', body: { ...response, payment_id: orderData.payment_id } }) }
+          catch (e) { showToast('Payment verification failed. Contact support.', 'error'); setPaymentFailed(true); return }
           if (verify.success) {
             setPaymentFailed(false)
             showToast('Payment successful!', 'success')

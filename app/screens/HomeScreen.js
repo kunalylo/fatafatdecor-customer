@@ -89,9 +89,9 @@ export default function HomeScreen() {
             <span className="text-white font-bold text-sm">{user?.credits || 0}</span>
           </div>
           {user?.role === 'admin' && (
-            <button onClick={() => navigate(SCREENS.ADMIN)} className="bg-white/20 rounded-full p-2">
+            <a href="/admin" className="bg-white/20 rounded-full p-2 flex items-center justify-center">
               <Settings className="w-4 h-4 text-white" />
-            </button>
+            </a>
           )}
         </div>
       </div>

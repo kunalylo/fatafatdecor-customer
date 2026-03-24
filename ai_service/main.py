@@ -26,7 +26,7 @@ app.add_middleware(
 FAL_KEY = os.environ.get("FAL_KEY", "")
 os.environ["FAL_KEY"] = FAL_KEY  # fal_client reads FAL_KEY from env
 
-EMERGENT_API_KEY = os.environ.get("EMERGENT_LLM_KEY", "sk-emergent-e1b3859D8366151216")
+EMERGENT_API_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 EMERGENT_BASE_URL = "https://integrations.emergentagent.com/llm"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 USE_DIRECT_OPENAI = bool(OPENAI_API_KEY)
