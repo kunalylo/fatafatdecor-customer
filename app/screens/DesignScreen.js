@@ -32,7 +32,7 @@ export default function DesignScreen() {
       <div className="px-4 space-y-4">
         {d.decorated_image && (
           <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30">
-            <img src={`data:image/png;base64,${d.decorated_image}`} alt="Decorated" className="w-full" />
+            <img src={d.decorated_image} alt="Decorated" className="w-full" />
           </div>
         )}
 

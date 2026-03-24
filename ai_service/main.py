@@ -113,7 +113,7 @@ async def generate_decoration(req: GenerateRequest):
 async def analyze_decoration(req: AnalyzeRequest):
     """Analyze a decoration photo with GPT-4o-mini vision. Returns item list with INR prices."""
     try:
-        client = get_client()
+        client = get_openai_client()
 
         img_data = req.image_base64
         if ',' in img_data:

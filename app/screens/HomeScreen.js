@@ -139,7 +139,7 @@ export default function HomeScreen() {
               onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}>
               <CardContent className="p-0">
                 {d.decorated_image ? (
-                  <img src={`data:image/png;base64,${d.decorated_image}`} alt="Design" className="w-full h-28 object-cover rounded-t-xl" />
+                  <img src={d.decorated_image} alt="Design" className="w-full h-28 object-cover rounded-t-xl" />
                 ) : (
                   <div className="w-full h-28 bg-pink-50 rounded-t-xl flex items-center justify-center"><Image className="w-8 h-8 text-pink-300" /></div>
                 )}
