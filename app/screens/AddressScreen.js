@@ -134,8 +134,11 @@ export default function AddressScreen() {
     if (window.google?.maps) {
       initMap()
     } else {
+      let retries = 0
       poll = setInterval(() => {
+        retries++
         if (window.google?.maps) { clearInterval(poll); poll = null; initMap() }
+        else if (retries >= 100) { clearInterval(poll); poll = null } // stop after 10s
       }, 100)
     }
 

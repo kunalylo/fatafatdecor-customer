@@ -151,11 +151,14 @@ function normalizeCityName(city) {
   return CITY_ALIASES[trimmed] || trimmed
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 async function isCityAllowed(db, city) {
   if (!city) return false
   const normalized = normalizeCityName(city)
   const cityDoc = await db.collection('allowed_cities').findOne({
-    name: { $regex: new RegExp('^' + normalized + '$', 'i') },
+    name: { $regex: new RegExp('^' + escapeRegex(normalized) + '$', 'i') },
     active: true
   })
   return !!cityDoc
@@ -755,6 +758,7 @@ async function handleRoute(request, { params }) {
 
     if (path[0] === 'payments' && path[1] === 'verify' && method === 'POST') {
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return err('Missing payment fields', 400)
       const generatedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(razorpay_order_id + '|' + razorpay_payment_id).digest('hex')
       if (generatedSig !== razorpay_signature) return err('Payment verification failed', 400)
       const payment = await db.collection('payments').findOne({ razorpay_order_id })

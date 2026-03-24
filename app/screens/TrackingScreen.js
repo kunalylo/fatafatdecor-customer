@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChevronRight, MapPin, Truck, CheckCircle2, Star, User, Phone, Clock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
+import { SCREENS, SUPPORT_PHONE } from '../lib/constants'
 
 export default function TrackingScreen() {
   const { orders, selectedOrder, setSelectedOrder, trackingData, mapRef, mapInstance, navigate } = useApp()
@@ -196,12 +196,12 @@ export default function TrackingScreen() {
                       <p className="font-bold text-sm text-gray-700">Decorator Not Assigned Yet</p>
                       <p className="text-xs text-gray-400">Need help? Contact our support</p>
                     </div>
-                    <a href="tel:6204711205"
+                    <a href={`tel:${SUPPORT_PHONE}`}
                       className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
                       <Phone className="w-5 h-5 text-white" />
                     </a>
                   </div>
-                  <p className="text-xs text-center text-gray-400 mt-3 font-medium">📞 Support: 6204711205</p>
+                  <p className="text-xs text-center text-gray-400 mt-3 font-medium">📞 Support: {SUPPORT_PHONE}</p>
                 </CardContent>
               </Card>
             )}

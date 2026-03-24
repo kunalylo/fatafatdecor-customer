@@ -370,7 +370,7 @@ export function AppProvider({ children }) {
   const handleCreateOrder = async (overrideTotal = null) => {
     if (!selectedDesign) return
     // If delivery address not yet completed, send user to address screen first
-    if (!userAddress?.flat) {
+    if (!userAddress?.flat?.trim()) {
       showToast('Please add your delivery address first', 'error')
       navigate(SCREENS.ADDRESS)
       return
@@ -509,8 +509,12 @@ export function AppProvider({ children }) {
   const loadSlots = async (date) => {
     setSelectedDate(date)
     setSelectedSlotHour(null)
-    const data = await api(`delivery/slots?date=${date}`)
-    if (!data.error) setSlots(data.slots || [])
+    setLoading(true)
+    try {
+      const data = await api(`delivery/slots?date=${date}`)
+      if (!data.error) setSlots(data.slots || [])
+    } catch (e) { /* ignore slot load errors silently */ }
+    finally { setLoading(false) }
   }
 
   // Compress room photo before sending to AI (Fix 6)

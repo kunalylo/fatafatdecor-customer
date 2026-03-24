@@ -25,6 +25,8 @@ export const CREDIT_PACKAGES = [
   { credits: 10, price: 950, label: '10 Credits' }
 ]
 
+export const SUPPORT_PHONE = '6204711205'
+
 export const api = async (path, opts = {}) => {
   const res = await fetch(`/api/${path}`, {
     headers: { 'Content-Type': 'application/json' },
