@@ -41,7 +41,7 @@ function getImageKitFolder(budget_min, budget_max) {
   const avg = (Number(budget_min) + Number(budget_max)) / 2
   if (avg <= 5000)  return 'dataset/3-5k'
   if (avg <= 10000) return 'dataset/5-10k'
-  if (avg <= 20000) return 'dataset/5-10k'
+  if (avg <= 20000) return 'dataset/10-20k'
   if (avg <= 30000) return 'dataset/20-30k'
   if (avg <= 50000) return 'dataset/30-50k'
   return 'dataset/50k-above'
@@ -179,6 +179,8 @@ async function handleRoute(request, { params }) {
       const body = await request.json()
       const { name, email, phone, password, role } = body
       if (!name || !email || !password) return err('Name, email, password required')
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('Invalid email format')
+      if (password.length < 6) return err('Password must be at least 6 characters')
       const existing = await db.collection('users').findOne({ email })
       if (existing) return err('Email already registered')
       const user = {
@@ -218,7 +220,7 @@ async function handleRoute(request, { params }) {
         {
           $set: { phone, name, otp_hash: hashOtp(otp), expires_at: expiresAt, updated_at: new Date() },
           $inc: { otp_count: 1 },
-          $setOnInsert: { created_at: new Date(), otp_count: 0 }
+          $setOnInsert: { created_at: new Date() }
         },
         { upsert: true }
       )
@@ -240,15 +242,18 @@ async function handleRoute(request, { params }) {
       if (!phone || !email || !password) return err('Phone, email, and password required')
 
       // Firebase already verified OTP on the client — skip our own OTP check
+      let otpDoc = null
       if (!firebase_verified) {
         if (!otp) return err('OTP required')
-        const otpDoc = await db.collection('signup_otps').findOne({ phone })
+        otpDoc = await db.collection('signup_otps').findOne({ phone })
         if (!otpDoc) return err('Please request OTP first', 404)
         if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
           await db.collection('signup_otps').deleteOne({ phone })
           return err('OTP expired. Please request a new OTP', 410)
         }
-        if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
+        const expectedHash = Buffer.from(hashOtp(otp), 'hex')
+        const actualHash = Buffer.from(otpDoc.otp_hash, 'hex')
+        if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) return err('Invalid OTP', 401)
       }
 
       const existing = await db.collection('users').findOne({ email })
@@ -256,7 +261,7 @@ async function handleRoute(request, { params }) {
 
       const user = {
         id: uuidv4(),
-        name: name || otpDoc.name,
+        name: name || (otpDoc?.name) || 'User',
         email,
         phone,
         password: hashPwd(password),
@@ -278,8 +283,23 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'auth' && path[1] === 'login' && method === 'POST') {
       const { email, password } = await request.json()
       if (!email || !password) return err('Email and password required')
+      // Rate limit: max 10 failed login attempts per email per 15 minutes
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
+      const loginAttempts = await db.collection('login_attempts').findOne({ email })
+      if (loginAttempts && loginAttempts.count >= 10 && new Date(loginAttempts.updated_at) > fifteenMinAgo) {
+        return err('Too many login attempts. Please wait 15 minutes.', 429)
+      }
       const user = await db.collection('users').findOne({ email, password: hashPwd(password) })
-      if (!user) return err('Invalid credentials', 401)
+      if (!user) {
+        await db.collection('login_attempts').updateOne(
+          { email },
+          { $inc: { count: 1 }, $set: { updated_at: new Date() }, $setOnInsert: { created_at: new Date() } },
+          { upsert: true }
+        )
+        return err('Invalid credentials', 401)
+      }
+      // Success — clear attempt counter
+      await db.collection('login_attempts').deleteOne({ email })
       const { password: _, _id, ...safeUser } = user
       return ok(safeUser)
     }
@@ -317,7 +337,9 @@ async function handleRoute(request, { params }) {
         await db.collection('login_otps').deleteOne({ phone: cleanPhone })
         return err('OTP expired. Please request a new OTP', 410)
       }
-      if (otpDoc.otp_hash !== hashOtp(otp)) return err('Invalid OTP', 401)
+      const expectedLoginHash = Buffer.from(hashOtp(otp), 'hex')
+      const actualLoginHash = Buffer.from(otpDoc.otp_hash, 'hex')
+      if (expectedLoginHash.length !== actualLoginHash.length || !crypto.timingSafeEqual(expectedLoginHash, actualLoginHash)) return err('Invalid OTP', 401)
       await db.collection('login_otps').deleteOne({ phone: cleanPhone })
       const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
       if (!user) return err('User not found', 404)
@@ -335,6 +357,11 @@ async function handleRoute(request, { params }) {
       await db.collection('users').deleteOne({ id: user.id })
       await db.collection('orders').deleteMany({ user_id: user.id })
       await db.collection('designs').deleteMany({ user_id: user.id })
+      const cleanPhone = user.phone?.replace(/\D/g, '').slice(-10)
+      if (cleanPhone) {
+        await db.collection('signup_otps').deleteMany({ phone: { $in: [user.phone, cleanPhone] } })
+        await db.collection('login_otps').deleteMany({ phone: { $in: [user.phone, cleanPhone] } })
+      }
       return ok({ success: true, message: 'Account deleted successfully' })
     }
 
@@ -637,7 +664,7 @@ async function handleRoute(request, { params }) {
       const url = new URL(request.url)
       const user_id = url.searchParams.get('user_id')
       if (!user_id) return err('user_id required')
-      const designs = await db.collection('designs').find({ user_id }).sort({ created_at: -1 }).toArray()
+      const designs = await db.collection('designs').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
       return ok(designs.map(({ _id, ...d }) => d))
     }
     if (path[0] === 'designs' && path[1] && path[1] !== 'generate' && method === 'GET') {
@@ -691,7 +718,7 @@ async function handleRoute(request, { params }) {
       const url = new URL(request.url)
       const user_id = url.searchParams.get('user_id')
       if (!user_id) return err('user_id required')
-      const orders = await db.collection('orders').find({ user_id }).sort({ created_at: -1 }).toArray()
+      const orders = await db.collection('orders').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
       return ok(orders.map(({ _id, ...o }) => o))
     }
     if (path[0] === 'orders' && path[1] && method === 'GET') {
@@ -701,8 +728,11 @@ async function handleRoute(request, { params }) {
     }
     // Save requested delivery slot (without booking — awaiting decorator acceptance)
     if (path[0] === 'orders' && path[2] === 'request-slot' && method === 'POST') {
-      const { date, hour } = await request.json()
-      if (!date || hour === undefined) return err('date and hour required')
+      const { date, hour, user_id } = await request.json()
+      if (!date || hour === undefined || !user_id) return err('date, hour, user_id required')
+      const slotOrder = await db.collection('orders').findOne({ id: path[1] })
+      if (!slotOrder) return err('Order not found', 404)
+      if (slotOrder.user_id !== user_id) return err('Not authorized', 403)
       await db.collection('orders').updateOne({ id: path[1] }, { $set: { requested_slot: { date, hour }, delivery_status: 'pending' } })
       return ok({ success: true })
     }
@@ -848,8 +878,14 @@ async function handleRoute(request, { params }) {
       return ok({ order_id: order.id, delivery_status: order.delivery_status, delivery_slot: order.delivery_slot, delivery_person: dp ? { name: dp.name, phone: dp.phone } : null, assigned_decorators: assignedInfo, delivery_location: dp?.current_location || null, user_location: order.delivery_location || null, verification_otp: order.verification_otp || null, otp_verified: order.otp_verified || false })
     }
     if (path[0] === 'delivery' && path[1] === 'status' && method === 'POST') {
-      const { order_id, status } = await request.json()
-      if (!order_id || !status) return err('order_id, status required')
+      const { order_id, status, dp_id } = await request.json()
+      if (!order_id || !status || !dp_id) return err('order_id, status, dp_id required')
+      const VALID_STATUSES = ['pending', 'assigned', 'en_route', 'arrived', 'decorating', 'delivered', 'cancelled']
+      if (!VALID_STATUSES.includes(status)) return err('Invalid status', 400)
+      const authOrder = await db.collection('orders').findOne({ id: order_id })
+      if (!authOrder) return err('Order not found', 404)
+      const isAssigned = (authOrder.accepted_decorators || []).includes(dp_id) || authOrder.delivery_person_id === dp_id
+      if (!isAssigned) return err('Not authorized to update this order', 403)
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_status: status } })
       return ok({ success: true })
     }
@@ -925,21 +961,36 @@ async function handleRoute(request, { params }) {
       const dpId = path[2]; const today = new Date().toISOString().split('T')[0]
       const dp = await db.collection('delivery_persons').findOne({ id: dpId })
       if (!dp) return err('Delivery person not found', 404)
-      const todayOrders = await db.collection('orders').find({ delivery_person_id: dpId, 'delivery_slot.date': today }).sort({ 'delivery_slot.hour': 1 }).toArray()
-      const allActiveOrders = await db.collection('orders').find({ delivery_person_id: dpId, delivery_status: { $in: ['assigned', 'in_transit', 'decorating'] } }).toArray()
+      const todayOrders = await db.collection('orders').find({
+        $or: [{ accepted_decorators: dpId }, { delivery_person_id: dpId }],
+        'delivery_slot.date': today
+      }).sort({ 'delivery_slot.hour': 1 }).toArray()
+      const allActiveOrders = await db.collection('orders').find({
+        $or: [{ accepted_decorators: dpId }, { delivery_person_id: dpId }],
+        delivery_status: { $in: ['assigned', 'en_route', 'arrived', 'decorating'] }
+      }).toArray()
+      const pendingOrders = await db.collection('orders').find({
+        assigned_decorators: dpId,
+        accepted_decorators: { $not: { $elemMatch: { $eq: dpId } } },
+        $expr: { $lt: [{ $size: { $ifNull: ['$accepted_decorators', []] } }, 2] }
+      }).sort({ created_at: -1 }).toArray()
       const { _id, password: _, ...safeDp } = dp
-      return ok({ delivery_person: safeDp, today_orders: todayOrders.map(({ _id, ...o }) => o), active_orders: allActiveOrders.map(({ _id, ...o }) => o), date: today })
+      return ok({ delivery_person: safeDp, today_orders: todayOrders.map(({ _id, ...o }) => o), active_orders: allActiveOrders.map(({ _id, ...o }) => o), pending_orders: pendingOrders.map(({ _id, ...o }) => o), date: today })
     }
     if (path[0] === 'dp' && path[1] === 'calendar' && path[2] && method === 'GET') {
       const dpId = path[2]; const url = new URL(request.url); const month = url.searchParams.get('month') || new Date().toISOString().slice(0, 7)
       const dp = await db.collection('delivery_persons').findOne({ id: dpId })
       if (!dp) return err('Delivery person not found', 404)
-      const orders = await db.collection('orders').find({ delivery_person_id: dpId, 'delivery_slot.date': { $regex: `^${month}` } }).sort({ 'delivery_slot.date': 1, 'delivery_slot.hour': 1 }).toArray()
+      const orders = await db.collection('orders').find({
+        $or: [{ accepted_decorators: dpId }, { delivery_person_id: dpId }],
+        'delivery_slot.date': { $regex: `^${month}` }
+      }).sort({ 'delivery_slot.date': 1, 'delivery_slot.hour': 1 }).toArray()
       return ok({ month, schedule: dp.schedule || {}, orders: orders.map(({ _id, ...o }) => o) })
     }
     if (path[0] === 'dp' && path[1] === 'orders' && path[2] && method === 'GET') {
       const dpId = path[2]; const url = new URL(request.url); const status = url.searchParams.get('status')
-      const query = { delivery_person_id: dpId }; if (status) query.delivery_status = status
+      const query = { $or: [{ accepted_decorators: dpId }, { delivery_person_id: dpId }] }
+      if (status) query.delivery_status = status
       const orders = await db.collection('orders').find(query).sort({ created_at: -1 }).toArray()
       return ok(orders.map(({ _id, ...o }) => o))
     }
@@ -955,37 +1006,51 @@ async function handleRoute(request, { params }) {
       if (!order_id || !dp_id || !face_image) return err('order_id, dp_id, face_image required')
       const dp = await db.collection('delivery_persons').findOne({ id: dp_id })
       if (!dp) return err('Delivery person not found', 404)
+      const fsOrder = await db.collection('orders').findOne({ id: order_id })
+      if (!fsOrder) return err('Order not found', 404)
+      const fsAssigned = (fsOrder.accepted_decorators || []).includes(dp_id) || fsOrder.delivery_person_id === dp_id
+      if (!fsAssigned) return err('Not authorized for this order', 403)
       await db.collection('orders').updateOne({ id: order_id }, { $set: { face_scan: { dp_id, dp_name: dp.name, image: face_image, scanned_at: new Date() }, delivery_status: 'arrived' } })
       return ok({ success: true, dp_name: dp.name })
     }
     if (path[0] === 'dp' && path[1] === 'verify-otp' && method === 'POST') {
-      const { order_id, otp } = await request.json()
-      if (!order_id || !otp) return err('order_id, otp required')
+      const { order_id, otp, dp_id } = await request.json()
+      if (!order_id || !otp || !dp_id) return err('order_id, otp, dp_id required')
       const order = await db.collection('orders').findOne({ id: order_id })
       if (!order) return err('Order not found', 404)
-      if (order.verification_otp !== otp) return err('Invalid OTP', 401)
+      const votAssigned = (order.accepted_decorators || []).includes(dp_id) || order.delivery_person_id === dp_id
+      if (!votAssigned) return err('Not authorized for this order', 403)
+      if (!order.verification_otp) return err('OTP not yet generated', 400)
+      const expectedOtp = Buffer.from(String(order.verification_otp))
+      const actualOtp = Buffer.from(String(otp))
+      if (expectedOtp.length !== actualOtp.length || !crypto.timingSafeEqual(expectedOtp, actualOtp)) return err('Invalid OTP', 401)
       const startTime = new Date()
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_status: 'decorating', decoration_started_at: startTime, otp_verified: true } })
       return ok({ success: true, started_at: startTime })
     }
     if (path[0] === 'dp' && path[1] === 'complete' && method === 'POST') {
-      const { order_id } = await request.json()
-      if (!order_id) return err('order_id required')
+      const { order_id, dp_id } = await request.json()
+      if (!order_id || !dp_id) return err('order_id, dp_id required')
+      const compOrder = await db.collection('orders').findOne({ id: order_id })
+      if (!compOrder) return err('Order not found', 404)
+      const compAssigned = (compOrder.accepted_decorators || []).includes(dp_id) || compOrder.delivery_person_id === dp_id
+      if (!compAssigned) return err('Not authorized for this order', 403)
       const completedAt = new Date()
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_status: 'delivered', decoration_completed_at: completedAt } })
-      // SMS: decoration complete
-      const doneOrder = await db.collection('orders').findOne({ id: order_id })
-      if (doneOrder) {
-        const doneUser = await db.collection('users').findOne({ id: doneOrder.user_id })
-        if (doneUser?.phone) {
-          await sendWhatsApp(doneUser.phone, `FatafatDecor: Your decoration is complete! We hope you love it. Enjoy your celebration! Thank you for choosing FatafatDecor. -FatafatDecor`)
-        }
+      await db.collection('delivery_persons').updateOne({ id: dp_id }, { $inc: { total_deliveries: 1 } })
+      const doneUser = await db.collection('users').findOne({ id: compOrder.user_id })
+      if (doneUser?.phone) {
+        await sendWhatsApp(doneUser.phone, `FatafatDecor: Your decoration is complete! We hope you love it. Enjoy your celebration! Thank you for choosing FatafatDecor. -FatafatDecor`)
       }
       return ok({ success: true, completed_at: completedAt })
     }
     if (path[0] === 'dp' && path[1] === 'collect-payment' && method === 'POST') {
       const { order_id, dp_id, amount, method: payMethod, notes } = await request.json()
       if (!order_id || !dp_id || !amount) return err('order_id, dp_id, amount required')
+      const cpOrder = await db.collection('orders').findOne({ id: order_id })
+      if (!cpOrder) return err('Order not found', 404)
+      const cpAssigned = (cpOrder.accepted_decorators || []).includes(dp_id) || cpOrder.delivery_person_id === dp_id
+      if (!cpAssigned) return err('Not authorized for this order', 403)
       const collection = { id: uuidv4(), order_id, dp_id, amount: Number(amount), method: payMethod || 'cash', notes: notes || '', deposited: false, created_at: new Date() }
       await db.collection('dp_collections').insertOne(collection)
       await db.collection('orders').updateOne({ id: order_id }, { $set: { payment_status: 'full', remaining_collected: true, collection_method: payMethod || 'cash' } })
@@ -1009,8 +1074,12 @@ async function handleRoute(request, { params }) {
       return ok({ total_collected: totalCollected, cash_collected: cashCollected, cash_deposited: cashDeposited, cash_pending: cashCollected - cashDeposited, recent_collections: collections.slice(0, 20).map(({ _id, ...c }) => c), recent_deposits: deposits.slice(0, 10).map(({ _id, ...d }) => d) })
     }
     if (path[0] === 'dp' && path[1] === 'update-status' && method === 'POST') {
-      const { order_id, status, notes } = await request.json()
-      if (!order_id || !status) return err('order_id, status required')
+      const { order_id, status, notes, dp_id } = await request.json()
+      if (!order_id || !status || !dp_id) return err('order_id, status, dp_id required')
+      const usOrder = await db.collection('orders').findOne({ id: order_id })
+      if (!usOrder) return err('Order not found', 404)
+      const usAssigned = (usOrder.accepted_decorators || []).includes(dp_id) || usOrder.delivery_person_id === dp_id
+      if (!usAssigned) return err('Not authorized for this order', 403)
       const update = { delivery_status: status }
       if (status === 'en_route') update.en_route_at = new Date()
       if (status === 'arrived') update.arrived_at = new Date()

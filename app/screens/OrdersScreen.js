@@ -23,7 +23,7 @@ export default function OrdersScreen() {
         <Card key={o.id} className="border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => {
             setSelectedOrder(o)
-            if (o.delivery_status === 'assigned' || o.delivery_status === 'in_transit') navigate(SCREENS.TRACKING)
+            if (['assigned', 'en_route', 'arrived', 'decorating'].includes(o.delivery_status)) navigate(SCREENS.TRACKING)
             else if (o.payment_status === 'pending') navigate(SCREENS.BOOKING)
             else navigate(SCREENS.ORDER_DETAIL)
           }}>
@@ -36,7 +36,7 @@ export default function OrdersScreen() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-pink-500 flex items-center justify-end"><IndianRupee className="w-3 h-3" />{o.total_cost}</p>
-                <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'in_transit' ? 'bg-blue-100 text-blue-600' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{o.delivery_status}</Badge>
+                <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'en_route' ? 'bg-blue-100 text-blue-600' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{o.delivery_status}</Badge>
               </div>
             </div>
           </CardContent>

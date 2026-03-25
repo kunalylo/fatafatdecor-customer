@@ -38,6 +38,7 @@ export function AppProvider({ children }) {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
   const prevTrackingRef = useRef(null)
+  const ordersRef = useRef([])
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -86,13 +87,17 @@ export function AppProvider({ children }) {
     }
   }, [user])
 
+  // Keep ordersRef in sync to avoid stale closure in poll
+  useEffect(() => { ordersRef.current = orders }, [orders])
+
   // Background orders poll every 15s — refresh list + detect status changes (Fix 2 & 5)
   useEffect(() => {
     if (!user) return
     const poll = setInterval(() => {
-      // Only poll if there are active (non-delivered) orders
-      const hasActiveOrders = orders.some(o => !['delivered', 'cancelled'].includes(o.delivery_status))
-      if (!hasActiveOrders && orders.length > 0) return
+      // Only poll if there are active (non-delivered) orders — use ref to avoid stale closure
+      const currentOrders = ordersRef.current
+      const hasActiveOrders = currentOrders.some(o => !['delivered', 'cancelled'].includes(o.delivery_status))
+      if (!hasActiveOrders && currentOrders.length > 0) return
       api(`orders?user_id=${user.id}`).then(freshOrders => {
         if (freshOrders.error) return
         setOrders(prev => {
@@ -301,23 +306,25 @@ export function AppProvider({ children }) {
   }
 
   const handleSendSignupOtp = async () => {
-    if (!authForm.name) { showToast('Enter your full name', 'error'); return }
+    if (!authForm.name) { showToast('Enter your full name', 'error'); return false }
     const cleanPhone = authForm.phone.replace(/\D/g, '')
-    if (!/^\d{10}$/.test(cleanPhone)) { showToast('Enter a valid 10-digit phone number', 'error'); return }
+    if (!/^\d{10}$/.test(cleanPhone)) { showToast('Enter a valid 10-digit phone number', 'error'); return false }
     setLoading(true)
     try {
       const data = await api('auth/send-signup-otp', {
         method: 'POST',
         body: { name: authForm.name, phone: cleanPhone }
       })
-      if (data.error) { showToast(data.error, 'error'); return }
+      if (data.error) { showToast(data.error, 'error'); return false }
       setSignupOtpSent(true)
       setSignupOtpValue('')
       if (data.dev_otp) setDevOtp(data.dev_otp)
       else setDevOtp('')
       showToast('OTP sent to your phone!', 'success')
+      return true
     } catch (e) {
       showToast('Failed to send OTP. Try again.', 'error')
+      return false
     }
     finally { setLoading(false) }
   }
@@ -388,16 +395,10 @@ export function AppProvider({ children }) {
             setLoading(false); return
           }
         } else {
-          // Location not yet detected — ask user to pick city
-          const citiesData = await api('cities')
-          const cityNames = (citiesData || []).map(c => c.name)
-          const userCity = window.prompt('Please enter your city to proceed.\nAvailable cities: ' + cityNames.join(', '))
-          if (!userCity) { showToast('City required to place order.', 'error'); setLoading(false); return }
-          const cityCheck = await api('city-check', { method: 'POST', body: { city: userCity.trim() } })
-          if (!cityCheck.allowed) {
-            showToast('Sorry! We currently only serve: ' + (cityCheck.active_cities?.join(', ') || 'selected cities'), 'error')
-            setLoading(false); return
-          }
+          // Location not yet detected — show address modal to get city
+          showToast('Please add your delivery address with city to proceed.', 'error')
+          navigate(SCREENS.ADDRESS)
+          setLoading(false); return
         }
       }
       // Build full delivery address for decorator navigation
@@ -458,7 +459,7 @@ export function AppProvider({ children }) {
               // Save requested slot to order — decorator will accept and confirm
               const slotDate = selectedDate
               const slotHour = selectedSlotHour
-              await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour } })
+              await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour, user_id: user.id } })
               setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount, delivery_status: 'pending', requested_slot: { date: slotDate, hour: slotHour } }))
               showToast('Payment done! Waiting for a decorator to accept your booking.', 'success')
               navigate(SCREENS.TRACKING)
