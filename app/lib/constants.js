@@ -1,5 +1,9 @@
 'use client'
 
+const IK = 'https://ik.imagekit.io/jcp2urr7b'
+export const LOGO_URL  = `${IK}/branding/logo.png`
+export const ICON_URL  = `${IK}/branding/icon-512.png`
+
 export const SCREENS = {
   AUTH: 'auth', HOME: 'home', UPLOAD: 'upload', GENERATING: 'generating',
   DESIGN: 'design', BOOKING: 'booking', TRACKING: 'tracking', CREDITS: 'credits',
@@ -28,10 +32,15 @@ export const CREDIT_PACKAGES = [
 export const SUPPORT_PHONE = '6204711205'
 
 export const api = async (path, opts = {}) => {
-  const res = await fetch(`/api/${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-    body: opts.body ? JSON.stringify(opts.body) : undefined
-  })
-  return res.json()
+  try {
+    const res = await fetch(`/api/${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    })
+    return res.json()
+  } catch (e) {
+    console.error(`API error [${path}]:`, e.message)
+    return { error: 'Network error. Please check your connection.' }
+  }
 }

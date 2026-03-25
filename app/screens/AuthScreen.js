@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { LOGO_URL } from '../lib/constants'
 
 export default function AuthScreen() {
   const {
@@ -19,7 +20,8 @@ export default function AuthScreen() {
 
   const handleSendOtpWithCooldown = async () => {
     if (otpCooldown > 0) return
-    await handleSendSignupOtp()
+    const success = await handleSendSignupOtp()
+    if (!success) return
     setOtpCooldown(60)
     cooldownRef.current = setInterval(() => {
       setOtpCooldown(prev => {
@@ -35,7 +37,7 @@ export default function AuthScreen() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 fade-in">
       <div className="mb-8 text-center">
         <div className="w-40 h-40 rounded-full overflow-hidden mx-auto mb-2 shadow-xl">
-          <img src="/logo.png" alt="FatafatDecor" className="w-full h-full object-cover" />
+          <img src={LOGO_URL} alt="FatafatDecor" className="w-full h-full object-cover" />
         </div>
         <p className="text-gray-400 text-sm">Instant Decoration at Your Doorstep</p>
       </div>

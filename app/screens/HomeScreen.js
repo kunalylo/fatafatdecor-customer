@@ -3,7 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
+import { SCREENS, LOGO_URL } from '../lib/constants'
 
 export default function HomeScreen() {
   const {
@@ -76,7 +76,7 @@ export default function HomeScreen() {
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-            <img src="/logo.png" alt="FatafatDecor" className="w-full h-full object-cover" />
+            <img src={LOGO_URL} alt="FatafatDecor" className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="text-white/70 text-xs">Welcome back</p>

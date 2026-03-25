@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, createContext, useContext, useMemo } from 'react'
-import { SCREENS, BUDGET_BRACKETS, api } from '../lib/constants'
+import { SCREENS, BUDGET_BRACKETS, api, LOGO_URL } from '../lib/constants'
 
 export const AppContext = createContext({})
 export const useApp = () => useContext(AppContext)
@@ -108,20 +108,20 @@ export function AppProvider({ children }) {
               if (oldOrder && oldOrder.delivery_status === 'pending' && newOrder.delivery_status === 'assigned') {
                 new Notification('FatafatDecor 🎉', {
                   body: 'A decorator has accepted your order! Tap to track.',
-                  icon: '/logo.png',
-                  badge: '/logo.png',
+                  icon: LOGO_URL,
+                  badge: LOGO_URL,
                 })
               }
               if (oldOrder && oldOrder.delivery_status === 'assigned' && newOrder.delivery_status === 'en_route') {
                 new Notification('FatafatDecor 🚗', {
                   body: 'Your decorator is on the way!',
-                  icon: '/logo.png',
+                  icon: LOGO_URL,
                 })
               }
               if (oldOrder && newOrder.delivery_status === 'delivered' && oldOrder.delivery_status !== 'delivered') {
                 new Notification('FatafatDecor ✅', {
                   body: 'Decoration complete! Hope you love it 🎊',
-                  icon: '/logo.png',
+                  icon: LOGO_URL,
                 })
               }
             })
@@ -150,7 +150,7 @@ export function AppProvider({ children }) {
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
         new Notification('FatafatDecor 🎉', {
           body: `${trackingData.delivery_person.name} has accepted your order!`,
-          icon: '/logo.png',
+          icon: LOGO_URL,
         })
       }
     }
