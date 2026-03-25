@@ -662,24 +662,28 @@ async function handleRoute(request, { params }) {
         }
         finalTotal = overrideNum
       }
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], created_at: new Date() }
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
-      // Auto-assign 2 decorators immediately on order creation
+      // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
-      const assigned = availablePersons.slice(0, 2)
-      if (assigned.length > 0) {
-        const assignedIds = assigned.map(p => p.id)
-        const assignedInfo = assigned.map(p => ({ id: p.id, name: p.name, phone: p.phone }))
-        await db.collection('orders').updateOne({ id: order.id }, { $set: { assigned_decorators: assignedIds, assigned_decorators_info: assignedInfo, delivery_status: 'assigned' } })
+      if (availablePersons.length > 0) {
+        const assignedIds = availablePersons.map(p => p.id)
+        const assignedInfo = availablePersons.map(p => ({ id: p.id, name: p.name, phone: p.phone }))
+        await db.collection('orders').updateOne({ id: order.id }, { $set: { assigned_decorators: assignedIds, assigned_decorators_info: assignedInfo } })
         order.assigned_decorators = assignedIds
         order.assigned_decorators_info = assignedInfo
-        order.delivery_status = 'assigned'
+        // WhatsApp notification to every active decorator
+        for (const dp of availablePersons) {
+          if (dp.phone) {
+            await sendWhatsApp(dp.phone, `FatafatDecor NEW ORDER #${order.id.slice(0,8)}: ${order.delivery_address || 'Address not set'}. Amount: Rs.${order.total_cost}. Open your decorator app now to accept! -FatafatDecor`)
+          }
+        }
       }
       await db.collection('designs').updateOne({ id: design_id }, { $set: { status: 'ordered' } })
-      // SMS: order placed
+      // WhatsApp: order placed confirmation to customer
       const orderUser = await db.collection('users').findOne({ id: user_id })
       if (orderUser?.phone) {
-        await sendWhatsApp(orderUser.phone, `FatafatDecor: Your decoration order has been placed successfully! Total: Rs.${order.total_cost}. We will assign a decorator shortly. -FatafatDecor`)
+        await sendWhatsApp(orderUser.phone, `FatafatDecor: Your decoration order has been placed successfully! Total: Rs.${order.total_cost}. Decorators are being assigned. -FatafatDecor`)
       }
       const { _id, ...clean } = order; return ok(clean)
     }
