@@ -279,7 +279,7 @@ export function AppProvider({ children }) {
           })
           if (data.error) { showToast(data.error, 'error'); return }
           setUser(data)
-          try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
+          try { localStorage.setItem('fd_user', JSON.stringify(data)); if (data.token) localStorage.setItem('fd_token', data.token) } catch {}
           showToast(`Welcome, ${data.name}!`, 'success')
           navigate(SCREENS.HOME)
         }
@@ -298,7 +298,7 @@ export function AppProvider({ children }) {
       const data = await api(endpoint, { method: 'POST', body })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
-      try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
+      try { localStorage.setItem('fd_user', JSON.stringify(data)); if (data.token) localStorage.setItem('fd_token', data.token) } catch {}
       showToast(`Welcome${authMode === 'login' ? ' back' : ''}, ${data.name}!`, 'success')
       navigate(SCREENS.HOME)
     } catch (e) { showToast('Something went wrong', 'error') }
@@ -341,7 +341,7 @@ export function AppProvider({ children }) {
       })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
-      try { localStorage.setItem('fd_user', JSON.stringify(data)) } catch {}
+      try { localStorage.setItem('fd_user', JSON.stringify(data)); if (data.token) localStorage.setItem('fd_token', data.token) } catch {}
       setSignupOtpSent(false)
       setSignupOtpValue('')
       showToast('Account created! Welcome!', 'success')
@@ -492,7 +492,7 @@ export function AppProvider({ children }) {
     setSelectedDesign(null)
     setSelectedOrder(null)
     setScreen(SCREENS.AUTH)
-    try { localStorage.removeItem('fd_user') } catch {}
+    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token') } catch {}
   }, [])
 
   const handleBookSlot = async () => {

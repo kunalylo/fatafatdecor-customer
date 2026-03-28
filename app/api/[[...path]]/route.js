@@ -31,6 +31,7 @@ import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { signToken, getUserIdFromRequest } from '../../lib/jwt'
 
 let client, db
 
@@ -192,7 +193,8 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('users').insertOne(user)
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
+      const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
+      return ok({ ...safeUser, token })
     }
 
     if (path[0] === 'auth' && path[1] === 'send-signup-otp' && method === 'POST') {
@@ -277,7 +279,8 @@ async function handleRoute(request, { params }) {
       await db.collection('users').insertOne(user)
       await db.collection('signup_otps').deleteOne({ phone })
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
+      const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
+      return ok({ ...safeUser, token })
     }
     
     if (path[0] === 'auth' && path[1] === 'login' && method === 'POST') {
@@ -301,7 +304,8 @@ async function handleRoute(request, { params }) {
       // Success — clear attempt counter
       await db.collection('login_attempts').deleteOne({ email })
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
+      const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
+      return ok({ ...safeUser, token })
     }
 
     // ---- Phone OTP Login ----
@@ -344,7 +348,8 @@ async function handleRoute(request, { params }) {
       const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
       if (!user) return err('User not found', 404)
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
+      const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
+      return ok({ ...safeUser, token })
     }
 
     // ====== DELETE ACCOUNT ======
@@ -385,7 +390,8 @@ async function handleRoute(request, { params }) {
         user = { ...user, google_id, photo_url }
       }
       const { password: _, _id, ...safeUser } = user
-      return ok(safeUser)
+      const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
+      return ok({ ...safeUser, token })
     }
 
     // ====== CITIES MANAGEMENT ======
@@ -521,7 +527,9 @@ async function handleRoute(request, { params }) {
 
     // ====== DESIGNS ======
     if (path[0] === 'designs' && path[1] === 'generate' && method === 'POST') {
-      const { user_id, room_type, occasion, description, original_image, budget_min, budget_max } = await request.json()
+      const body = await request.json()
+      const { room_type, occasion, description, original_image, budget_min, budget_max } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!user_id || !room_type || !occasion) return err('user_id, room_type, occasion required')
       // Validate room_type and occasion against allowed values
       const VALID_ROOM_TYPES = ['Dining Room', 'Living Room', 'Bedroom', 'Balcony', 'Garden', 'Hall', 'Office', 'Terrace']
@@ -662,7 +670,7 @@ async function handleRoute(request, { params }) {
     }
     if (path[0] === 'designs' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
-      const user_id = url.searchParams.get('user_id')
+      const user_id = await getUserIdFromRequest(request, url.searchParams.get('user_id'))
       if (!user_id) return err('user_id required')
       const designs = await db.collection('designs').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
       return ok(designs.map(({ _id, ...d }) => d))
@@ -675,7 +683,9 @@ async function handleRoute(request, { params }) {
 
     // ====== ORDERS ======
     if (path[0] === 'orders' && !path[1] && method === 'POST') {
-      const { user_id, design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng, total_override } = await request.json()
+      const body = await request.json()
+      const { design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng, total_override } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
@@ -716,7 +726,7 @@ async function handleRoute(request, { params }) {
     }
     if (path[0] === 'orders' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
-      const user_id = url.searchParams.get('user_id')
+      const user_id = await getUserIdFromRequest(request, url.searchParams.get('user_id'))
       if (!user_id) return err('user_id required')
       const orders = await db.collection('orders').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
       return ok(orders.map(({ _id, ...o }) => o))
@@ -728,7 +738,9 @@ async function handleRoute(request, { params }) {
     }
     // Save requested delivery slot (without booking — awaiting decorator acceptance)
     if (path[0] === 'orders' && path[2] === 'request-slot' && method === 'POST') {
-      const { date, hour, user_id } = await request.json()
+      const body = await request.json()
+      const { date, hour } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!date || hour === undefined || !user_id) return err('date, hour, user_id required')
       const slotOrder = await db.collection('orders').findOne({ id: path[1] })
       if (!slotOrder) return err('Order not found', 404)
@@ -739,7 +751,9 @@ async function handleRoute(request, { params }) {
 
     // ====== PAYMENTS ======
     if (path[0] === 'payments' && path[1] === 'create-order' && method === 'POST') {
-      const { type, amount, user_id, order_id, credits_count } = await request.json()
+      const body = await request.json()
+      const { type, amount, order_id, credits_count } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!type || !amount || !user_id) return err('type, amount, user_id required')
       try {
         const Razorpay = (await import('razorpay')).default
@@ -918,7 +932,9 @@ async function handleRoute(request, { params }) {
 
     // ====== USER LOCATION ======
     if (path[0] === 'user' && path[1] === 'location' && method === 'POST') {
-      const { user_id, lat, lng } = await request.json()
+      const body = await request.json()
+      const { lat, lng } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!user_id) return err('user_id required')
       await db.collection('users').updateOne({ id: user_id }, { $set: { location: { lat, lng, updated_at: new Date() } } })
       return ok({ success: true })

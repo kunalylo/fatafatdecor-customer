@@ -33,8 +33,11 @@ export const SUPPORT_PHONE = '6204711205'
 
 export const api = async (path, opts = {}) => {
   try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
     const res = await fetch(`/api/${path}`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       ...opts,
       body: opts.body ? JSON.stringify(opts.body) : undefined
     })
