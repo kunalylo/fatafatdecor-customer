@@ -761,7 +761,7 @@ async function handleRoute(request, { params }) {
         const rzpOrder = await rzp.orders.create({ amount: Math.round(amount * 100), currency: 'INR', receipt: `${type}_${uuidv4().slice(0, 8)}` })
         const payment = { id: uuidv4(), type, user_id, order_id: order_id || null, credits_count: credits_count || 0, amount, razorpay_order_id: rzpOrder.id, status: 'created', created_at: new Date() }
         await db.collection('payments').insertOne(payment)
-        return ok({ razorpay_order_id: rzpOrder.id, amount: rzpOrder.amount, currency: 'INR', payment_id: payment.id })
+        return ok({ razorpay_order_id: rzpOrder.id, amount: rzpOrder.amount, currency: 'INR', payment_id: payment.id, razorpay_key_id: process.env.RAZORPAY_KEY_ID })
       } catch (e) { return err('Payment creation failed: ' + e.message, 500) }
     }
     // Payment failure — mark payment as failed so it's visible in DB
