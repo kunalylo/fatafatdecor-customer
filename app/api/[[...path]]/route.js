@@ -352,6 +352,60 @@ async function handleRoute(request, { params }) {
       return ok({ ...safeUser, token })
     }
 
+    // ---- Forgot Password — Send OTP ----
+    if (path[0] === 'auth' && path[1] === 'forgot-otp' && method === 'POST') {
+      const { identifier } = await request.json()
+      if (!identifier) return err('Email or phone number required')
+      let user
+      if (identifier.includes('@')) {
+        user = await db.collection('users').findOne({ email: identifier.toLowerCase().trim() })
+      } else {
+        const cleanPhone = identifier.replace(/\D/g, '').slice(-10)
+        user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+      }
+      if (!user) return err('No account found with this email or phone', 404)
+      if (!user.phone) return err('No phone number linked to this account. Please contact support.', 400)
+      const cleanPhone = user.phone.replace(/\D/g, '').slice(-10)
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+      await db.collection('forgot_otps').updateOne(
+        { phone: cleanPhone },
+        { $set: { phone: cleanPhone, otp_hash: hashOtp(otp), expires_at: expiresAt, updated_at: new Date() }, $setOnInsert: { created_at: new Date() } },
+        { upsert: true }
+      )
+      const twoFactorKey = process.env.TWO_FACTOR_API_KEY
+      if (twoFactorKey) {
+        const sent = await sendOtpSms(cleanPhone, otp)
+        if (!sent) return err('Failed to send OTP. Please check your number.', 503)
+        return ok({ message: 'OTP sent', phone: cleanPhone })
+      }
+      return ok({ message: 'OTP generated (dev mode)', dev_otp: otp, phone: cleanPhone })
+    }
+
+    // ---- Forgot Password — Reset ----
+    if (path[0] === 'auth' && path[1] === 'reset-password' && method === 'POST') {
+      const { phone, otp, new_password } = await request.json()
+      if (!phone || !otp || !new_password) return err('Phone, OTP and new password required')
+      if (new_password.length < 6) return err('Password must be at least 6 characters')
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+      const otpDoc = await db.collection('forgot_otps').findOne({ phone: cleanPhone })
+      if (!otpDoc) return err('Please request OTP first', 404)
+      if (new Date(otpDoc.expires_at).getTime() < Date.now()) {
+        await db.collection('forgot_otps').deleteOne({ phone: cleanPhone })
+        return err('OTP expired. Please request a new one.', 410)
+      }
+      const expectedHash = Buffer.from(hashOtp(otp), 'hex')
+      const actualHash = Buffer.from(otpDoc.otp_hash, 'hex')
+      if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) return err('Invalid OTP', 401)
+      await db.collection('forgot_otps').deleteOne({ phone: cleanPhone })
+      const result = await db.collection('users').updateOne(
+        { phone: { $regex: new RegExp(cleanPhone + '$') } },
+        { $set: { password: hashPwd(new_password), updated_at: new Date() } }
+      )
+      if (!result.matchedCount) return err('User not found', 404)
+      return ok({ success: true, message: 'Password reset successfully! Please login.' })
+    }
+
     // ====== DELETE ACCOUNT ======
     if (path[0] === 'auth' && path[1] === 'delete-account' && method === 'POST') {
       const { email, password } = await request.json()
