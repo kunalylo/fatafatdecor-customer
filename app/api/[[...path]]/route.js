@@ -585,142 +585,243 @@ async function handleRoute(request, { params }) {
       const { room_type, occasion, description, original_image, budget_min, budget_max } = body
       const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!user_id || !room_type || !occasion) return err('user_id, room_type, occasion required')
-      // Validate room_type and occasion against allowed values
-      const VALID_ROOM_TYPES = ['Dining Room', 'Living Room', 'Bedroom', 'Balcony', 'Garden', 'Hall', 'Office', 'Terrace']
-      const VALID_OCCASIONS = ['birthday', 'anniversary', 'wedding', 'dinner', 'party', 'baby_shower', 'engagement', 'corporate', 'festival', 'housewarming']
+
+      // ── Validate inputs ──────────────────────────────────────────────────
+      const VALID_ROOM_TYPES = ['Dining Room','Living Room','Bedroom','Balcony','Garden','Hall','Office','Terrace']
+      const VALID_OCCASIONS  = ['birthday','anniversary','wedding','dinner','party','baby_shower','engagement','corporate','festival','housewarming']
       if (!VALID_ROOM_TYPES.includes(room_type)) return err('Invalid room type', 400)
-      if (!VALID_OCCASIONS.includes(occasion)) return err('Invalid occasion', 400)
-      // Validate budget against allowed brackets
+      if (!VALID_OCCASIONS.includes(occasion))   return err('Invalid occasion', 400)
       const VALID_BUDGETS = [[3000,5000],[5000,10000],[10000,15000],[15000,20000],[20000,30000],[30000,50000]]
       const bMin = Number(budget_min) || 3000
       const bMax = Number(budget_max) || 5000
-      const validBudget = VALID_BUDGETS.some(([mn, mx]) => mn === bMin && mx === bMax)
-      if (!validBudget) return err('Invalid budget range', 400)
-      // Sanitize description — limit length
+      if (!VALID_BUDGETS.some(([mn,mx]) => mn === bMin && mx === bMax)) return err('Invalid budget range', 400)
       const safeDescription = description ? String(description).slice(0, 200) : ''
+
+      // ── Check user + credits ─────────────────────────────────────────────
       const user = await db.collection('users').findOne({ id: user_id })
       if (!user) return err('User not found', 404)
       if (user.credits <= 0) return err('No credits remaining. Please purchase credits.', 402)
-      const occasionMap = { birthday: ['birthday','Birthday'], anniversary: ['anniversary','Anniversary'], wedding: ['wedding','Wedding'], baby_shower: ['Ceremony','baby_shower'], engagement: ['Proposal','engagement'], party: ['birthday','Birthday'], housewarming: ['housewarming'], corporate: ['corporate'], dinner: ['anniversary','Anniversary'], festival: ['Holi','festival'] }
-      const tagVariants = occasionMap[occasion] || [occasion]
-      let selectedKit = null, kitItems = [], kitCost = 0, addOnItems = [], addOnCost = 0, kitUsed = false
-      let matchingKits = await db.collection('decoration_kits').find({ $and: [{ active: true }, { selling_total: { $lte: bMax } }, { $or: tagVariants.map(t => ({ occasion_tags: { $regex: t, $options: 'i' } })) }] }).toArray()
-      if (matchingKits.length === 0) matchingKits = await db.collection('decoration_kits').find({ active: true, selling_total: { $lte: bMax } }).toArray()
-      if (matchingKits.length > 0) {
-        selectedKit = matchingKits.sort((a, b) => b.selling_total - a.selling_total)[0]
-        const bom = selectedKit.bom || selectedKit.kit_items || []
-        kitItems = bom.map(bi => ({ id: uuidv4(), name: bi.item || bi.name || 'Item', description: `${bi.item || bi.name} - ${bi.uom || 'pc'}`, price: Number(bi.unit_purchase || bi.unit_price || 0), quantity: Number(bi.qty || bi.quantity || 1), category: 'kit_item', color: '', size: bi.uom || '', image_url: '', is_kit_item: true }))
-        kitCost = selectedKit.selling_total || selectedKit.final_price || 0
-        kitUsed = true
-        const looseItems = await db.collection('items').find({ stock_count: { $gt: 0 } }).toArray()
-        const budgetForAddons = Math.max(0, bMax - kitCost)
-        let addonSpent = 0
-        const orderedItems = looseItems.sort(() => Math.random() - 0.5)
-        for (const item of orderedItems) {
-          if (addonSpent >= budgetForAddons) break
-          const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
-          if (bMax <= 5000 && isRentable) continue
-          const price = item.selling_price_unit || item.price || 0
-          if (price > 0 && addonSpent + price <= budgetForAddons) {
-            addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: isRentable })
-            addonSpent += price
-          }
-        }
-        addOnCost = addonSpent
-      } else {
-        const allItems = await db.collection('items').find({ stock_count: { $gt: 0 } }).toArray()
-        if (allItems.length === 0) return err('No decoration items. Run /api/seed first.', 500)
-        let spent = 0
-        for (const item of allItems.sort(() => Math.random() - 0.5)) {
-          if (spent >= bMax) break
-          const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
-          if (bMax <= 5000 && isRentable) continue
-          const price = item.selling_price_unit || item.price || 0
-          if (price > 0 && spent + price <= bMax) { addOnItems.push({ id: item.id, name: item.name, description: item.type_finish || item.category || '', price, quantity: 1, category: item.category || '', color: item.type_finish || '', size: item.size || '', image_url: item.image_url || '', is_kit_item: false, is_rentable: isRentable }); spent += price }
-        }
-        addOnCost = spent
-      }
-      // Include rentable items ONLY for budgets above 5000 and only when there is remaining budget
-      const allRentItems = bMax > 5000 ? await db.collection('rent_items').find({ active: true }).toArray() : []
-      const rentCategoryMap = { birthday: ['Lighting','Stands'], party: ['Lighting','Stands'], anniversary: ['Lighting','Floral'], wedding: ['Floral','Stands','Lighting'], engagement: ['Floral','Lighting'], baby_shower: ['Floral','Lighting'], housewarming: ['Floral','Lighting'], corporate: ['Stands','Lighting'] }
-      const rentCategories = rentCategoryMap[occasion] || ['Lighting']
-      const currentSpend = kitCost + addOnCost
-      const remainingForRent = Math.max(0, bMax - currentSpend)
-      if (allRentItems.length > 0 && remainingForRent > 0) {
-        let rentSpent = 0
-        const pickedRentItems = []
-        for (const r of allRentItems.filter(ri => rentCategories.includes(ri.category))) {
-          const price = r.selling_price || r.rental_cost
-          if (price > 0 && rentSpent + price <= remainingForRent && pickedRentItems.length < 2) {
-            pickedRentItems.push({ id: r.id, name: r.name, description: r.category, price, quantity: 1, category: r.category, color: '', size: '', image_url: r.image_url || '', is_kit_item: false, is_rentable: true })
-            rentSpent += price
-          }
-        }
-        addOnItems.push(...pickedRentItems)
-        addOnCost += rentSpent
-      }
-      const allSelectedItems = [...kitItems, ...addOnItems]
-      const totalCost = kitCost + addOnCost
-      // Build visual-only descriptions — strip product/brand names so AI does NOT render text on image
-      const itemDescriptions = allSelectedItems.map(i => {
-        const qty    = (i.quantity || 1) > 1 ? `${i.quantity}x ` : ''
-        const color  = i.color && i.color.toLowerCase() !== 'mixed' ? `${i.color} ` : ''
-        const finish = i.type_finish && i.type_finish !== i.color ? `${i.type_finish} ` : ''
-        const cat    = (i.category || 'decoration item').replace(/_/g, ' ')
-        return `${qty}${color}${finish}${cat}`
-      }).join(', ')
-      // Use occasion/theme — NOT kit name (names like "Boss Baby" cause AI to write text)
-      const kitContext = selectedKit ? `Decoration theme: ${occasion} celebration.` : ''
-      const specialRequest = safeDescription ? `Special visual request: ${safeDescription}.` : ''
-      const noText = 'CRITICAL: Do NOT write any text, words, letters, numbers, or labels anywhere in the image — no text on balloons, banners, backdrops, walls, floors, or any surface. The image must be completely text-free. No written words of any kind.'
-      let prompt, hasUserImage = false
-      if (original_image && original_image.includes('base64')) {
-        hasUserImage = true
-        prompt = `Decorate this exact room for a ${occasion} celebration. Keep all existing furniture, walls, ceiling and structure completely unchanged. Add only these decoration items in the scene: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noText} Photorealistic professional event decoration, warm ambient lighting.`
-      } else {
-        prompt = `Professional photorealistic ${room_type} decorated for ${occasion}. Show these decoration items clearly: ${itemDescriptions}. ${kitContext} ${specialRequest} ${noText} High quality event decoration photography, warm lighting, 4K.`
-      }
+
+      // ── Fetch all DB data in parallel ────────────────────────────────────
+      const [allKits, allItems, allRentItems] = await Promise.all([
+        db.collection('decoration_kits').find({ active: true }).toArray(),
+        db.collection('items').find({ stock_count: { $gt: 0 } }).toArray(),
+        bMax > 5000
+          ? db.collection('rent_items').find({ active: true }).toArray()
+          : Promise.resolve([])
+      ])
+      if (allItems.length === 0) return err('No decoration items in database. Please seed first.', 500)
+
+      // ── Prepare simplified data for AI (minimal tokens) ──────────────────
+      const kitsForAI = allKits.map(k => ({
+        id: k.id, name: k.name || '',
+        occasion_tags: k.occasion_tags || '',
+        selling_total: k.selling_total || 0,
+        color_theme: k.color_theme || ''
+      }))
+      const itemsForAI = allItems.map(i => ({
+        id: i.id, name: i.name || '',
+        category: i.category || '',
+        color: i.type_finish || i.color || '',
+        price: i.selling_price_unit || i.price || 0,
+        size: i.size || ''
+      }))
+      const rentForAI = allRentItems.map(r => ({
+        id: r.id, name: r.name || '',
+        category: r.category || '',
+        price: r.selling_price || r.rental_cost || 0
+      }))
+
+      // ── Call /smart-generate (AI selects + writes prompt + FLUX) ─────────
       const designId = uuidv4()
       let decoratedImageUrl = null
+      let selectedKit = null, kitItems = [], kitCost = 0
+      let addOnItems = [], addOnCost = 0, aiSucceeded = false
+
       try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 60000)
-        const aiBody = { prompt }; if (hasUserImage) aiBody.image_base64 = original_image
-        const aiRes = await fetch(`${AI_SERVICE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aiBody), signal: controller.signal })
-        clearTimeout(timeout)
+        const aiTimeout  = setTimeout(() => controller.abort(), 90000)
+        const aiRes = await fetch(`${AI_SERVICE_URL}/smart-generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            budget_min: bMin, budget_max: bMax,
+            occasion, room_type,
+            description: safeDescription,
+            image_base64: (original_image && original_image.includes('base64')) ? original_image : null,
+            kits: kitsForAI, items: itemsForAI, rent_items: rentForAI
+          }),
+          signal: controller.signal
+        })
+        clearTimeout(aiTimeout)
         const aiData = await aiRes.json()
-        if (!aiData.success) throw new Error(aiData.detail || 'AI generation failed')
-        // Upload fal.ai output to ImageKit CDN for permanent fast storage
+        if (!aiData.success || !aiData.image_url) throw new Error(aiData.detail || 'AI generation failed')
+
+        // ── Build design record from AI-validated selections ───────────────
+        const selKitId   = aiData.selected_kit_id
+        const selItemIds = new Set(aiData.selected_item_ids || [])
+        const selRentIds = new Set(aiData.selected_rent_ids || [])
+
+        selectedKit = allKits.find(k => k.id === selKitId) || null
+        kitCost     = selectedKit ? (selectedKit.selling_total || selectedKit.final_price || 0) : 0
+        kitItems    = selectedKit
+          ? (selectedKit.bom || selectedKit.kit_items || []).map(bi => ({
+              id: uuidv4(), name: bi.item || bi.name || 'Item',
+              description: `${bi.item || bi.name || 'Item'} - ${bi.uom || 'pc'}`,
+              price: Number(bi.unit_purchase || bi.unit_price || 0),
+              quantity: Number(bi.qty || bi.quantity || 1),
+              category: 'kit_item', color: '', size: bi.uom || '',
+              image_url: '', is_kit_item: true
+            }))
+          : []
+
+        addOnItems = [
+          ...allItems
+            .filter(i => selItemIds.has(i.id))
+            .map(i => ({
+              id: i.id, name: i.name,
+              description: i.type_finish || i.category || '',
+              price: i.selling_price_unit || i.price || 0,
+              quantity: 1, category: i.category || '',
+              color: i.type_finish || i.color || '', size: i.size || '',
+              image_url: i.image_url || '', is_kit_item: false, is_rentable: false
+            })),
+          ...allRentItems
+            .filter(r => selRentIds.has(r.id))
+            .map(r => ({
+              id: r.id, name: r.name,
+              description: r.category || '',
+              price: r.selling_price || r.rental_cost || 0,
+              quantity: 1, category: r.category || '',
+              color: '', size: '', image_url: r.image_url || '',
+              is_kit_item: false, is_rentable: true
+            }))
+        ]
+        addOnCost = addOnItems.reduce((s, i) => s + (Number(i.price) || 0), 0)
+
+        // ── Upload fal.ai image to ImageKit for permanent CDN storage ──────
         try {
-          const falImageRes = await fetch(aiData.image_url)
-          const falBuffer = await falImageRes.arrayBuffer()
-          const falBase64 = Buffer.from(falBuffer).toString('base64')
-          const ikAuth = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY || '') + ':').toString('base64')
-          const ikBody = new URLSearchParams()
+          const falBuf    = await (await fetch(aiData.image_url)).arrayBuffer()
+          const falBase64 = Buffer.from(falBuf).toString('base64')
+          const ikAuth    = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY || '') + ':').toString('base64')
+          const ikBody    = new URLSearchParams()
           ikBody.append('file', falBase64)
           ikBody.append('fileName', `design_${designId}.jpg`)
           ikBody.append('folder', '/generated')
-          const ikRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', headers: { 'Authorization': `Basic ${ikAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: ikBody.toString() })
+          const ikRes  = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${ikAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: ikBody.toString()
+          })
           const ikData = await ikRes.json()
           decoratedImageUrl = ikData.url || aiData.image_url
-        } catch (_ikErr) {
-          decoratedImageUrl = aiData.image_url // fallback to fal URL if ImageKit fails
-        }
+        } catch (_ikErr) { decoratedImageUrl = aiData.image_url }
+
+        aiSucceeded = true
+
       } catch (aiErr) {
+        // ── Fallback: old DB logic + direct /generate ──────────────────────
+        console.warn('[designs/generate] smart-generate failed, using fallback:', aiErr.message)
         const isTimeout = aiErr.name === 'AbortError' || aiErr.message?.includes('aborted')
-        return err(isTimeout ? 'AI generation timed out. Please try again.' : 'AI image generation failed. Please try again.', 500)
+        if (isTimeout) return err('AI generation timed out. Please try again.', 500)
+
+        const occasionMap = { birthday:['birthday','Birthday'], anniversary:['anniversary','Anniversary'], wedding:['wedding','Wedding'], baby_shower:['Ceremony','baby_shower'], engagement:['Proposal','engagement'], party:['birthday','Birthday'], housewarming:['housewarming'], corporate:['corporate'], dinner:['anniversary','Anniversary'], festival:['Holi','festival'] }
+        const tagVariants = occasionMap[occasion] || [occasion]
+        let matchingKits = allKits.filter(k => tagVariants.some(t => (k.occasion_tags||'').toLowerCase().includes(t.toLowerCase())) && (k.selling_total||0) <= bMax)
+        if (matchingKits.length === 0) matchingKits = allKits.filter(k => (k.selling_total||0) <= bMax)
+        if (matchingKits.length > 0) {
+          selectedKit = matchingKits.sort((a,b) => (b.selling_total||0)-(a.selling_total||0))[0]
+          kitCost = selectedKit.selling_total || selectedKit.final_price || 0
+          kitItems = (selectedKit.bom || selectedKit.kit_items || []).map(bi => ({ id:uuidv4(), name:bi.item||bi.name||'Item', description:`${bi.item||bi.name||'Item'} - ${bi.uom||'pc'}`, price:Number(bi.unit_purchase||bi.unit_price||0), quantity:Number(bi.qty||bi.quantity||1), category:'kit_item', color:'', size:bi.uom||'', image_url:'', is_kit_item:true }))
+          let addonSpent = 0
+          for (const item of allItems.sort(() => Math.random() - 0.5)) {
+            if (addonSpent >= bMax - kitCost) break
+            const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
+            if (bMax <= 5000 && isRentable) continue
+            const price = item.selling_price_unit || item.price || 0
+            if (price > 0 && addonSpent + price <= bMax - kitCost) { addOnItems.push({ id:item.id, name:item.name, description:item.type_finish||item.category||'', price, quantity:1, category:item.category||'', color:item.type_finish||'', size:item.size||'', image_url:item.image_url||'', is_kit_item:false, is_rentable:isRentable }); addonSpent += price }
+          }
+          addOnCost = addonSpent
+        } else {
+          let spent = 0
+          for (const item of allItems.sort(() => Math.random() - 0.5)) {
+            if (spent >= bMax) break
+            const isRentable = item.is_rentable || item.category === 'Neon Signs' || item.category === 'Lighting'
+            if (bMax <= 5000 && isRentable) continue
+            const price = item.selling_price_unit || item.price || 0
+            if (price > 0 && spent + price <= bMax) { addOnItems.push({ id:item.id, name:item.name, description:item.type_finish||item.category||'', price, quantity:1, category:item.category||'', color:item.type_finish||'', size:item.size||'', image_url:item.image_url||'', is_kit_item:false, is_rentable:isRentable }); spent += price }
+          }
+          addOnCost = spent
+        }
+        const rentCategoryMap = { birthday:['Lighting','Stands'], party:['Lighting','Stands'], anniversary:['Lighting','Floral'], wedding:['Floral','Stands','Lighting'], engagement:['Floral','Lighting'], baby_shower:['Floral','Lighting'], housewarming:['Floral','Lighting'], corporate:['Stands','Lighting'] }
+        const rentCategories  = rentCategoryMap[occasion] || ['Lighting']
+        const remainingForRent = Math.max(0, bMax - kitCost - addOnCost)
+        let rentSpent = 0
+        for (const r of allRentItems.filter(ri => rentCategories.includes(ri.category))) {
+          const price = r.selling_price || r.rental_cost
+          if (price > 0 && rentSpent + price <= remainingForRent && addOnItems.filter(i=>i.is_rentable).length < 2) { addOnItems.push({ id:r.id, name:r.name, description:r.category, price, quantity:1, category:r.category, color:'', size:'', image_url:r.image_url||'', is_kit_item:false, is_rentable:true }); rentSpent += price }
+        }
+        addOnCost += rentSpent
+        const allSelected = [...kitItems, ...addOnItems]
+        const itemDescs   = allSelected.map(i => { const c = i.color && i.color.toLowerCase() !== 'mixed' ? `${i.color} ` : ''; return `${c}${(i.category||'decoration').replace(/_/g,' ')}` }).join(', ')
+        const noText = 'CRITICAL: Do NOT write any text, words, letters, numbers, or labels anywhere in the image. The image must be completely text-free.'
+        const hasUserImg = !!(original_image && original_image.includes('base64'))
+        const fallbackPrompt = hasUserImg
+          ? `Decorate this exact ${room_type} for a ${occasion}. Keep all existing furniture unchanged. Add: ${itemDescs}. ${safeDescription ? 'Special: ' + safeDescription + '.' : ''} ${noText} Photorealistic, warm lighting.`
+          : `Professional photorealistic ${room_type} decorated for ${occasion}. Show: ${itemDescs}. ${safeDescription ? 'Special: ' + safeDescription + '.' : ''} ${noText} High quality, warm lighting, 4K.`
+        try {
+          const fbController = new AbortController()
+          const fbTimeout    = setTimeout(() => fbController.abort(), 60000)
+          const fbBody       = { prompt: fallbackPrompt }
+          if (hasUserImg) fbBody.image_base64 = original_image
+          const fbRes  = await fetch(`${AI_SERVICE_URL}/generate`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(fbBody), signal:fbController.signal })
+          clearTimeout(fbTimeout)
+          const fbData = await fbRes.json()
+          if (!fbData.success) throw new Error(fbData.detail || 'Fallback generation failed')
+          try {
+            const falBuf    = await (await fetch(fbData.image_url)).arrayBuffer()
+            const falBase64 = Buffer.from(falBuf).toString('base64')
+            const ikAuth    = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY||'') + ':').toString('base64')
+            const ikBody    = new URLSearchParams()
+            ikBody.append('file', falBase64); ikBody.append('fileName', `design_${designId}.jpg`); ikBody.append('folder', '/generated')
+            const ikRes  = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method:'POST', headers:{'Authorization':`Basic ${ikAuth}`,'Content-Type':'application/x-www-form-urlencoded'}, body:ikBody.toString() })
+            const ikData = await ikRes.json()
+            decoratedImageUrl = ikData.url || fbData.image_url
+          } catch (_) { decoratedImageUrl = fbData.image_url }
+        } catch (fbErr) {
+          const isTo = fbErr.name === 'AbortError' || fbErr.message?.includes('aborted')
+          return err(isTo ? 'AI generation timed out. Please try again.' : 'AI image generation failed. Please try again.', 500)
+        }
       }
-      // Deduct credit FIRST (atomic check+deduct to prevent race condition)
+
+      // ── Deduct credit atomically ──────────────────────────────────────────
       const creditResult = await db.collection('users').findOneAndUpdate(
         { id: user_id, credits: { $gt: 0 } },
         { $inc: { credits: -1 } },
         { returnDocument: 'after' }
       )
       if (!creditResult) return err('No credits remaining. Please purchase credits.', 402)
-      const design = { id: designId, user_id, room_type, occasion, description: safeDescription, original_image: hasUserImage ? '[uploaded]' : null, decorated_image: decoratedImageUrl, kit_id: selectedKit?.id || null, kit_name: selectedKit?.name || null, kit_items: kitItems, kit_cost: kitCost, addon_items: addOnItems, addon_cost: addOnCost, items_used: allSelectedItems, total_cost: totalCost, status: 'generated', created_at: new Date() }
+
+      // ── Save design to MongoDB ────────────────────────────────────────────
+      const allSelectedItems = [...kitItems, ...addOnItems]
+      const totalCost        = kitCost + addOnCost
+      const hasUserImage     = !!(original_image && original_image.includes('base64'))
+      const design = {
+        id: designId, user_id, room_type, occasion,
+        description: safeDescription,
+        original_image: hasUserImage ? '[uploaded]' : null,
+        decorated_image: decoratedImageUrl,
+        kit_id: selectedKit?.id || null,
+        kit_name: selectedKit?.name || null,
+        kit_items: kitItems, kit_cost: kitCost,
+        addon_items: addOnItems, addon_cost: addOnCost,
+        items_used: allSelectedItems, total_cost: totalCost,
+        ai_selected: aiSucceeded,
+        status: 'generated', created_at: new Date()
+      }
       await db.collection('designs').insertOne(design)
       const { _id, ...cleanDesign } = design
-      return ok({ ...cleanDesign, remaining_credits: creditResult.credits, kit_used: kitUsed })
+      return ok({ ...cleanDesign, remaining_credits: creditResult.credits, kit_used: !!selectedKit })
     }
     if (path[0] === 'designs' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
