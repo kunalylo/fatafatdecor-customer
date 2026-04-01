@@ -40,12 +40,12 @@ const IMAGEKIT_URL = process.env.NEXT_PUBLIC_IMAGEKIT_URL || 'https://ik.imageki
 
 function getImageKitFolder(budget_min, budget_max) {
   const avg = (Number(budget_min) + Number(budget_max)) / 2
-  if (avg <= 5000)  return 'dataset/3-5k'
-  if (avg <= 10000) return 'dataset/5-10k'
-  if (avg <= 20000) return 'dataset/10-20k'
-  if (avg <= 30000) return 'dataset/20-30k'
-  if (avg <= 50000) return 'dataset/30-50k'
-  return 'dataset/50k-above'
+  if (avg <= 5000)  return 'dataset/3k to 5k'
+  if (avg <= 10000) return 'dataset/5k to 10k'
+  if (avg <= 20000) return 'dataset/20k to 30k'   // no 10-20k folder — use next tier
+  if (avg <= 30000) return 'dataset/20k to 30k'
+  if (avg <= 50000) return 'dataset/30k to 50k'
+  return 'dataset/50,000 and above'
 }
 
 async function connectToMongo() {
