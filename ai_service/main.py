@@ -7,6 +7,7 @@ import os
 import io
 import json as json_lib
 import traceback
+import asyncio
 import requests as http_requests
 
 app = FastAPI()
@@ -26,16 +27,13 @@ app.add_middleware(
 FAL_KEY = os.environ.get("FAL_KEY", "")
 os.environ["FAL_KEY"] = FAL_KEY  # fal_client reads FAL_KEY from env
 
-EMERGENT_API_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-EMERGENT_BASE_URL = "https://integrations.emergentagent.com/llm"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-USE_DIRECT_OPENAI = bool(OPENAI_API_KEY)
 
 def get_openai_client():
     from openai import OpenAI
-    if USE_DIRECT_OPENAI:
-        return OpenAI(api_key=OPENAI_API_KEY)
-    return OpenAI(api_key=EMERGENT_API_KEY, base_url=EMERGENT_BASE_URL)
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY env var not set")
+    return OpenAI(api_key=OPENAI_API_KEY)
 
 
 class GenerateRequest(BaseModel):
@@ -54,7 +52,8 @@ async def health():
         "status": "ok",
         "ai_provider": "fal.ai FLUX",
         "fal_key_configured": bool(FAL_KEY),
-        "analysis_provider": "openai gpt-4o-mini"
+        "analysis_provider": "openai gpt-4o-mini",
+        "openai_key_configured": bool(OPENAI_API_KEY)
     }
 
 
@@ -74,10 +73,11 @@ async def generate_decoration(req: GenerateRequest):
             image_file.name = "room.png"
 
             # Upload to fal storage → temporary URL for inference
-            fal_image_url = fal_client.upload(image_file, content_type="image/png")
+            fal_image_url = await asyncio.to_thread(fal_client.upload, image_file, content_type="image/png")
 
             # FLUX Pro Fill — best for adding decorations to real room photos
-            result = fal_client.run(
+            result = await asyncio.to_thread(
+                fal_client.run,
                 "fal-ai/flux-pro/v1/fill",
                 arguments={
                     "prompt": req.prompt,
@@ -90,7 +90,8 @@ async def generate_decoration(req: GenerateRequest):
         else:
             # TEXT-TO-IMAGE — generate full decorated room concept
             # FLUX Schnell — fastest model, 1-2 seconds, great quality
-            result = fal_client.run(
+            result = await asyncio.to_thread(
+                fal_client.run,
                 "fal-ai/flux/schnell",
                 arguments={
                     "prompt": req.prompt,
