@@ -613,10 +613,12 @@ async function handleRoute(request, { params }) {
       if (allItems.length === 0) return err('No decoration items in database. Please seed first.', 500)
 
       // ── Prepare simplified data for AI (minimal tokens) ──────────────────
+      // occasion_tags stored as array in DB — normalise to string for AI + JS string ops
+      const toTagStr = (v) => Array.isArray(v) ? v.join(', ') : (v || '')
       const kitsForAI = allKits.map(k => ({
         id: k.id, name: k.name || '',
-        occasion_tags: k.occasion_tags || '',
-        selling_total: k.selling_total || 0,
+        occasion_tags: toTagStr(k.occasion_tags),
+        selling_total: Number(k.selling_total || k.final_price || 0),
         color_theme: k.color_theme || ''
       }))
       const itemsForAI = allItems.map(i => ({
@@ -727,11 +729,11 @@ async function handleRoute(request, { params }) {
 
         const occasionMap = { birthday:['birthday','Birthday'], anniversary:['anniversary','Anniversary'], wedding:['wedding','Wedding'], baby_shower:['Ceremony','baby_shower'], engagement:['Proposal','engagement'], party:['birthday','Birthday'], housewarming:['housewarming'], corporate:['corporate'], dinner:['anniversary','Anniversary'], festival:['Holi','festival'] }
         const tagVariants = occasionMap[occasion] || [occasion]
-        let matchingKits = allKits.filter(k => tagVariants.some(t => (k.occasion_tags||'').toLowerCase().includes(t.toLowerCase())) && (k.selling_total||0) <= bMax)
-        if (matchingKits.length === 0) matchingKits = allKits.filter(k => (k.selling_total||0) <= bMax)
+        let matchingKits = allKits.filter(k => tagVariants.some(t => toTagStr(k.occasion_tags).toLowerCase().includes(t.toLowerCase())) && Number(k.selling_total||k.final_price||0) <= bMax)
+        if (matchingKits.length === 0) matchingKits = allKits.filter(k => Number(k.selling_total||k.final_price||0) <= bMax)
         if (matchingKits.length > 0) {
-          selectedKit = matchingKits.sort((a,b) => (b.selling_total||0)-(a.selling_total||0))[0]
-          kitCost = selectedKit.selling_total || selectedKit.final_price || 0
+          selectedKit = matchingKits.sort((a,b) => Number(b.selling_total||b.final_price||0)-Number(a.selling_total||a.final_price||0))[0]
+          kitCost = Number(selectedKit.selling_total || selectedKit.final_price || 0)
           kitItems = (selectedKit.bom || selectedKit.kit_items || []).map(bi => ({ id:uuidv4(), name:bi.item||bi.name||'Item', description:`${bi.item||bi.name||'Item'} - ${bi.uom||'pc'}`, price:Number(bi.unit_purchase||bi.unit_price||0), quantity:Number(bi.qty||bi.quantity||1), category:'kit_item', color:'', size:bi.uom||'', image_url:'', is_kit_item:true }))
           let addonSpent = 0
           for (const item of allItems.sort(() => Math.random() - 0.5)) {
