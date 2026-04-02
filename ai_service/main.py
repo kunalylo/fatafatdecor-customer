@@ -9,6 +9,8 @@ import json as json_lib
 import traceback
 import asyncio
 import re
+import struct
+import zlib
 
 app = FastAPI()
 
@@ -33,6 +35,17 @@ app.add_middleware(
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
 os.environ["FAL_KEY"] = FAL_KEY
+
+# ── gpt-image-1 via Emergent proxy ───────────────────────────
+EMERGENT_API_KEY  = os.environ.get("EMERGENT_LLM_KEY", "sk-emergent-e1b3859D8366151216")
+EMERGENT_BASE_URL = "https://integrations.emergentagent.com/llm"
+OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY", "")
+
+def _openai_client():
+    from openai import OpenAI
+    if OPENAI_API_KEY:
+        return OpenAI(api_key=OPENAI_API_KEY)
+    return OpenAI(api_key=EMERGENT_API_KEY, base_url=EMERGENT_BASE_URL)
 
 NO_TEXT = (
     "CRITICAL: Do NOT write any text, words, letters, numbers, or labels anywhere "
@@ -81,26 +94,65 @@ def parse_json_safe(text: str) -> dict:
     return json_lib.loads(text.strip())
 
 
-async def run_flux_fill(prompt: str, image_base64: str, fal_client) -> str:
-    """Upload room photo to fal storage → run FLUX Pro Fill → return image URL."""
+def _make_mask_png(width: int = 512, height: int = 512) -> bytes:
+    """
+    Generate a decoration mask PNG in pure Python (struct + zlib, no PIL).
+
+    FLUX Pro Fill mask convention:  white (255) = fill area,  black (0) = preserve.
+    Gradient zones (top → bottom):
+      0 – 15 %   ceiling          255  ← place ceiling decorations here
+      15 – 75 %  walls / beams    220  ← place wall decorations here
+      75 – 88 %  lower walls      140  ← moderate decoration
+      88 – 100 % floor / furn.     30  ← preserve almost entirely
+    """
+    def _png_chunk(tag: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + tag
+            + data
+            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+        )
+
+    rows = bytearray()
+    for y in range(height):
+        f = y / height
+        if   f < 0.15: v = 255
+        elif f < 0.75: v = 220
+        elif f < 0.88: v = 140
+        else:          v = 30
+        rows += b"\x00" + bytes([v] * width)   # filter-type 0 + pixel row
+
+    png  = b"\x89PNG\r\n\x1a\n"
+    png += _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+    png += _png_chunk(b"IDAT", zlib.compress(bytes(rows), 9))
+    png += _png_chunk(b"IEND", b"")
+    return png
+
+
+async def run_gpt_image_edit(prompt: str, image_base64: str, fal_client) -> str:
+    """
+    fal-ai/flux-pro/kontext/max — image editing on fal.ai.
+    Receives our clean per-item prompt (tools already filtered out)
+    and edits the room photo to add only the visual decoration items.
+    """
     img_data = image_base64
-    if ',' in img_data:
-        img_data = img_data.split(',', 1)[1]
+    if "," in img_data:
+        img_data = img_data.split(",", 1)[1]
     image_bytes = base64.b64decode(img_data)
-    image_file = io.BytesIO(image_bytes)
-    image_file.name = "room.png"
+
     fal_image_url = await asyncio.to_thread(
-        fal_client.upload, image_file, content_type="image/png"
+        fal_client.upload, image_bytes, content_type="image/png"
     )
+
     result = await asyncio.to_thread(
         fal_client.run,
-        "fal-ai/flux-pro/v1/fill",
+        "fal-ai/flux-pro/kontext/max",
         arguments={
-            "prompt": prompt,
-            "image_url": fal_image_url,
-            "num_images": 1,
-            "safety_tolerance": "2",
-            "output_format": "jpeg",
+            "prompt":              prompt,
+            "image_url":           fal_image_url,
+            "num_inference_steps": 28,
+            "guidance_scale":      3.5,
+            "output_format":       "jpeg",
         },
     )
     return result["images"][0]["url"]
@@ -122,6 +174,164 @@ async def run_flux_schnell(prompt: str, fal_client) -> str:
     return result["images"][0]["url"]
 
 
+# ── Decoration prompt builder ────────────────────────────────
+
+# Items that are installation tools — not visible in the decorated photo
+_TOOL_KEYWORDS = {
+    "glue dot", "glue", "tape", "ribbon roll", "ribbon",
+    "fishing string", "zip tie", "wire", "nail", "hook",
+    "clip", "adhesive", "string roll", "tools", "supplies",
+    "fastener", "mount", "bracket",
+}
+
+def _is_visual_item(name: str) -> bool:
+    """Return True if this item is actually visible in a decoration photo."""
+    n = name.lower()
+    return not any(kw in n for kw in _TOOL_KEYWORDS)
+
+
+def _item_to_visual(name: str, color: str = "") -> str:
+    """Map a decoration item name → specific visual placement instruction."""
+    n = name.lower()
+    c = f"{color.strip()} " if color and color.lower() not in ("mixed", "mix", "various", "") else ""
+
+    # ── Balloons ──
+    if "confetti balloon" in n or ("confetti" in n and "balloon" in n):
+        return f"transparent confetti-filled balloons floating throughout the space, confetti visible inside each balloon"
+    if "heart balloon" in n:
+        return f"large {c}heart-shaped foil balloons floating in clusters"
+    if "foil number" in n or ("number" in n and "balloon" in n and "foil" in n):
+        return f"giant shiny {c}foil number balloons prominently displayed at center height"
+    if "foil letter" in n or ("letter" in n and "balloon" in n):
+        return f"large {c}foil letter balloons arranged as a festive message"
+    if "jumbo" in n and "balloon" in n:
+        return f"oversized jumbo {c}balloons as dramatic focal points"
+    if "chrome" in n and "balloon" in n:
+        return f"shiny chrome {c}balloons in clusters covering the walls and ceiling"
+    if "pastel" in n and "balloon" in n:
+        return f"soft pastel {c}balloons densely covering the walls from floor to ceiling"
+    if "latex balloon" in n or ("balloon" in n and "foil" not in n):
+        return f"hundreds of colorful {c}latex balloons in mix palette densely covering every wall and the entire ceiling, clustered from floor to ceiling"
+
+    # ── Backdrops ──
+    if "foil backdrop" in n or ("backdrop" in n and "foil" in n) or ("backdrop" in n and "curtain" in n):
+        col = "silver" if "silver" in n else ("gold" if "gold" in n else c.strip() or "silver")
+        return f"a full-wall floor-to-ceiling glittering {col} foil curtain backdrop shimmering as the main focal point behind the celebration area"
+    if "net backdrop" in n or "backdrop" in n:
+        return f"a large {c}net backdrop covering the main wall completely"
+    if "disco" in n and "backdrop" in n:
+        return f"a full-wall holographic disco foil backdrop creating a dazzling light show effect"
+
+    # ── Lights ──
+    if "led curtain" in n:
+        return f"sparkling LED curtain light strings draped across the entire ceiling like a glowing canopy"
+    if "fairy light" in n or "string light" in n:
+        return f"warm fairy lights strung across the ceiling and walls"
+    if "neon" in n:
+        return f"a vibrant glowing neon sign mounted prominently on the main wall"
+    if "candle" in n or "led candle" in n:
+        return f"elegant LED flameless candles as glowing centerpieces on every surface"
+
+    # ── Floral ──
+    if "marigold" in n:
+        return f"lush marigold garlands draped along the walls and ceiling in traditional style"
+    if "rose petal" in n or "petal" in n:
+        return f"thousands of rose petals scattered on the floor forming a beautiful carpet"
+    if "flower" in n or "floral" in n or "artificial flower" in n:
+        return f"lush {c}floral arrangements as centerpieces and wall accents"
+
+    # ── Structural ──
+    if "arch" in n or "balloon stand" in n:
+        return f"a grand full-height balloon arch framing the main entrance or focal wall"
+    if "marquee" in n or "led letter" in n:
+        return f"large illuminated marquee letters glowing on the main wall"
+    if "streamer" in n:
+        return f"thick clusters of {c}streamers cascading from the ceiling"
+    if "banner" in n:
+        return f"a large festive celebration banner prominently displayed on the main wall"
+    if "garland" in n:
+        return f"decorative {c}garlands strung wall-to-wall across the space"
+    if "drape" in n or ("curtain" in n and "foil" not in n and "led" not in n):
+        return f"elegant {c}fabric draping along the walls"
+    if "table" in n or "centerpiece" in n:
+        return f"beautifully decorated table centerpieces with {c}festive arrangements"
+
+    # Generic fallback
+    return f"{name} prominently displayed as part of the festive decoration"
+
+
+def _build_decoration_prompt(
+    occasion: str,
+    room_type: str,
+    description: str,
+    kit_obj: dict | None,
+    sel_items: list,
+    sel_rents: list,
+    has_image: bool,
+) -> str:
+    """Build a precise, guaranteed-coverage FLUX decoration prompt from actual selected items."""
+
+    # Collect visual instructions for every selected item
+    visuals: list[str] = []
+    seen: set[str] = set()
+
+    # Kit BOM items — skip installation tools (glue, tape, ribbon, etc.)
+    if kit_obj:
+        bom = kit_obj.get("bom") or kit_obj.get("kit_items") or []
+        for bi in bom:
+            name = bi.get("item") or bi.get("name") or ""
+            if name and name.lower() not in seen and _is_visual_item(name):
+                visuals.append(_item_to_visual(name))
+                seen.add(name.lower())
+
+    # Individually selected add-on items — skip tools
+    for item in sel_items:
+        name  = item.get("name", "")
+        color = item.get("color") or item.get("type_finish") or ""
+        if name and name.lower() not in seen and _is_visual_item(name):
+            visuals.append(_item_to_visual(name, color))
+            seen.add(name.lower())
+
+    # Rental items
+    for r in sel_rents:
+        name = r.get("name", "")
+        if name and name.lower() not in seen and _is_visual_item(name):
+            visuals.append(_item_to_visual(name))
+            seen.add(name.lower())
+
+    # Fallback if nothing selected
+    if not visuals:
+        visuals = [
+            "hundreds of colorful balloons densely covering every wall and ceiling",
+            "glittering foil backdrop curtain on the main wall",
+            "colorful streamers cascading from ceiling",
+            "festive garlands and banners",
+        ]
+
+    decoration_lines = "\n".join(f"- {v}" for v in visuals)
+    special = f" Special customer request: {description}." if description else ""
+
+    # Build natural flowing scene description for kontext
+    decoration_sentence = ", ".join(visuals) if visuals else f"colorful {occasion} party decorations"
+
+    if has_image:
+        return (
+            f"Decorate this {room_type} for a {occasion} celebration. "
+            f"Add ONLY these exact decoration items — nothing else:\n"
+            f"{decoration_sentence}.\n"
+            f"Place every item realistically as a professional decorator would. "
+            f"Keep all furniture, floor and walls exactly as they are — "
+            f"only add the listed decorations on top. "
+            f"Make it look like a real professionally decorated space.{special} {NO_TEXT}"
+        )
+    else:
+        return (
+            f"Professional photorealistic {room_type} decorated for a {occasion} celebration. "
+            f"Decorations: {decoration_sentence}. "
+            f"Every item prominently placed, dense and vibrant, warm festive lighting.{special} {NO_TEXT}"
+        )
+
+
 # ── Routes ───────────────────────────────────────────────────
 
 @app.get("/health")
@@ -130,6 +340,62 @@ async def health():
         "status": "ok",
         "fal_key_configured": bool(FAL_KEY),
         "endpoints": ["/smart-generate", "/generate", "/analyze-decoration"],
+    }
+
+
+@app.get("/debug-prompt")
+async def debug_prompt():
+    """
+    Returns a real example of the prompt sent to the image model.
+    Uses the Boss Baby Blast kit (same as in the app) so you can see exactly
+    what instructions the model receives for a Birthday decoration.
+    """
+    example_kit = {
+        "id": "KTS-001", "name": "Boss Baby Blast",
+        "bom": [
+            {"item": "Latex Balloons (Mix palette)", "qty": 200, "uom": "pcs"},
+            {"item": "Foil Backdrop Curtain Silver",  "qty": 1,   "uom": "pcs"},
+        ],
+    }
+    example_items = [
+        {"id": "i1", "name": "Foil Number Balloon",          "color": "Silver"},
+        {"id": "i2", "name": "Transparent Confetti Balloon", "color": ""},
+        {"id": "i3", "name": "Mix Balloon Set",              "color": "Mix"},
+        {"id": "i4", "name": "LED Pillar Candle Set (3 pcs)","color": ""},
+    ]
+    prompt_with_image = _build_decoration_prompt(
+        occasion   = "Birthday",
+        room_type  = "Rooftop Terrace",
+        description= "",
+        kit_obj    = example_kit,
+        sel_items  = example_items,
+        sel_rents  = [],
+        has_image  = True,
+    )
+    prompt_no_image = _build_decoration_prompt(
+        occasion   = "Birthday",
+        room_type  = "Living Room",
+        description= "Pink and gold theme",
+        kit_obj    = example_kit,
+        sel_items  = example_items,
+        sel_rents  = [],
+        has_image  = False,
+    )
+    return {
+        "note": "This is the EXACT prompt structure sent to the AI image model",
+        "step_1_gemini_vision_asks": (
+            "In exactly 2 sentences describe ONLY the physical space: "
+            "room/venue type, size, dominant colors, key furniture, "
+            "walls, ceiling and architectural features. Facts only, no suggestions."
+        ),
+        "step_2_final_prompt_WITH_room_photo": (
+            "[Gemini room description here] "
+            "A professional event decorator has transformed this exact space. "
+            + prompt_with_image
+        ),
+        "step_2_final_prompt_WITHOUT_room_photo": prompt_no_image,
+        "model_used": "fal-ai/flux-pro/v1/fill (inpainting) → fallback: fal-ai/flux-pro/kontext/max",
+        "mask": "Gradient PNG: ceiling=white(255), walls=220, lower=140, floor=dark(30)",
     }
 
 
@@ -190,25 +456,13 @@ async def smart_generate(req: SmartGenerateRequest):
 
     has_user_image = bool(req.image_base64 and "base64" in req.image_base64)
 
-    # ── STEP 2: gemini-flash — select items + write FLUX prompt ─────────────
+    # ── STEP 2: gemini-flash — item SELECTION only (prompt built by us) ────────
     selection_system = (
         "You are a professional Indian event decoration planner for FatafatDecor. "
-        "Given customer requirements and available inventory, select the best decoration "
-        "combination within budget and write a vivid image generation prompt. "
+        "Select the best decoration kit + items within the customer's budget. "
         "You MUST only use IDs exactly as given — never invent IDs. "
         "You MUST ensure total cost (kit + items + rent) does not exceed budget_max. "
         "Respond ONLY with valid JSON, no markdown, no explanation."
-    )
-
-    image_context = (
-        "The customer has uploaded their room photo. The FLUX prompt must instruct "
-        "the AI to keep ALL existing furniture, walls and structure unchanged and "
-        "ONLY ADD decorations on top."
-        if has_user_image
-        else (
-            "No room photo uploaded. The FLUX prompt should describe a full "
-            "photorealistic decorated room from scratch."
-        )
     )
 
     selection_prompt = f"""Customer requirements:
@@ -216,30 +470,27 @@ async def smart_generate(req: SmartGenerateRequest):
 - Room type: {req.room_type}
 - Budget: Rs {req.budget_min} to Rs {req.budget_max}
 - Special request: {req.description or 'none'}
-- {image_context}
 
 AVAILABLE KITS (pick ONE kit whose selling_total <= {req.budget_max}, or null if none fit):
 {json_lib.dumps(kits_for_ai)}
 
-AVAILABLE ITEMS (pick items to fill remaining budget after kit — total of kit + items must be <= {req.budget_max}):
+AVAILABLE ITEMS (pick items to fill remaining budget — total of kit + items must be <= {req.budget_max}):
 {json_lib.dumps(items_for_ai)}
 
 RENT ITEMS (optional — pick max 2 only if budget > 5000 and remaining budget allows):
 {json_lib.dumps(rent_for_ai)}
 
 Rules:
-1. selected_kit_id must be an exact id from AVAILABLE KITS above, or null
-2. selected_item_ids must be exact ids from AVAILABLE ITEMS above only
-3. selected_rent_ids must be exact ids from RENT ITEMS above only (max 2)
-4. Total cost = kit selling_total + sum of selected item prices + sum of selected rent prices — must be <= {req.budget_max}
-5. flux_prompt: vivid, photorealistic, describes colors/arrangement/mood, NO brand names, NO text in image, includes "{NO_TEXT}"
+1. selected_kit_id must be an exact id from AVAILABLE KITS, or null
+2. selected_item_ids must be exact ids from AVAILABLE ITEMS only
+3. selected_rent_ids must be exact ids from RENT ITEMS only (max 2)
+4. Total cost = kit selling_total + sum of item prices + sum of rent prices — must be <= {req.budget_max}
 
-Respond ONLY with this exact JSON structure:
+Respond ONLY with this exact JSON:
 {{
   "selected_kit_id": "exact_id_or_null",
   "selected_item_ids": ["id1", "id2"],
-  "selected_rent_ids": ["id1"],
-  "flux_prompt": "Full FLUX image generation prompt here..."
+  "selected_rent_ids": ["id1"]
 }}"""
 
     try:
@@ -268,7 +519,6 @@ Respond ONLY with this exact JSON structure:
     raw_kit_id    = selections.get("selected_kit_id")
     raw_item_ids  = selections.get("selected_item_ids", [])
     raw_rent_ids  = selections.get("selected_rent_ids", [])
-    flux_prompt   = selections.get("flux_prompt", "").strip()
 
     # Only keep IDs that actually exist
     sel_kit_id   = raw_kit_id if raw_kit_id in valid_kit_ids else None
@@ -303,39 +553,28 @@ Respond ONLY with this exact JSON structure:
                 running += p
         sel_item_ids = trimmed
 
-    # ── STEP 5: Ensure we have a usable prompt ──────────────────────────────
-    if not flux_prompt or len(flux_prompt) < 30:
-        # Build a safe fallback prompt
-        item_names = [
-            i.get("name", "") for i in req.items if i.get("id") in set(sel_item_ids)
-        ][:8]
-        kit_obj = next((k for k in req.kits if k.get("id") == sel_kit_id), None)
-        item_desc = ", ".join(item_names) or f"{req.occasion} decorations"
-        if has_user_image:
-            flux_prompt = (
-                f"Decorate this exact {req.room_type} for a {req.occasion} celebration. "
-                f"Keep all existing furniture and walls unchanged. Add only: {item_desc}. "
-                f"{NO_TEXT} Photorealistic, warm ambient lighting."
-            )
-        else:
-            flux_prompt = (
-                f"Professional photorealistic {req.room_type} decorated for {req.occasion}. "
-                f"Show: {item_desc}. "
-                f"{NO_TEXT} High quality event decoration photography, warm lighting, 4K."
-            )
+    # ── STEP 5: Build FLUX prompt from actual selected items (guaranteed coverage) ──
+    flux_prompt = _build_decoration_prompt(
+        occasion    = req.occasion,
+        room_type   = req.room_type,
+        description = req.description or "",
+        kit_obj     = next((k for k in req.kits if k.get("id") == sel_kit_id), None),
+        sel_items   = [i for i in req.items      if i.get("id") in set(sel_item_ids)],
+        sel_rents   = [r for r in req.rent_items if r.get("id") in set(sel_rent_ids)],
+        has_image   = has_user_image,
+    )
 
-    # Always append NO_TEXT guard (in case gemini forgot it)
-    if "text-free" not in flux_prompt.lower() and "no text" not in flux_prompt.lower():
-        flux_prompt = f"{flux_prompt} {NO_TEXT}"
+    # Log full prompt so it's visible in Railway logs
+    print(f"\n{'='*60}\n[PROMPT SENT TO MODEL]\n{flux_prompt}\n{'='*60}\n")
 
-    # ── STEP 6: FLUX generates the image ────────────────────────────────────
+    # ── STEP 6: Generate the decorated image ────────────────────────────────
     try:
         if has_user_image:
-            image_url = await run_flux_fill(flux_prompt, req.image_base64, fal_client)
+            image_url = await run_gpt_image_edit(flux_prompt, req.image_base64, fal_client)
         else:
             image_url = await run_flux_schnell(flux_prompt, fal_client)
     except Exception as e:
-        print(f"[smart-generate] FLUX error:\n{traceback.format_exc()}")
+        print(f"[smart-generate] generation error:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
     return {
@@ -357,12 +596,12 @@ async def generate_decoration(req: GenerateRequest):
     import fal_client
     try:
         if req.image_base64:
-            image_url = await run_flux_fill(req.prompt, req.image_base64, fal_client)
+            image_url = await run_gpt_image_edit(req.prompt, req.image_base64, fal_client)
         else:
             image_url = await run_flux_schnell(req.prompt, fal_client)
         return {"image_url": image_url, "success": True}
     except Exception as e:
-        print(f"[generate] FLUX error:\n{traceback.format_exc()}")
+        print(f"[generate] error:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -380,10 +619,9 @@ async def analyze_decoration(req: AnalyzeRequest):
         if ',' in img_data:
             img_data = img_data.split(',', 1)[1]
         image_bytes = base64.b64decode(img_data)
-        image_file = io.BytesIO(image_bytes)
-        image_file.name = "decoration.jpg"
+        # fal_client.upload expects raw bytes
         image_url = await asyncio.to_thread(
-            fal_client.upload, image_file, content_type="image/jpeg"
+            fal_client.upload, image_bytes, content_type="image/jpeg"
         )
 
         system_prompt = """You are an expert event decoration analyst for FatafatDecor India. Count ALL items accurately.
