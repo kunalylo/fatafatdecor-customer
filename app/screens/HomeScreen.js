@@ -9,7 +9,7 @@ export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign,
     userAddress, locationLoading, locationDenied, detectLocation,
-    setGiftMode,
+    setGiftMode, setGiftCart,
   } = useApp()
 
   // What the location bar shows
@@ -113,7 +113,7 @@ export default function HomeScreen() {
       </Card>
     </div>
 
-    <div onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
+    <div onClick={() => { setGiftMode('standalone'); setGiftCart([]); navigate(SCREENS.GIFTS) }}
       className="mx-4 mt-3 mb-0 p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl border border-pink-100 flex items-center gap-3 cursor-pointer active:scale-95 transition-transform">
       <div className="w-11 h-11 bg-pink-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🎁</div>
       <div className="flex-1 min-w-0">

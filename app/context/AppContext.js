@@ -432,10 +432,11 @@ export function AppProvider({ children }) {
         }
       })
       if (data.error) { showToast(data.error, 'error'); return }
-      // Use overrideTotal in local state so BookingScreen shows correct 50% amount
-      const finalOrder = overrideTotal ? { ...data, total_cost: Math.round(overrideTotal) } : data
-      setSelectedOrder(finalOrder)
-      setOrders(prev => [finalOrder, ...prev])
+      // Server returns correct total_cost (decoration + gifts). Use it directly.
+      setSelectedOrder(data)
+      setOrders(prev => [data, ...prev])
+      setGiftCart([])       // clear addon gift cart after order placed
+      setGiftMode('standalone') // reset mode for next session
       showToast('Order placed! Now select your delivery date & time.', 'success')
       navigate(SCREENS.BOOKING)
     } catch (e) { showToast('Failed to create order', 'error') }

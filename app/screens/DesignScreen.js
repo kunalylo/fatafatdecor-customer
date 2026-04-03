@@ -10,7 +10,7 @@ import { SCREENS } from '../lib/constants'
 import { api } from '../lib/constants'
 
 export default function DesignScreen() {
-  const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, giftMode, setGiftMode } = useApp()
+  const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, setGiftCart, giftMode, setGiftMode } = useApp()
   const [imageLoading, setImageLoading] = useState(false)
 
   // If design was loaded from list (no image), fetch full design with image
@@ -127,7 +127,7 @@ export default function DesignScreen() {
         )}
 
         {/* Add Gifts to decoration */}
-        <div onClick={() => { setGiftMode('addon'); navigate(SCREENS.GIFTS) }}
+        <div onClick={() => { if (giftMode !== 'addon') setGiftCart([]); setGiftMode('addon'); navigate(SCREENS.GIFTS) }}
           className="mx-0 mb-3 p-4 border-2 border-dashed border-pink-200 rounded-2xl flex items-center gap-3 cursor-pointer active:scale-95 transition-transform bg-pink-50/50">
           <span className="text-2xl">🎁</span>
           <div className="flex-1">
