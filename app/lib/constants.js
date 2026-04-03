@@ -7,7 +7,8 @@ export const ICON_URL  = `${IK}/branding/icon-512.png`
 export const SCREENS = {
   AUTH: 'auth', HOME: 'home', UPLOAD: 'upload', GENERATING: 'generating',
   DESIGN: 'design', BOOKING: 'booking', TRACKING: 'tracking', CREDITS: 'credits',
-  ORDERS: 'orders', PROFILE: 'profile', ORDER_DETAIL: 'order_detail', ADDRESS: 'address'
+  ORDERS: 'orders', PROFILE: 'profile', ORDER_DETAIL: 'order_detail', ADDRESS: 'address',
+  GIFTS: 'gifts', GIFT_BOOKING: 'gift_booking',
 }
 
 export const ROOM_TYPES = ['Dining Room', 'Living Room', 'Bedroom', 'Balcony', 'Garden', 'Hall', 'Office', 'Terrace']

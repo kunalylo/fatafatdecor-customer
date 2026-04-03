@@ -39,6 +39,11 @@ export function AppProvider({ children }) {
   const [paymentFailed, setPaymentFailed] = useState(false)
   const prevTrackingRef = useRef(null)
   const ordersRef = useRef([])
+  const [gifts, setGifts] = useState([])
+  const [giftCart, setGiftCart] = useState([])
+  const [giftMode, setGiftMode] = useState('standalone') // 'standalone' | 'addon'
+  const [giftOrders, setGiftOrders] = useState([])
+  const [selectedGiftOrder, setSelectedGiftOrder] = useState(null)
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -84,6 +89,7 @@ export function AppProvider({ children }) {
     if (user) {
       api(`designs?user_id=${user.id}`).then(d => !d.error && setDesigns(d))
       api(`orders?user_id=${user.id}`).then(o => !o.error && setOrders(o))
+      api(`gift-orders?user_id=${user.id}`).then(g => { if (!g.error && Array.isArray(g)) setGiftOrders(g) })
     }
   }, [user])
 
@@ -374,7 +380,7 @@ export function AppProvider({ children }) {
     } catch (e) { showToast('Generation failed. Try again.', 'error'); navigate(SCREENS.UPLOAD) }
   }
 
-  const handleCreateOrder = async (overrideTotal = null) => {
+  const handleCreateOrder = async (overrideTotal = null, giftItems = []) => {
     if (!selectedDesign) return
     // If delivery address not yet completed, send user to address screen first
     if (!userAddress?.flat?.trim()) {
@@ -420,7 +426,9 @@ export function AppProvider({ children }) {
           delivery_lat: userAddress?.lat || null,
           delivery_lng: userAddress?.lng || null,
           // Pass override total if customer removed rentable items from design
-          total_override: overrideTotal ? Math.round(overrideTotal) : null
+          total_override: overrideTotal ? Math.round(overrideTotal) : null,
+          gift_items: giftItems,
+          gift_total: giftItems.reduce((s, g) => s + g.price * (g.quantity || 1), 0),
         }
       })
       if (data.error) { showToast(data.error, 'error'); return }
@@ -482,6 +490,87 @@ export function AppProvider({ children }) {
       if (window.Razorpay) { new window.Razorpay(options).open() }
       else { showToast('Payment gateway loading...', 'error') }
     } catch (e) { showToast('Payment failed. Please try again.', 'error'); setPaymentFailed(true) }
+    finally { setLoading(false) }
+  }
+
+  const loadGifts = async () => {
+    const data = await api('gifts')
+    if (!data.error) setGifts(data)
+  }
+
+  const handleCreateGiftOrder = async () => {
+    if (!userAddress?.flat) { showToast('Please set your delivery address first', 'error'); navigate(SCREENS.ADDRESS); return }
+    if (giftCart.length === 0) { showToast('No gifts selected', 'error'); return }
+    setLoading(true)
+    try {
+      const fullAddress = [userAddress.flat, userAddress.landmark, userAddress.area, userAddress.city].filter(Boolean).join(', ')
+      const data = await api('gift-orders', {
+        method: 'POST',
+        body: {
+          user_id: user.id,
+          gift_items: giftCart,
+          delivery_address: fullAddress,
+          delivery_landmark: userAddress.landmark || '',
+          delivery_lat: userAddress.lat || null,
+          delivery_lng: userAddress.lng || null,
+        }
+      })
+      if (data.error) { showToast(data.error, 'error'); return }
+      setSelectedGiftOrder(data)
+      navigate(SCREENS.GIFT_BOOKING)
+    } catch { showToast('Failed to create gift order', 'error') }
+    finally { setLoading(false) }
+  }
+
+  const handleGiftPayment = async (amount, giftOrderId, selectedDate, selectedHour) => {
+    setLoading(true)
+    try {
+      const orderData = await api('payments/create-order', {
+        method: 'POST',
+        body: { type: 'gift_delivery', amount, user_id: user.id, order_id: giftOrderId }
+      })
+      if (orderData.error) { showToast(orderData.error, 'error'); return }
+      const Razorpay = window.Razorpay
+      const rzp = new Razorpay({
+        key: orderData.razorpay_key_id,
+        amount: orderData.amount,
+        currency: 'INR',
+        name: 'FatafatDecor',
+        description: 'Gift Delivery',
+        order_id: orderData.razorpay_order_id,
+        handler: async (response) => {
+          const verify = await api('payments/verify', {
+            method: 'POST',
+            body: {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              payment_id: orderData.payment_id,
+              user_id: user.id,
+              order_id: giftOrderId,
+              type: 'gift_delivery',
+            }
+          })
+          if (!verify.error) {
+            // Set delivery slot
+            await api(`gift-orders/${giftOrderId}/request-slot`, {
+              method: 'POST',
+              body: { date: selectedDate, hour: selectedHour, user_id: user.id }
+            })
+            setSelectedGiftOrder(prev => ({ ...prev, payment_status: 'full', delivery_slot: { date: selectedDate, hour: selectedHour } }))
+            setGiftOrders(prev => [{ ...selectedGiftOrder, payment_status: 'full' }, ...prev])
+            setGiftCart([])
+            showToast('Gift order placed! Delivery scheduled.', 'success')
+            navigate(SCREENS.ORDERS)
+          } else {
+            showToast('Payment verification failed', 'error')
+          }
+        },
+        prefill: { name: user.name, contact: user.phone || '' },
+        theme: { color: '#e91e8c' }
+      })
+      rzp.open()
+    } catch (e) { showToast('Payment failed', 'error') }
     finally { setLoading(false) }
   }
 
@@ -574,7 +663,10 @@ export function AppProvider({ children }) {
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,
     handleGenerate, handleCreateOrder, handlePayment,
     handleBookSlot, loadSlots, handleFileUpload, handleLogout,
-    paymentFailed, setPaymentFailed
+    paymentFailed, setPaymentFailed,
+    gifts, setGifts, giftCart, setGiftCart, giftMode, setGiftMode,
+    giftOrders, setGiftOrders, selectedGiftOrder, setSelectedGiftOrder,
+    loadGifts, handleCreateGiftOrder, handleGiftPayment,
   }
 
   return <AppContext.Provider value={ctxValue}>{children}</AppContext.Provider>

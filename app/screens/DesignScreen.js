@@ -9,7 +9,7 @@ import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
 export default function DesignScreen() {
-  const { selectedDesign, loading, navigate, handleCreateOrder } = useApp()
+  const { selectedDesign, loading, navigate, handleCreateOrder, giftCart, giftMode, setGiftMode } = useApp()
   if (!selectedDesign) return null
   const d = selectedDesign
   const kitItems = (d.kit_items || []).length > 0 ? d.kit_items : (d.items_used || []).filter(i => i.is_kit_item)
@@ -103,6 +103,36 @@ export default function DesignScreen() {
           </div>
         )}
 
+        {/* Add Gifts to decoration */}
+        <div onClick={() => { setGiftMode('addon'); navigate(SCREENS.GIFTS) }}
+          className="mx-0 mb-3 p-4 border-2 border-dashed border-pink-200 rounded-2xl flex items-center gap-3 cursor-pointer active:scale-95 transition-transform bg-pink-50/50">
+          <span className="text-2xl">🎁</span>
+          <div className="flex-1">
+            <p className="font-semibold text-pink-600 text-sm">Add Gifts to Decoration</p>
+            <p className="text-xs text-gray-400">Surprise them with flowers, bouquets & more</p>
+          </div>
+          {giftCart.length > 0 && giftMode === 'addon' && (
+            <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full">{giftCart.length}</span>
+          )}
+        </div>
+
+        {/* Show selected gifts */}
+        {giftCart.length > 0 && giftMode === 'addon' && (
+          <div className="mb-3 p-4 bg-white rounded-2xl border border-pink-100">
+            <p className="text-xs font-bold text-gray-600 mb-2">🎁 Added Gifts</p>
+            {giftCart.map((g, i) => (
+              <div key={i} className="flex justify-between items-center py-1">
+                <span className="text-sm text-gray-700">{g.quantity}× {g.name}</span>
+                <span className="text-sm font-semibold text-pink-600">₹{(g.price * g.quantity).toLocaleString('en-IN')}</span>
+              </div>
+            ))}
+            <div className="border-t border-pink-100 mt-2 pt-2 flex justify-between">
+              <span className="text-sm font-bold text-gray-700">Gifts Total</span>
+              <span className="text-sm font-bold text-pink-600">₹{giftCart.reduce((s,g)=>s+g.price*g.quantity,0).toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        )}
+
         {/* Total Cost */}
         <Card className="border border-green-200 bg-green-50/30">
           <CardContent className="p-4">
@@ -123,7 +153,7 @@ export default function DesignScreen() {
         <div className="space-y-3 pt-2">
           {d.status === 'generated' && (
             <>
-              <Button onClick={() => handleCreateOrder(displayTotal)} disabled={loading}
+              <Button onClick={() => handleCreateOrder(displayTotal, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [])} disabled={loading}
                 className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>

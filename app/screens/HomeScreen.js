@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
+import { Settings, Zap, Camera, ArrowRight, Image, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, LOGO_URL } from '../lib/constants'
 
@@ -9,6 +9,7 @@ export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign,
     userAddress, locationLoading, locationDenied, detectLocation,
+    setGiftMode,
   } = useApp()
 
   // What the location bar shows
@@ -110,6 +111,16 @@ export default function HomeScreen() {
           <ArrowRight className="w-5 h-5 text-pink-400" />
         </CardContent>
       </Card>
+    </div>
+
+    <div onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
+      className="mx-4 mt-3 mb-0 p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl border border-pink-100 flex items-center gap-3 cursor-pointer active:scale-95 transition-transform">
+      <div className="w-11 h-11 bg-pink-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🎁</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-gray-800 text-sm">Send Gifts</p>
+        <p className="text-xs text-gray-500 truncate">Bouquets, flowers & more — delivered</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
     </div>
 
     <div className="grid grid-cols-3 gap-3 px-4 mt-4">

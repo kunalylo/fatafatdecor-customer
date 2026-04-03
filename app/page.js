@@ -17,6 +17,8 @@ import OrdersScreen from './screens/OrdersScreen'
 import OrderDetailScreen from './screens/OrderDetailScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AddressScreen from './screens/AddressScreen'
+import GiftsScreen from './screens/GiftsScreen'
+import GiftBookingScreen from './screens/GiftBookingScreen'
 
 function AppContent() {
   const { screen, user, mounted } = useApp()
@@ -37,6 +39,8 @@ function AppContent() {
       {screen === SCREENS.ORDER_DETAIL && <OrderDetailScreen />}
       {screen === SCREENS.PROFILE && <ProfileScreen />}
       {screen === SCREENS.ADDRESS && <AddressScreen />}
+      {screen === SCREENS.GIFTS && <GiftsScreen />}
+      {screen === SCREENS.GIFT_BOOKING && <GiftBookingScreen />}
       {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && screen !== SCREENS.ADDRESS && <BottomNav />}
     </div>
   )

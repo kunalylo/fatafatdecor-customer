@@ -512,6 +512,12 @@ async function handleRoute(request, { params }) {
       return ok(items.map(({ _id, ...i }) => i))
     }
 
+    // ====== GIFTS ======
+    if (path[0] === 'gifts' && method === 'GET') {
+      const gifts = await db.collection('gifts').find({ active: true }).toArray()
+      return ok(gifts.map(({ _id, ...g }) => g))
+    }
+
     // ====== KITS ======
     if (path[0] === 'kits' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
@@ -841,7 +847,7 @@ async function handleRoute(request, { params }) {
     // ====== ORDERS ======
     if (path[0] === 'orders' && !path[1] && method === 'POST') {
       const body = await request.json()
-      const { design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng, total_override } = body
+      const { design_id, delivery_address, delivery_landmark, delivery_lat, delivery_lng, total_override, gift_items, gift_total } = body
       const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
@@ -857,7 +863,9 @@ async function handleRoute(request, { params }) {
         finalTotal = overrideNum
       }
       if (design.user_id && design.user_id !== user_id) return err('Design does not belong to this user', 403)
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], created_at: new Date() }
+      const hasGifts = Array.isArray(gift_items) && gift_items.length > 0
+      const computedGiftTotal = hasGifts ? gift_items.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0) : 0
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
@@ -905,6 +913,66 @@ async function handleRoute(request, { params }) {
       if (slotOrder.user_id !== user_id) return err('Not authorized', 403)
       await db.collection('orders').updateOne({ id: path[1] }, { $set: { requested_slot: { date, hour }, delivery_status: 'pending' } })
       return ok({ success: true })
+    }
+
+    // ====== GIFT ORDERS ======
+    if (path[0] === 'gift-orders' && !path[1] && method === 'POST') {
+      const body = await request.json()
+      const { delivery_address, delivery_landmark, delivery_lat, delivery_lng, gift_items } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
+      if (!user_id) return err('user_id required')
+      if (!Array.isArray(gift_items) || gift_items.length === 0) return err('gift_items array required')
+      const giftTotal = gift_items.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0)
+      const giftOrder = {
+        id: uuidv4(),
+        user_id,
+        order_type: 'gift',
+        gift_items,
+        gift_total: giftTotal,
+        delivery_address: delivery_address || '',
+        delivery_landmark: delivery_landmark || '',
+        delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null },
+        delivery_slot: null,
+        payment_status: 'pending',
+        payment_amount: 0,
+        delivery_status: 'pending',
+        delivery_person_id: null,
+        assigned_decorators: [],
+        accepted_decorators: [],
+        created_at: new Date()
+      }
+      await db.collection('gift_orders').insertOne(giftOrder)
+      // Assign all active delivery persons
+      const activePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
+      if (activePersons.length > 0) {
+        const assignedIds = activePersons.map(p => p.id)
+        await db.collection('gift_orders').updateOne({ id: giftOrder.id }, { $set: { assigned_decorators: assignedIds } })
+        giftOrder.assigned_decorators = assignedIds
+      }
+      const { _id, ...cleanGO } = giftOrder; return ok(cleanGO)
+    }
+    if (path[0] === 'gift-orders' && !path[1] && method === 'GET') {
+      const url = new URL(request.url)
+      const user_id = await getUserIdFromRequest(request, url.searchParams.get('user_id'))
+      if (!user_id) return err('user_id required')
+      const giftOrders = await db.collection('gift_orders').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
+      return ok(giftOrders.map(({ _id, ...o }) => o))
+    }
+    if (path[0] === 'gift-orders' && path[1] && path[2] === 'request-slot' && method === 'POST') {
+      const body = await request.json()
+      const { date, hour } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
+      if (!date || hour === undefined || !user_id) return err('date, hour, user_id required')
+      const slotGO = await db.collection('gift_orders').findOne({ id: path[1] })
+      if (!slotGO) return err('Gift order not found', 404)
+      if (slotGO.user_id !== user_id) return err('Not authorized', 403)
+      await db.collection('gift_orders').updateOne({ id: path[1] }, { $set: { requested_slot: { date, hour }, delivery_slot: { date, hour } } })
+      return ok({ success: true })
+    }
+    if (path[0] === 'gift-orders' && path[1] && !path[2] && method === 'GET') {
+      const giftOrder = await db.collection('gift_orders').findOne({ id: path[1] })
+      if (!giftOrder) return err('Gift order not found', 404)
+      const { _id, ...cleanGO } = giftOrder; return ok(cleanGO)
     }
 
     // ====== PAYMENTS ======
@@ -978,6 +1046,13 @@ async function handleRoute(request, { params }) {
         const payUser = await db.collection('users').findOne({ id: payment.user_id })
         if (payUser?.phone) {
           await sendWhatsApp(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. Decorator will arrive at the selected time. -FatafatDecor`)
+        }
+      }
+      if (payment.type === 'gift_delivery' && payment.order_id) {
+        await db.collection('gift_orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'full', payment_amount: payment.amount } })
+        const giftPayUser = await db.collection('users').findOne({ id: payment.user_id })
+        if (giftPayUser?.phone) {
+          await sendWhatsApp(giftPayUser.phone, `FatafatDecor: Gift order payment of Rs.${payment.amount} received! Your gift delivery is confirmed. -FatafatDecor`)
         }
       }
       return ok({ success: true, type: payment.type })
@@ -1150,8 +1225,13 @@ async function handleRoute(request, { params }) {
         accepted_decorators: { $not: { $elemMatch: { $eq: dpId } } },
         $expr: { $lt: [{ $size: { $ifNull: ['$accepted_decorators', []] } }, 2] }
       }).sort({ created_at: -1 }).toArray()
+      const pendingGiftOrders = await db.collection('gift_orders').find({
+        assigned_decorators: dpId,
+        payment_status: 'full',
+        delivery_status: 'pending'
+      }).sort({ created_at: -1 }).toArray()
       const { _id, password: _, ...safeDp } = dp
-      return ok({ delivery_person: safeDp, today_orders: todayOrders.map(({ _id, ...o }) => o), active_orders: allActiveOrders.map(({ _id, ...o }) => o), pending_orders: pendingOrders.map(({ _id, ...o }) => o), date: today })
+      return ok({ delivery_person: safeDp, today_orders: todayOrders.map(({ _id, ...o }) => o), active_orders: allActiveOrders.map(({ _id, ...o }) => o), pending_orders: pendingOrders.map(({ _id, ...o }) => o), pending_gift_orders: pendingGiftOrders.map(({ _id, ...o }) => o), date: today })
     }
     if (path[0] === 'dp' && path[1] === 'calendar' && path[2] && method === 'GET') {
       const dpId = path[2]; const url = new URL(request.url); const month = url.searchParams.get('month') || new Date().toISOString().slice(0, 7)
@@ -1321,6 +1401,61 @@ async function handleRoute(request, { params }) {
         { $pull: { assigned_decorators: dp_id, accepted_decorators: dp_id } }
       )
       return ok({ success: true, message: 'Order declined' })
+    }
+
+    // ── DP: Accept Gift Order ─────────────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'accept-gift-order' && method === 'POST') {
+      const { order_id, dp_id } = await request.json()
+      if (!order_id || !dp_id) return err('order_id and dp_id required')
+      const dp = await db.collection('delivery_persons').findOne({ id: dp_id })
+      if (!dp) return err('Delivery person not found', 404)
+      const giftOrder = await db.collection('gift_orders').findOne({ id: order_id })
+      if (!giftOrder) return err('Gift order not found', 404)
+      if (!(giftOrder.assigned_decorators || []).includes(dp_id)) return err('Gift order not assigned to you', 403)
+      if ((giftOrder.accepted_decorators || []).includes(dp_id)) return err('You have already accepted this gift order')
+      const agUpdate = { $addToSet: { accepted_decorators: dp_id } }
+      if (!giftOrder.delivery_person_id) {
+        agUpdate.$set = { delivery_person_id: dp_id, delivery_status: 'assigned' }
+      }
+      await db.collection('gift_orders').updateOne({ id: order_id }, agUpdate)
+      return ok({ success: true, message: 'Gift order accepted successfully' })
+    }
+
+    // ── DP: Decline Gift Order ────────────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'decline-gift-order' && method === 'POST') {
+      const { order_id, dp_id } = await request.json()
+      if (!order_id || !dp_id) return err('order_id and dp_id required')
+      const giftOrder = await db.collection('gift_orders').findOne({ id: order_id })
+      if (!giftOrder) return err('Gift order not found', 404)
+      await db.collection('gift_orders').updateOne(
+        { id: order_id },
+        { $pull: { assigned_decorators: dp_id, accepted_decorators: dp_id } }
+      )
+      return ok({ success: true, message: 'Gift order declined' })
+    }
+
+    // ── DP: Update Gift Order Status ──────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'update-gift-status' && method === 'POST') {
+      const { order_id, status, dp_id } = await request.json()
+      if (!order_id || !status || !dp_id) return err('order_id, status, dp_id required')
+      const VALID_GIFT_STATUSES = ['assigned', 'en_route', 'arrived', 'delivered']
+      if (!VALID_GIFT_STATUSES.includes(status)) return err('Invalid status. Must be one of: assigned, en_route, arrived, delivered', 400)
+      const giftOrder = await db.collection('gift_orders').findOne({ id: order_id })
+      if (!giftOrder) return err('Gift order not found', 404)
+      const isGiftAssigned = (giftOrder.accepted_decorators || []).includes(dp_id) || giftOrder.delivery_person_id === dp_id
+      if (!isGiftAssigned) return err('Not authorized to update this gift order', 403)
+      await db.collection('gift_orders').updateOne({ id: order_id }, { $set: { delivery_status: status } })
+      return ok({ success: true })
+    }
+
+    // ── DP: Gift Order Detail ─────────────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'gift-order-detail' && path[2] && method === 'GET') {
+      const giftOrder = await db.collection('gift_orders').findOne({ id: path[2] })
+      if (!giftOrder) return err('Gift order not found', 404)
+      const giftCustomer = await db.collection('users').findOne({ id: giftOrder.user_id })
+      const { _id: _g1, ...cleanGiftOrder } = giftOrder
+      const { _id: _g2, password: _g3, ...safeGiftCustomer } = giftCustomer || {}
+      return ok({ ...cleanGiftOrder, customer: safeGiftCustomer })
     }
 
     // ====== SEED ======
