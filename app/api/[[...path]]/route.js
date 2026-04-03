@@ -512,6 +512,17 @@ async function handleRoute(request, { params }) {
       return ok(items.map(({ _id, ...i }) => i))
     }
 
+    // ====== AI WARMUP ======
+    if (path[0] === 'ai-warmup' && method === 'GET') {
+      try {
+        const ctrl = new AbortController()
+        const t = setTimeout(() => ctrl.abort(), 5000)
+        await fetch(`${AI_SERVICE_URL}/health`, { signal: ctrl.signal })
+        clearTimeout(t)
+      } catch {}
+      return ok({ ok: true })
+    }
+
     // ====== GIFTS ======
     if (path[0] === 'gifts' && method === 'GET') {
       const gifts = await db.collection('gifts').find({ $or: [{ active: true }, { is_active: true }] }).sort({ sr: 1, name: 1 }).toArray()

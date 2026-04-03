@@ -90,6 +90,10 @@ export function AppProvider({ children }) {
       api(`designs?user_id=${user.id}`).then(d => !d.error && setDesigns(d))
       api(`orders?user_id=${user.id}`).then(o => !o.error && setOrders(o))
       api(`gift-orders?user_id=${user.id}`).then(g => { if (!g.error && Array.isArray(g)) setGiftOrders(g) })
+      // Pre-load gifts in background so GiftsScreen opens instantly
+      loadGifts()
+      // Warm up AI service to prevent cold-start delay on first generation
+      api('ai-warmup').catch(() => {})
     }
   }, [user])
 
@@ -495,8 +499,26 @@ export function AppProvider({ children }) {
   }
 
   const loadGifts = async () => {
+    // Check localStorage cache first (TTL: 30 minutes)
+    try {
+      const cached = localStorage.getItem('fd_gifts_cache')
+      const ts = localStorage.getItem('fd_gifts_ts')
+      if (cached && ts && Date.now() - Number(ts) < 30 * 60 * 1000) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGifts(parsed)
+          return
+        }
+      }
+    } catch {}
     const data = await api('gifts')
-    if (!data.error) setGifts(data)
+    if (!data.error && Array.isArray(data)) {
+      setGifts(data)
+      try {
+        localStorage.setItem('fd_gifts_cache', JSON.stringify(data))
+        localStorage.setItem('fd_gifts_ts', String(Date.now()))
+      } catch {}
+    }
   }
 
   const handleCreateGiftOrder = async () => {

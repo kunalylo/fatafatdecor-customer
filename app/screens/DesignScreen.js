@@ -55,7 +55,9 @@ export default function DesignScreen() {
           </div>
         ) : d.decorated_image ? (
           <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30">
-            <img src={d.decorated_image} alt="Decorated" className="w-full" />
+            <img
+              src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-800,c-maintain_ratio` : d.decorated_image}
+              alt="Decorated" className="w-full" loading="eager" />
           </div>
         ) : null}
 

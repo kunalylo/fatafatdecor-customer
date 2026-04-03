@@ -74,7 +74,10 @@ export default function GiftsScreen() {
           return (
             <div key={gift.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
               <div className="relative">
-                <img src={gift.image_url} alt={gift.name} className="w-full h-40 object-cover bg-pink-50"
+                <img
+                  src={gift.image_url && gift.image_url.includes('ik.imagekit.io') ? `${gift.image_url}?tr=w-400,h-320,c-maintain_ratio` : gift.image_url}
+                  alt={gift.name} className="w-full h-40 object-cover bg-pink-50"
+                  loading="lazy"
                   onError={e => { e.target.style.background = '#fdf2f8'; e.target.src = '' }} />
                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-xs font-bold text-pink-600">
                   ₹{gift.price.toLocaleString('en-IN')}
