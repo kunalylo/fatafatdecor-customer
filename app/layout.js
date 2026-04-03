@@ -1,4 +1,12 @@
 import './globals.css'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+  preload: true,
+})
 
 export const metadata = {
   title: 'FatafatDecor - Instant Decoration Delivery',
@@ -47,15 +55,12 @@ export default function RootLayout({ children }) {
         {/* Splash screens for iOS */}
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-        {/* Fonts */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        {/* Fonts served via next/font (self-hosted, zero network round-trip) */}
 
-        {/* External Scripts */}
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHwz7UFa-hJVdU1XfvejIZm6RxvOjH3m0&loading=async" async></script>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
+        {/* External Scripts — defer so they never block first paint */}
+        <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+        <script src="https://accounts.google.com/gsi/client" defer></script>
+        {/* Google Maps is loaded lazily by AddressScreen only when needed */}
 
         {/* Error suppression */}
         <script dangerouslySetInnerHTML={{__html:'window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);'}} />
@@ -71,7 +76,7 @@ export default function RootLayout({ children }) {
           }
         `}} />
       </head>
-      <body className="font-sans bg-white">
+      <body className={`${inter.className} bg-white`}>
         {children}
       </body>
     </html>

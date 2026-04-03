@@ -53,7 +53,14 @@ async function connectToMongo() {
   try {
     const mongoUrl = process.env.MONGO_URL
     if (!mongoUrl) throw new Error('MONGO_URL not set in .env.local')
-    client = new MongoClient(mongoUrl, { serverSelectionTimeoutMS: 10000, connectTimeoutMS: 10000 })
+    client = new MongoClient(mongoUrl, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 30000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+    })
     await client.connect()
     db = client.db(process.env.DB_NAME || 'fatafatdecor')
     return db
@@ -122,7 +129,11 @@ async function sendWhatsApp(phone, message) {
   }
 }
 
-function ok(data) { return cors(NextResponse.json(data)) }
+function ok(data, cache = 0) {
+  const res = cors(NextResponse.json(data))
+  if (cache > 0) res.headers.set('Cache-Control', `public, s-maxage=${cache}, stale-while-revalidate=${cache * 2}`)
+  return res
+}
 function err(msg, status = 400) { return cors(NextResponse.json({ error: msg }, { status })) }
 function hashPwd(pwd) { return crypto.createHash('sha256').update(pwd).digest('hex') }
 function hashOtp(otp) { return crypto.createHash('sha256').update(`signup:${otp}`).digest('hex') }
@@ -531,7 +542,7 @@ async function handleRoute(request, { params }) {
         active: true,
         // URL-encode image filenames (may contain spaces/parens from upload)
         image_url: g.image_url ? g.image_url.split('/').map((seg, i) => i >= 3 ? encodeURIComponent(seg) : seg).join('/') : ''
-      })))
+      })), 300) // cache 5 min — gifts rarely change
     }
 
     // ====== KITS ======
@@ -1122,7 +1133,7 @@ async function handleRoute(request, { params }) {
         const available = deliveryPersons.length - bookedCount
         slots.push({ hour, time_label: `${hour}:00 - ${hour + 1}:00`, available: !isAdminBlocked && available > 0, available_count: isAdminBlocked ? 0 : available, admin_blocked: isAdminBlocked })
       }
-      return ok({ date, slots })
+      return ok({ date, slots }, 60) // cache 1 min — slots change only when booked
     }
     if (path[0] === 'delivery' && path[1] === 'book' && method === 'POST') {
       const { order_id, date, hour } = await request.json()

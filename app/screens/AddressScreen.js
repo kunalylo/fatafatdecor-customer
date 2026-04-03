@@ -134,6 +134,13 @@ export default function AddressScreen() {
     if (window.google?.maps) {
       initMap()
     } else {
+      // Lazy-load Google Maps JS if not already injected
+      if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+        const s = document.createElement('script')
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async`
+        s.async = true
+        document.head.appendChild(s)
+      }
       let retries = 0
       poll = setInterval(() => {
         retries++
