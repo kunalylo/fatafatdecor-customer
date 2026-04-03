@@ -514,8 +514,13 @@ async function handleRoute(request, { params }) {
 
     // ====== GIFTS ======
     if (path[0] === 'gifts' && method === 'GET') {
-      const gifts = await db.collection('gifts').find({ $or: [{ active: true }, { is_active: true }] }).sort({ name: 1 }).toArray()
-      return ok(gifts.map(({ _id, ...g }) => ({ ...g, active: true })))
+      const gifts = await db.collection('gifts').find({ $or: [{ active: true }, { is_active: true }] }).sort({ sr: 1, name: 1 }).toArray()
+      return ok(gifts.map(({ _id, ...g }) => ({
+        ...g,
+        active: true,
+        // URL-encode image filenames (may contain spaces/parens from upload)
+        image_url: g.image_url ? g.image_url.split('/').map((seg, i) => i >= 3 ? encodeURIComponent(seg) : seg).join('/') : ''
+      })))
     }
 
     // ====== KITS ======
@@ -876,7 +881,9 @@ async function handleRoute(request, { params }) {
       if (design.user_id && design.user_id !== user_id) return err('Design does not belong to this user', 403)
       const hasGifts = Array.isArray(gift_items) && gift_items.length > 0
       const computedGiftTotal = hasGifts ? gift_items.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0) : 0
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
+      // Include gift total in order total so 50% advance payment covers both decoration + gifts
+      const orderTotal = finalTotal + computedGiftTotal
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: orderTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()

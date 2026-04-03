@@ -18,7 +18,7 @@ export default function GiftBookingScreen() {
   })
 
   useEffect(() => {
-    if (!selectedGiftOrder) { navigate(SCREENS.GIFTS); return }
+    if (!selectedGiftOrder) { navigate(SCREENS.HOME); return }
   }, [])
 
   const loadSlots = async (date) => {

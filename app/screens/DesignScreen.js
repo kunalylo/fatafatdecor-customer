@@ -23,16 +23,22 @@ export default function DesignScreen() {
     }
   }, [selectedDesign?.id])
 
+  // All hooks must be at top level — before any early returns
+  const [localAddonItems, setLocalAddonItems] = useState(null)
+
   if (!selectedDesign) return null
   const d = selectedDesign
   const kitItems = (d.kit_items || []).length > 0 ? d.kit_items : (d.items_used || []).filter(i => i.is_kit_item)
   const addonItems = (d.addon_items || []).length > 0 ? d.addon_items : (d.items_used || []).filter(i => !i.is_kit_item)
   const hasKit = d.kit_name || kitItems.length > 0
-  const [localAddonItems, setLocalAddonItems] = useState(null)
   const displayAddonItems = localAddonItems !== null ? localAddonItems : addonItems
   const deleteAddonItem = (id) => setLocalAddonItems((localAddonItems || addonItems).filter(i => i.id !== id))
   const addonTotal = displayAddonItems.reduce((s, i) => s + (Number(i.price) || Number(i.selling_price_unit) || 0) * (Number(i.quantity) || 1), 0)
-  const displayTotal = (d.kit_cost || 0) + addonTotal
+  const decorationTotal = (d.kit_cost || 0) + addonTotal
+  const giftAddonTotal = (giftCart.length > 0 && giftMode === 'addon')
+    ? giftCart.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0)
+    : 0
+  const displayTotal = decorationTotal + giftAddonTotal
   return (
     <div className="slide-up pb-24 bg-white min-h-screen">
       <div className="flex items-center gap-3 p-4">
@@ -153,16 +159,36 @@ export default function DesignScreen() {
         {/* Total Cost */}
         <Card className="border border-green-200 bg-green-50/30">
           <CardContent className="p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-gray-700">Total Cost</h3>
-                <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} included</p>
+            {giftAddonTotal > 0 ? (
+              <>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Decoration</span>
+                  <span className="font-semibold text-gray-700">₹{decorationTotal.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-500">🎁 Gifts</span>
+                  <span className="font-semibold text-pink-600">₹{giftAddonTotal.toFixed(0)}</span>
+                </div>
+                <div className="border-t border-green-200 pt-2 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-700">Total (50% now)</h3>
+                  <div className="flex items-center text-green-600">
+                    <IndianRupee className="w-5 h-5" />
+                    <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-gray-700">Total Cost</h3>
+                  <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} · pay 50% now</p>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <IndianRupee className="w-5 h-5" />
+                  <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
+                </div>
               </div>
-              <div className="flex items-center text-green-600">
-                <IndianRupee className="w-5 h-5" />
-                <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -170,7 +196,7 @@ export default function DesignScreen() {
         <div className="space-y-3 pt-2">
           {d.status === 'generated' && (
             <>
-              <Button onClick={() => handleCreateOrder(displayTotal, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [])} disabled={loading}
+              <Button onClick={() => handleCreateOrder(decorationTotal, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [])} disabled={loading}
                 className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>

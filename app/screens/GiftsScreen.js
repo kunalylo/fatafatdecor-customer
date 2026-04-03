@@ -2,16 +2,23 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function GiftsScreen() {
   const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user } = useApp()
   const [search, setSearch] = useState('')
+  const [giftsLoading, setGiftsLoading] = useState(false)
+  const [giftsLoaded, setGiftsLoaded] = useState(gifts.length > 0)
 
-  useEffect(() => { if (gifts.length === 0) loadGifts() }, [])
+  useEffect(() => {
+    if (gifts.length === 0) {
+      setGiftsLoading(true)
+      loadGifts().finally(() => { setGiftsLoading(false); setGiftsLoaded(true) })
+    }
+  }, [])
 
-  const filtered = gifts.filter(g => g.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = gifts.filter(g => (g.name || '').toLowerCase().includes(search.toLowerCase()))
 
   const getQty = (id) => (giftCart.find(g => g.gift_id === id)?.quantity || 0)
 
@@ -96,10 +103,16 @@ export default function GiftsScreen() {
             </div>
           )
         })}
-        {filtered.length === 0 && (
+        {giftsLoading && (
+          <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
+            <Loader2 className="w-8 h-8 animate-spin text-pink-400 mb-3" />
+            <p className="font-medium">Loading gifts...</p>
+          </div>
+        )}
+        {!giftsLoading && filtered.length === 0 && (
           <div className="col-span-2 text-center py-16 text-gray-400">
             <p className="text-4xl mb-2">🎁</p>
-            <p className="font-medium">{search ? 'No gifts found' : 'Loading gifts...'}</p>
+            <p className="font-medium">{search ? 'No gifts found' : giftsLoaded ? 'No gifts available' : 'Loading gifts...'}</p>
           </div>
         )}
       </div>
