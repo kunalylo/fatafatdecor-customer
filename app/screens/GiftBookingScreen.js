@@ -12,8 +12,9 @@ export default function GiftBookingScreen() {
   const [slots, setSlots] = useState([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
+  // Include today + next 6 days (gifts can be ordered same-day)
   const dates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() + i + 1)
+    const d = new Date(); d.setDate(d.getDate() + i)
     return d.toISOString().split('T')[0]
   })
 
@@ -38,7 +39,7 @@ export default function GiftBookingScreen() {
   const handleTimeSelect = (hour) => { setSelectedHour(hour) }
 
   const handlePay = () => {
-    if (!selectedGiftOrder || selectedHour === null) return
+    if (!selectedGiftOrder || !selectedDate || selectedHour === null) return
     handleGiftPayment(selectedGiftOrder.gift_total, selectedGiftOrder.id, selectedDate, selectedHour)
   }
 
