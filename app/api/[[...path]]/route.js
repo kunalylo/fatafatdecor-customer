@@ -1289,6 +1289,37 @@ async function handleRoute(request, { params }) {
       return ok({ ...cleanOrder, customer: safeUser, decorated_image: design?.decorated_image || null, kit_name: design?.kit_name || null, kit_id: design?.kit_id || null, kit_info: kitInfo, kit_items: design?.kit_items || [], addon_items: design?.addon_items || [] })
     }
 
+    // ── DP: Accept Order ──────────────────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'accept-order' && method === 'POST') {
+      const { order_id, dp_id } = await request.json()
+      if (!order_id || !dp_id) return err('order_id and dp_id required')
+      const dp = await db.collection('delivery_persons').findOne({ id: dp_id })
+      if (!dp) return err('Delivery person not found', 404)
+      const order = await db.collection('orders').findOne({ id: order_id })
+      if (!order) return err('Order not found', 404)
+      if (!(order.assigned_decorators || []).includes(dp_id)) return err('Order not assigned to you', 403)
+      if ((order.accepted_decorators || []).includes(dp_id)) return err('You have already accepted this order')
+      const aoUpdate = { $addToSet: { accepted_decorators: dp_id } }
+      if (!order.delivery_person_id) {
+        aoUpdate.$set = { delivery_person_id: dp_id, delivery_status: 'assigned' }
+      }
+      await db.collection('orders').updateOne({ id: order_id }, aoUpdate)
+      return ok({ success: true, message: 'Order accepted successfully' })
+    }
+
+    // ── DP: Decline Order ─────────────────────────────────────────────────
+    if (path[0] === 'dp' && path[1] === 'decline-order' && method === 'POST') {
+      const { order_id, dp_id } = await request.json()
+      if (!order_id || !dp_id) return err('order_id and dp_id required')
+      const order = await db.collection('orders').findOne({ id: order_id })
+      if (!order) return err('Order not found', 404)
+      await db.collection('orders').updateOne(
+        { id: order_id },
+        { $pull: { assigned_decorators: dp_id, accepted_decorators: dp_id } }
+      )
+      return ok({ success: true, message: 'Order declined' })
+    }
+
     // ====== SEED ======
     if (path[0] === 'seed' && (method === 'POST' || method === 'GET')) {
       await db.collection('items').deleteMany({})
