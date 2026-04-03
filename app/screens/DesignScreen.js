@@ -1,15 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
+import { api } from '../lib/constants'
 
 export default function DesignScreen() {
-  const { selectedDesign, loading, navigate, handleCreateOrder, giftCart, giftMode, setGiftMode } = useApp()
+  const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, giftMode, setGiftMode } = useApp()
+  const [imageLoading, setImageLoading] = useState(false)
+
+  // If design was loaded from list (no image), fetch full design with image
+  useEffect(() => {
+    if (selectedDesign && !selectedDesign.decorated_image && selectedDesign.id) {
+      setImageLoading(true)
+      api(`designs/${selectedDesign.id}`).then(full => {
+        if (!full.error) setSelectedDesign(full)
+      }).finally(() => setImageLoading(false))
+    }
+  }, [selectedDesign?.id])
+
   if (!selectedDesign) return null
   const d = selectedDesign
   const kitItems = (d.kit_items || []).length > 0 ? d.kit_items : (d.items_used || []).filter(i => i.is_kit_item)
@@ -30,11 +43,15 @@ export default function DesignScreen() {
         <Badge className="ml-auto capitalize gradient-pink border-0 text-white">{d.occasion}</Badge>
       </div>
       <div className="px-4 space-y-4">
-        {d.decorated_image && (
+        {imageLoading ? (
+          <div className="rounded-2xl border border-pink-100 bg-pink-50 h-64 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-pink-400 animate-spin" />
+          </div>
+        ) : d.decorated_image ? (
           <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30">
             <img src={d.decorated_image} alt="Decorated" className="w-full" />
           </div>
-        )}
+        ) : null}
 
         {/* Kit / Final Look */}
         {hasKit && (

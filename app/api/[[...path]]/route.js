@@ -514,8 +514,8 @@ async function handleRoute(request, { params }) {
 
     // ====== GIFTS ======
     if (path[0] === 'gifts' && method === 'GET') {
-      const gifts = await db.collection('gifts').find({ active: true }).toArray()
-      return ok(gifts.map(({ _id, ...g }) => g))
+      const gifts = await db.collection('gifts').find({ $or: [{ active: true }, { is_active: true }] }).sort({ name: 1 }).toArray()
+      return ok(gifts.map(({ _id, ...g }) => ({ ...g, active: true })))
     }
 
     // ====== KITS ======
@@ -707,12 +707,15 @@ async function handleRoute(request, { params }) {
         ]
         addOnCost = addOnItems.reduce((s, i) => s + (Number(i.price) || 0), 0)
 
-        // ── Upload fal.ai image to ImageKit for permanent CDN storage ──────
+        // ── Upload image to ImageKit for permanent CDN storage ──────────────
         try {
-          const falBuf    = await (await fetch(aiData.image_url)).arrayBuffer()
-          const falBase64 = Buffer.from(falBuf).toString('base64')
-          const ikAuth    = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY || '') + ':').toString('base64')
-          const ikBody    = new URLSearchParams()
+          const imgUrl = aiData.image_url
+          // data: URLs can't be fetched in Node — extract base64 directly
+          const falBase64 = imgUrl.startsWith('data:')
+            ? imgUrl.split(',')[1]
+            : Buffer.from(await (await fetch(imgUrl)).arrayBuffer()).toString('base64')
+          const ikAuth = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY || '') + ':').toString('base64')
+          const ikBody = new URLSearchParams()
           ikBody.append('file', falBase64)
           ikBody.append('fileName', `design_${designId}.jpg`)
           ikBody.append('folder', '/generated')
@@ -722,8 +725,9 @@ async function handleRoute(request, { params }) {
             body: ikBody.toString()
           })
           const ikData = await ikRes.json()
-          decoratedImageUrl = ikData.url || aiData.image_url
-        } catch (_ikErr) { decoratedImageUrl = aiData.image_url }
+          if (!ikData.url) throw new Error('ImageKit upload failed: ' + JSON.stringify(ikData))
+          decoratedImageUrl = ikData.url
+        } catch (_ikErr) { console.warn('[imagekit] upload failed:', _ikErr.message); decoratedImageUrl = aiData.image_url }
 
         aiSucceeded = true
 
@@ -787,15 +791,18 @@ async function handleRoute(request, { params }) {
           const fbData = await fbRes.json()
           if (!fbData.success) throw new Error(fbData.detail || 'Fallback generation failed')
           try {
-            const falBuf    = await (await fetch(fbData.image_url)).arrayBuffer()
-            const falBase64 = Buffer.from(falBuf).toString('base64')
-            const ikAuth    = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY||'') + ':').toString('base64')
-            const ikBody    = new URLSearchParams()
+            const fbUrl  = fbData.image_url
+            const falBase64 = fbUrl.startsWith('data:')
+              ? fbUrl.split(',')[1]
+              : Buffer.from(await (await fetch(fbUrl)).arrayBuffer()).toString('base64')
+            const ikAuth = Buffer.from((process.env.IMAGEKIT_PRIVATE_KEY||'') + ':').toString('base64')
+            const ikBody = new URLSearchParams()
             ikBody.append('file', falBase64); ikBody.append('fileName', `design_${designId}.jpg`); ikBody.append('folder', '/generated')
             const ikRes  = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method:'POST', headers:{'Authorization':`Basic ${ikAuth}`,'Content-Type':'application/x-www-form-urlencoded'}, body:ikBody.toString() })
             const ikData = await ikRes.json()
-            decoratedImageUrl = ikData.url || fbData.image_url
-          } catch (_) { decoratedImageUrl = fbData.image_url }
+            if (!ikData.url) throw new Error('ImageKit upload failed')
+            decoratedImageUrl = ikData.url
+          } catch (_) { console.warn('[imagekit-fallback] upload failed:', _.message); decoratedImageUrl = fbData.image_url }
         } catch (fbErr) {
           const isTo = fbErr.name === 'AbortError' || fbErr.message?.includes('aborted')
           return err(isTo ? 'AI generation timed out. Please try again.' : 'AI image generation failed. Please try again.', 500)
@@ -836,7 +843,11 @@ async function handleRoute(request, { params }) {
       const user_id = await getUserIdFromRequest(request, url.searchParams.get('user_id'))
       if (!user_id) return err('user_id required')
       const designs = await db.collection('designs').find({ user_id }).sort({ created_at: -1 }).limit(50).toArray()
-      return ok(designs.map(({ _id, ...d }) => d))
+      // Strip base64 inline images from list (they're ~1MB each — too heavy for list view)
+      return ok(designs.map(({ _id, ...d }) => ({
+        ...d,
+        decorated_image: d.decorated_image?.startsWith('data:') ? null : (d.decorated_image || null)
+      })))
     }
     if (path[0] === 'designs' && path[1] && path[1] !== 'generate' && method === 'GET') {
       const design = await db.collection('designs').findOne({ id: path[1] })
