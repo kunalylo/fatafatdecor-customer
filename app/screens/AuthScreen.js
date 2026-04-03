@@ -89,7 +89,7 @@ export default function AuthScreen() {
               </Button>
               {signupOtpSent && (
                 <>
-                  {devOtp && (
+                  {devOtp && process.env.NODE_ENV === 'development' && (
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
                       <p className="text-xs text-amber-600 font-medium mb-1">Dev Mode — OTP</p>
                       <p className="text-2xl font-bold tracking-[0.4em] text-amber-800">{devOtp}</p>

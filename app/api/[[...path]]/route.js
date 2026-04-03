@@ -856,7 +856,8 @@ async function handleRoute(request, { params }) {
         }
         finalTotal = overrideNum
       }
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used, total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], created_at: new Date() }
+      if (design.user_id && design.user_id !== user_id) return err('Design does not belong to this user', 403)
+      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: finalTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
@@ -912,6 +913,7 @@ async function handleRoute(request, { params }) {
       const { type, amount, order_id, credits_count } = body
       const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!type || !amount || !user_id) return err('type, amount, user_id required')
+      if (Number(amount) <= 0) return err('Invalid payment amount', 400)
       try {
         const Razorpay = (await import('razorpay')).default
         const rzp = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
@@ -1021,6 +1023,7 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'delivery' && path[1] === 'book' && method === 'POST') {
       const { order_id, date, hour } = await request.json()
       if (!order_id || !date || hour === undefined) return err('order_id, date, hour required')
+      if (typeof hour !== 'number' || hour < 8 || hour > 21) return err('Invalid delivery hour. Must be between 8 and 21.', 400)
       const order = await db.collection('orders').findOne({ id: order_id })
       if (!order) return err('Order not found', 404)
       const deliveryPersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
@@ -1322,6 +1325,11 @@ async function handleRoute(request, { params }) {
 
     // ====== SEED ======
     if (path[0] === 'seed' && (method === 'POST' || method === 'GET')) {
+      const seedSecret = process.env.SEED_SECRET
+      if (seedSecret) {
+        const reqSecret = request.headers.get('x-seed-secret') || new URL(request.url).searchParams.get('secret')
+        if (reqSecret !== seedSecret) return err('Unauthorized', 401)
+      }
       await db.collection('items').deleteMany({})
       // NOTE: delivery_persons are NOT deleted — their IDs are referenced by orders
       await db.collection('rent_items').deleteMany({})
