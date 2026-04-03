@@ -41,7 +41,7 @@ function AppContent() {
       {screen === SCREENS.ADDRESS && <AddressScreen />}
       {screen === SCREENS.GIFTS && <GiftsScreen />}
       {screen === SCREENS.GIFT_BOOKING && <GiftBookingScreen />}
-      {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && screen !== SCREENS.ADDRESS && <BottomNav />}
+      {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && screen !== SCREENS.ADDRESS && screen !== SCREENS.GIFTS && screen !== SCREENS.GIFT_BOOKING && <BottomNav />}
     </div>
   )
 }
