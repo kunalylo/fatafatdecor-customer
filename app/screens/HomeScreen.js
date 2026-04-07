@@ -151,7 +151,7 @@ export default function HomeScreen() {
               <CardContent className="p-0">
                 {d.decorated_image ? (
                   <img
-                    src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-352,h-224,c-maintain_ratio` : d.decorated_image}
+                    src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-352,h-224,q-75,c-maintain_ratio` : d.decorated_image}
                     alt="Design" className="w-full h-28 object-cover rounded-t-xl" loading="lazy" />
                 ) : (
                   <div className="w-full h-28 bg-pink-50 rounded-t-xl flex items-center justify-center"><Image className="w-8 h-8 text-pink-300" /></div>

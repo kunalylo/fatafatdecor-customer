@@ -13,6 +13,9 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null)
   const [screen, setScreen] = useState(SCREENS.AUTH)
   const [prevScreen, setPrevScreen] = useState(null)
+  // Refs so navigate/goBack don't need screen/prevScreen as deps (prevents re-render cascade)
+  const screenRef = useRef(SCREENS.AUTH)
+  const prevScreenRef = useRef(null)
   const [authMode, setAuthMode] = useState('login')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState(null)
@@ -45,6 +48,10 @@ export function AppProvider({ children }) {
   const [giftOrders, setGiftOrders] = useState([])
   const [selectedGiftOrder, setSelectedGiftOrder] = useState(null)
 
+  // Keep refs in sync so navigate/goBack can read current values without deps
+  useEffect(() => { screenRef.current = screen }, [screen])
+  useEffect(() => { prevScreenRef.current = prevScreen }, [prevScreen])
+
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
@@ -67,15 +74,15 @@ export function AppProvider({ children }) {
     setMounted(true)
   }, [])
 
+  // Stable navigate/goBack — read current values from refs, never stale, no cascade re-renders
   const navigate = useCallback((s) => {
-    setPrevScreen(screen)
+    setPrevScreen(screenRef.current)
     setScreen(s)
-  }, [screen])
+  }, [])
 
   const goBack = useCallback(() => {
-    if (prevScreen) setScreen(prevScreen)
-    else setScreen(SCREENS.HOME)
-  }, [prevScreen])
+    setScreen(prevScreenRef.current || SCREENS.HOME)
+  }, [])
 
   // Request browser notification permission after login (Fix 2)
   useEffect(() => {
@@ -264,9 +271,15 @@ export function AppProvider({ children }) {
     setShowAddressModal(false)
   }, [])
 
+  // Only detect location when user first logs in — not on every user object update (e.g. credit changes)
+  const detectedUserIdRef = useRef(null)
   useEffect(() => {
-    if (user) detectLocation(user.id)
-  }, [user])
+    if (user && user.id !== detectedUserIdRef.current) {
+      detectedUserIdRef.current = user.id
+      detectLocation(user.id)
+    }
+    if (!user) detectedUserIdRef.current = null
+  }, [user, detectLocation])
 
   const handleGoogleAuth = async () => {
     setLoading(true)

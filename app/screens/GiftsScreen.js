@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 import { ArrowLeft, Search, ShoppingBag, Plus, Minus, Loader2 } from 'lucide-react'
@@ -18,7 +18,11 @@ export default function GiftsScreen() {
     }
   }, [])
 
-  const filtered = gifts.filter(g => (g.name || '').toLowerCase().includes(search.toLowerCase()))
+  const searchLower = useMemo(() => search.toLowerCase(), [search])
+  const filtered = useMemo(
+    () => gifts.filter(g => (g.name || '').toLowerCase().includes(searchLower)),
+    [gifts, searchLower]
+  )
 
   const getQty = (id) => (giftCart.find(g => g.gift_id === id)?.quantity || 0)
 
@@ -32,8 +36,8 @@ export default function GiftsScreen() {
     })
   }
 
-  const cartTotal = giftCart.reduce((s, g) => s + g.price * g.quantity, 0)
-  const cartCount = giftCart.reduce((s, g) => s + g.quantity, 0)
+  const cartTotal = useMemo(() => giftCart.reduce((s, g) => s + g.price * g.quantity, 0), [giftCart])
+  const cartCount = useMemo(() => giftCart.reduce((s, g) => s + g.quantity, 0), [giftCart])
 
   const handleProceed = () => {
     if (!user) { navigate(SCREENS.AUTH); return }
@@ -78,7 +82,7 @@ export default function GiftsScreen() {
                   src={gift.image_url && gift.image_url.includes('ik.imagekit.io') ? `${gift.image_url}?tr=w-400,h-320,c-maintain_ratio` : gift.image_url}
                   alt={gift.name} className="w-full h-40 object-cover bg-pink-50"
                   loading="lazy"
-                  onError={e => { e.target.style.background = '#fdf2f8'; e.target.src = '' }} />
+                  onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-xs font-bold text-pink-600">
                   ₹{gift.price.toLocaleString('en-IN')}
                 </div>
