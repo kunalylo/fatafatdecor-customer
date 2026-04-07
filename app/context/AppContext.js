@@ -94,7 +94,21 @@ export function AppProvider({ children }) {
   // Initial data fetch on login
   useEffect(() => {
     if (user) {
-      api(`designs?user_id=${user.id}`).then(d => !d.error && setDesigns(d))
+      // Load designs from cache first (instant display), then refresh in background
+      try {
+        const cached = localStorage.getItem('fd_designs_cache')
+        const ts = localStorage.getItem('fd_designs_ts')
+        if (cached && ts && Date.now() - Number(ts) < 5 * 60 * 1000) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) setDesigns(parsed)
+        }
+      } catch {}
+      api(`designs?user_id=${user.id}`).then(d => {
+        if (!d.error) {
+          setDesigns(d)
+          try { localStorage.setItem('fd_designs_cache', JSON.stringify(d)); localStorage.setItem('fd_designs_ts', String(Date.now())) } catch {}
+        }
+      })
       api(`orders?user_id=${user.id}`).then(o => !o.error && setOrders(o))
       api(`gift-orders?user_id=${user.id}`).then(g => { if (!g.error && Array.isArray(g)) setGiftOrders(g) })
       // Pre-load gifts in background so GiftsScreen opens instantly
@@ -617,7 +631,7 @@ export function AppProvider({ children }) {
     setSelectedDesign(null)
     setSelectedOrder(null)
     setScreen(SCREENS.AUTH)
-    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token') } catch {}
+    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts') } catch {}
   }, [])
 
   const handleBookSlot = async () => {
