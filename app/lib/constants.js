@@ -32,12 +32,15 @@ export const CREDIT_PACKAGES = [
 
 export const SUPPORT_PHONE = '6204711205'
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+
 export const api = async (path, opts = {}) => {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null
     const headers = { 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
-    const res = await fetch(`/api/${path}`, {
+    const url = API_BASE ? `${API_BASE}/api/${path}` : `/api/${path}`
+    const res = await fetch(url, {
       headers,
       ...opts,
       body: opts.body ? JSON.stringify(opts.body) : undefined
