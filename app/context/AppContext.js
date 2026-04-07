@@ -456,7 +456,7 @@ export function AppProvider({ children }) {
       })
       if (orderData.error) { showToast(orderData.error, 'error'); setLoading(false); return }
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: orderData.razorpay_key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount, currency: 'INR',
         name: 'FatafatDecor', description: type === 'credits' ? `${creditsCount} AI Credits` : 'Decoration Delivery',
         order_id: orderData.razorpay_order_id,
