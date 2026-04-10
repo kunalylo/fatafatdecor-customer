@@ -34,18 +34,39 @@ export const SUPPORT_PHONE = '6204711205'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
+// Endpoints where a 401 should NOT trigger auto-logout (user is logging in)
+const AUTH_PATHS = new Set([
+  'auth/login', 'auth/register', 'auth/send-login-otp', 'auth/verify-login-otp',
+  'auth/send-signup-otp', 'auth/verify-signup-otp', 'auth/google',
+  'auth/forgot-otp', 'auth/reset-password',
+])
+
 export const api = async (path, opts = {}) => {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null
-    const headers = { 'Content-Type': 'application/json' }
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
     if (token) headers['Authorization'] = `Bearer ${token}`
     const url = API_BASE ? `${API_BASE}/api/${path}` : `/api/${path}`
     const res = await fetch(url, {
-      headers,
       ...opts,
+      headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined
     })
-    return res.json()
+    // 401 on non-auth endpoint → token expired / invalid → force logout
+    if (res.status === 401 && !AUTH_PATHS.has(path) && typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('fd_token')
+        localStorage.removeItem('fd_user')
+        window.dispatchEvent(new CustomEvent('fd:auth-expired'))
+      } catch {}
+    }
+    // Safely parse response — proxies / load-balancers can return non-JSON
+    const text = await res.text()
+    try {
+      return text ? JSON.parse(text) : {}
+    } catch {
+      return { error: `Unexpected server response (${res.status})` }
+    }
   } catch (e) {
     console.error(`API error [${path}]:`, e.message)
     return { error: 'Network error. Please check your connection.' }

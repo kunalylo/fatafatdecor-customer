@@ -10,8 +10,8 @@ const ADDRESS_TYPES = [
   { id: 'other', label: 'Other', icon: MoreHorizontal },
 ]
 
-const DEFAULT_LAT = 18.5204   // Pune fallback
-const DEFAULT_LNG = 73.8567
+const DEFAULT_LAT = 20.5937   // India center — GPS will override immediately
+const DEFAULT_LNG = 78.9629
 
 export default function AddressScreen() {
   const { goBack, userAddress, saveAddress, showToast } = useApp()

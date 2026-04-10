@@ -72,6 +72,19 @@ export function AppProvider({ children }) {
       if (loc) setUserAddress(JSON.parse(loc))
     } catch {}
     setMounted(true)
+
+    // Listen for 401 auth-expired events from api() helper — force logout
+    const onAuthExpired = () => {
+      setUser(null)
+      setDesigns([])
+      setOrders([])
+      setSelectedDesign(null)
+      setSelectedOrder(null)
+      setScreen(SCREENS.AUTH)
+      try { localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts') } catch {}
+    }
+    window.addEventListener('fd:auth-expired', onAuthExpired)
+    return () => window.removeEventListener('fd:auth-expired', onAuthExpired)
   }, [])
 
   // Stable navigate/goBack — read current values from refs, never stale, no cascade re-renders
@@ -103,14 +116,14 @@ export function AppProvider({ children }) {
           if (Array.isArray(parsed) && parsed.length > 0) setDesigns(parsed)
         }
       } catch {}
-      api(`designs?user_id=${user.id}`).then(d => {
+      api('designs').then(d => {
         if (!d.error) {
           setDesigns(d)
           try { localStorage.setItem('fd_designs_cache', JSON.stringify(d)); localStorage.setItem('fd_designs_ts', String(Date.now())) } catch {}
         }
       })
-      api(`orders?user_id=${user.id}`).then(o => !o.error && setOrders(o))
-      api(`gift-orders?user_id=${user.id}`).then(g => { if (!g.error && Array.isArray(g)) setGiftOrders(g) })
+      api('orders').then(o => !o.error && setOrders(o))
+      api('gift-orders').then(g => { if (!g.error && Array.isArray(g)) setGiftOrders(g) })
       // Pre-load gifts in background so GiftsScreen opens instantly
       loadGifts()
       // Warm up AI service to prevent cold-start delay on first generation
@@ -129,7 +142,7 @@ export function AppProvider({ children }) {
       const currentOrders = ordersRef.current
       const hasActiveOrders = currentOrders.some(o => !['delivered', 'cancelled'].includes(o.delivery_status))
       if (!hasActiveOrders && currentOrders.length > 0) return
-      api(`orders?user_id=${user.id}`).then(freshOrders => {
+      api('orders').then(freshOrders => {
         if (freshOrders.error) return
         setOrders(prev => {
           // Detect decorator-assigned event and fire browser notification
@@ -222,7 +235,7 @@ export function AppProvider({ children }) {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords
-        if (userId) api('user/location', { method: 'POST', body: { user_id: userId, lat, lng } })
+        if (userId) api('user/location', { method: 'POST', body: { lat, lng } })
         try {
           const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
           const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsKey}`)
@@ -306,10 +319,13 @@ export function AppProvider({ children }) {
       window.google.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1234567890-placeholder.apps.googleusercontent.com',
         callback: async (response) => {
-          // Decode JWT token from Google
-          const base64Url = response.credential.split('.')[1]
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-          const payload = JSON.parse(window.atob(base64))
+          // Decode JWT token from Google — safe parse
+          let payload
+          try {
+            const base64Url = response.credential.split('.')[1]
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+            payload = JSON.parse(window.atob(base64))
+          } catch { showToast('Failed to decode Google credential', 'error'); setLoading(false); return }
           const data = await api('auth/google', {
             method: 'POST',
             body: { google_id: payload.sub, email: payload.email, name: payload.name, photo_url: payload.picture }
@@ -327,11 +343,15 @@ export function AppProvider({ children }) {
   }
 
   const handleAuth = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!authForm.email || !emailRegex.test(authForm.email.trim())) { showToast('Please enter a valid email address', 'error'); return }
+    if (!authForm.password || authForm.password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return }
+    if (authMode === 'register' && (!authForm.name || authForm.name.trim().length < 2)) { showToast('Please enter your full name', 'error'); return }
     setLoading(true)
     try {
       const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register'
-      const body = authMode === 'login' ? { email: authForm.email, password: authForm.password }
-        : { name: authForm.name, email: authForm.email, phone: authForm.phone, password: authForm.password }
+      const body = authMode === 'login' ? { email: authForm.email.trim(), password: authForm.password }
+        : { name: authForm.name.trim(), email: authForm.email.trim(), phone: authForm.phone, password: authForm.password }
       const data = await api(endpoint, { method: 'POST', body })
       if (data.error) { showToast(data.error, 'error'); return }
       setUser(data)
@@ -368,8 +388,9 @@ export function AppProvider({ children }) {
 
   const handleVerifySignupOtp = async () => {
     if (!signupOtpValue || signupOtpValue.trim().length < 6) { showToast('Enter the 6-digit OTP sent to your phone', 'error'); return }
-    if (!authForm.email) { showToast('Enter your email', 'error'); return }
-    if (!authForm.password) { showToast('Enter a password', 'error'); return }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!authForm.email || !emailRegex.test(authForm.email.trim())) { showToast('Please enter a valid email address', 'error'); return }
+    if (!authForm.password || authForm.password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return }
     setLoading(true)
     try {
       const data = await api('auth/verify-signup-otp', {
@@ -400,7 +421,7 @@ export function AppProvider({ children }) {
     try {
       const data = await api('designs/generate', {
         method: 'POST',
-        body: { user_id: user.id, room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: (uploadForm.description || '').slice(0, 200), original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
+        body: { room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: (uploadForm.description || '').slice(0, 200), original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
       })
       if (data.error) { showToast(data.error, 'error'); navigate(SCREENS.UPLOAD); return }
       setSelectedDesign(data)
@@ -450,7 +471,6 @@ export function AppProvider({ children }) {
       const data = await api('orders', {
         method: 'POST',
         body: {
-          user_id: user.id,
           design_id: selectedDesign.id,
           delivery_address: delivery_address || userAddress?.city || '',
           delivery_landmark: userAddress?.landmark || '',
@@ -479,7 +499,7 @@ export function AppProvider({ children }) {
     try {
       const orderData = await api('payments/create-order', {
         method: 'POST',
-        body: { type, amount, user_id: user.id, order_id: orderId, credits_count: creditsCount }
+        body: { type, amount, order_id: orderId, credits_count: creditsCount }
       })
       if (orderData.error) { showToast(orderData.error, 'error'); setLoading(false); return }
       const options = {
@@ -499,7 +519,7 @@ export function AppProvider({ children }) {
               // Save requested slot to order — decorator will accept and confirm
               const slotDate = selectedDate
               const slotHour = selectedSlotHour
-              await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour, user_id: user.id } })
+              await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour } })
               setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount, delivery_status: 'pending', requested_slot: { date: slotDate, hour: slotHour } }))
               showToast('Payment done! Waiting for a decorator to accept your booking.', 'success')
               navigate(SCREENS.TRACKING)
@@ -557,7 +577,6 @@ export function AppProvider({ children }) {
       const data = await api('gift-orders', {
         method: 'POST',
         body: {
-          user_id: user.id,
           gift_items: giftCart,
           delivery_address: fullAddress,
           delivery_landmark: userAddress.landmark || '',
@@ -577,11 +596,11 @@ export function AppProvider({ children }) {
     try {
       const orderData = await api('payments/create-order', {
         method: 'POST',
-        body: { type: 'gift_delivery', amount, user_id: user.id, order_id: giftOrderId }
+        body: { type: 'gift_delivery', amount, order_id: giftOrderId }
       })
       if (orderData.error) { showToast(orderData.error, 'error'); return }
-      const Razorpay = window.Razorpay
-      const rzp = new Razorpay({
+      if (!window.Razorpay) { showToast('Payment gateway loading...', 'error'); return }
+      const rzp = new window.Razorpay({
         key: orderData.razorpay_key_id,
         amount: orderData.amount,
         currency: 'INR',
@@ -596,16 +615,12 @@ export function AppProvider({ children }) {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
               payment_id: orderData.payment_id,
-              user_id: user.id,
-              order_id: giftOrderId,
-              type: 'gift_delivery',
             }
           })
           if (!verify.error) {
-            // Set delivery slot
             await api(`gift-orders/${giftOrderId}/request-slot`, {
               method: 'POST',
-              body: { date: selectedDate, hour: selectedHour, user_id: user.id }
+              body: { date: selectedDate, hour: selectedHour }
             })
             setSelectedGiftOrder(prev => ({ ...prev, payment_status: 'full', delivery_slot: { date: selectedDate, hour: selectedHour } }))
             setGiftOrders(prev => [{ ...selectedGiftOrder, payment_status: 'full' }, ...prev])
@@ -617,7 +632,13 @@ export function AppProvider({ children }) {
           }
         },
         prefill: { name: user.name, contact: user.phone || '' },
-        theme: { color: '#e91e8c' }
+        theme: { color: '#e91e8c' },
+        modal: {
+          ondismiss: () => {
+            api('payments/handle-failure', { method: 'POST', body: { payment_id: orderData.payment_id, reason: 'user_dismissed' } })
+            showToast('Payment cancelled. You can try again from your orders.', 'error')
+          }
+        }
       })
       rzp.open()
     } catch (e) { showToast('Payment failed', 'error') }
@@ -631,7 +652,7 @@ export function AppProvider({ children }) {
     setSelectedDesign(null)
     setSelectedOrder(null)
     setScreen(SCREENS.AUTH)
-    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts') } catch {}
+    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts'); localStorage.removeItem('fd_gifts_cache'); localStorage.removeItem('fd_gifts_ts') } catch {}
   }, [])
 
   const handleBookSlot = async () => {
@@ -652,8 +673,9 @@ export function AppProvider({ children }) {
     setLoading(true)
     try {
       const data = await api(`delivery/slots?date=${date}`)
-      if (!data.error) setSlots(data.slots || [])
-    } catch (e) { /* ignore slot load errors silently */ }
+      if (data.error) { showToast('Could not load time slots. Try again.', 'error'); setSlots([]) }
+      else setSlots(data.slots || [])
+    } catch (e) { showToast('Failed to load slots', 'error'); setSlots([]) }
     finally { setLoading(false) }
   }
 

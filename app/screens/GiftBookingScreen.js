@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
+import { SCREENS, api } from '../lib/constants'
 import { ArrowLeft, Calendar, Clock, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function GiftBookingScreen() {
-  const { selectedGiftOrder, handleGiftPayment, navigate, goBack, loading } = useApp()
+  const { selectedGiftOrder, handleGiftPayment, navigate, goBack, loading, showToast } = useApp()
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedHour, setSelectedHour] = useState(null)
   const [slots, setSlots] = useState([])
@@ -25,10 +25,11 @@ export default function GiftBookingScreen() {
   const loadSlots = async (date) => {
     setLoadingSlots(true)
     try {
-      const res = await fetch(`/api/delivery/slots?date=${date}`)
-      const data = await res.json()
-      if (data.slots) setSlots(data.slots)
-    } catch {}
+      const data = await api(`delivery/slots?date=${date}`)
+      if (data.error) { showToast('Could not load time slots', 'error'); setSlots([]) }
+      else if (data.slots) setSlots(data.slots)
+      else setSlots([])
+    } catch { showToast('Failed to load slots', 'error'); setSlots([]) }
     setLoadingSlots(false)
   }
 
@@ -56,7 +57,7 @@ export default function GiftBookingScreen() {
           </button>
           <div>
             <h1 className="text-lg font-bold text-gray-900">Book Gift Delivery</h1>
-            <p className="text-xs text-gray-400">{selectedGiftOrder.gift_items?.length} item{selectedGiftOrder.gift_items?.length > 1 ? 's' : ''} · ₹{selectedGiftOrder.gift_total?.toLocaleString('en-IN')}</p>
+            <p className="text-xs text-gray-400">{selectedGiftOrder.gift_items?.length} item{selectedGiftOrder.gift_items?.length > 1 ? 's' : ''} · Rs {selectedGiftOrder.gift_total?.toLocaleString('en-IN')}</p>
           </div>
         </div>
       </div>
@@ -70,13 +71,13 @@ export default function GiftBookingScreen() {
           </div>
           {selectedGiftOrder.gift_items?.map((g, i) => (
             <div key={i} className="flex justify-between text-sm py-1">
-              <span className="text-gray-600">{g.quantity}× {g.name}</span>
-              <span className="font-semibold text-gray-800">₹{(g.price * g.quantity).toLocaleString('en-IN')}</span>
+              <span className="text-gray-600">{g.quantity}x {g.name}</span>
+              <span className="font-semibold text-gray-800">Rs {(g.price * g.quantity).toLocaleString('en-IN')}</span>
             </div>
           ))}
           <div className="border-t border-gray-100 mt-2 pt-2 flex justify-between font-bold">
             <span>Total</span>
-            <span className="text-pink-600">₹{selectedGiftOrder.gift_total?.toLocaleString('en-IN')}</span>
+            <span className="text-pink-600">Rs {selectedGiftOrder.gift_total?.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
@@ -126,11 +127,11 @@ export default function GiftBookingScreen() {
           <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl p-4 border border-pink-100">
             <p className="font-bold text-gray-800 mb-1">Ready to pay!</p>
             <p className="text-sm text-gray-500 mb-4">
-              Delivery on {formatDate(selectedDate)} at {selectedHour}:00 – {selectedHour + 1}:00
+              Delivery on {formatDate(selectedDate)} at {selectedHour}:00 - {selectedHour + 1}:00
             </p>
             <Button onClick={handlePay} disabled={loading}
               className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-2xl text-base">
-              {loading ? 'Processing...' : `Pay 100% · ₹${selectedGiftOrder.gift_total?.toLocaleString('en-IN')}`}
+              {loading ? 'Processing...' : `Pay 100% · Rs ${selectedGiftOrder.gift_total?.toLocaleString('en-IN')}`}
             </Button>
             <p className="text-xs text-gray-400 text-center mt-2">Full payment required for gift delivery</p>
           </div>

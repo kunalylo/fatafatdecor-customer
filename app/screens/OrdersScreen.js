@@ -76,7 +76,11 @@ export default function OrdersScreen() {
               <Button onClick={() => navigate(SCREENS.GIFTS)} className="mt-3 gradient-pink border-0 text-white shadow-pink">Send Gifts</Button>
             </div>
           ) : giftOrders.map(o => (
-            <Card key={o.id} className="border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <Card key={o.id} className="border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setSelectedOrder(o)
+                navigate(SCREENS.ORDER_DETAIL)
+              }}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl bg-pink-50 flex items-center justify-center text-xl">🎁</div>

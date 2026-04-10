@@ -1209,9 +1209,47 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'user' && path[1] === 'location' && method === 'POST') {
       const body = await request.json()
       const { lat, lng } = body
-      const user_id = await getUserIdFromRequest(request, body.user_id)
-      if (!user_id) return err('user_id required')
+      const user_id = await getUserIdFromRequest(request)
+      if (!user_id) return err('Authentication required', 401)
       await db.collection('users').updateOne({ id: user_id }, { $set: { location: { lat, lng, updated_at: new Date() } } })
+      return ok({ success: true })
+    }
+
+    // ====== USER PROFILE UPDATE ======
+    if (path[0] === 'user' && path[1] === 'profile' && method === 'PUT') {
+      const user_id = await getUserIdFromRequest(request)
+      if (!user_id) return err('Authentication required', 401)
+      const body = await request.json()
+      const update = {}
+      if (body.name && typeof body.name === 'string' && body.name.trim().length >= 2) update.name = body.name.trim()
+      if (body.phone) {
+        const clean = String(body.phone).replace(/\D/g, '')
+        if (clean.length === 10) update.phone = clean
+        else return err('Phone must be 10 digits', 400)
+      }
+      if (Object.keys(update).length === 0) return err('Nothing to update', 400)
+      update.updated_at = new Date()
+      await db.collection('users').updateOne({ id: user_id }, { $set: update })
+      const user = await db.collection('users').findOne({ id: user_id })
+      if (!user) return err('User not found', 404)
+      const { _id, password, ...safe } = user
+      return ok(safe)
+    }
+
+    // ====== CHANGE PASSWORD ======
+    if (path[0] === 'user' && path[1] === 'change-password' && method === 'POST') {
+      const user_id = await getUserIdFromRequest(request)
+      if (!user_id) return err('Authentication required', 401)
+      const body = await request.json()
+      const { current_password, new_password } = body
+      if (!current_password || !new_password) return err('Both current and new password required', 400)
+      if (new_password.length < 6) return err('New password must be at least 6 characters', 400)
+      const user = await db.collection('users').findOne({ id: user_id })
+      if (!user) return err('User not found', 404)
+      if (user.password) {
+        if (hashPwd(current_password) !== user.password) return err('Current password is incorrect', 401)
+      }
+      await db.collection('users').updateOne({ id: user_id }, { $set: { password: hashPwd(new_password), updated_at: new Date() } })
       return ok({ success: true })
     }
 

@@ -1,13 +1,25 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, Zap, IndianRupee } from 'lucide-react'
+import { ChevronLeft, Zap, IndianRupee, AlertCircle, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, CREDIT_PACKAGES } from '../lib/constants'
 
 export default function CreditsScreen() {
-  const { user, navigate, handlePayment } = useApp()
+  const { user, navigate, handlePayment, loading } = useApp()
+  const [paymentError, setPaymentError] = useState(null)
+
+  const handleBuy = async (pkg) => {
+    setPaymentError(null)
+    try {
+      await handlePayment('credits', pkg.price, null, pkg.credits)
+    } catch {
+      setPaymentError('Payment failed. Please try again.')
+    }
+  }
+
   return (
   <div className="slide-up pb-24 bg-white min-h-screen">
     <div className="flex items-center gap-3 p-4">
@@ -22,12 +34,26 @@ export default function CreditsScreen() {
           <p className="text-sm text-gray-400">Current Credits</p>
         </CardContent>
       </Card>
+
+      {/* Payment error banner */}
+      {paymentError && (
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-bold text-red-600">Payment Failed</p>
+            <p className="text-xs text-red-400 mt-0.5">{paymentError}</p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         {CREDIT_PACKAGES.map(pkg => (
           <Card key={pkg.credits} className={`border cursor-pointer hover:scale-[1.02] transition-transform ${pkg.popular ? 'border-pink-300 shadow-pink' : 'border-gray-100'}`}
-            onClick={() => handlePayment('credits', pkg.price, null, pkg.credits)}>
+            onClick={() => !loading && handleBuy(pkg)}>
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl gradient-pink flex items-center justify-center shadow-pink"><Zap className="w-6 h-6 text-white" /></div>
+              <div className="w-12 h-12 rounded-2xl gradient-pink flex items-center justify-center shadow-pink">
+                {loading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Zap className="w-6 h-6 text-white" />}
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-gray-700">{pkg.label}</h3>
@@ -42,6 +68,8 @@ export default function CreditsScreen() {
           </Card>
         ))}
       </div>
+
+      <p className="text-xs text-center text-gray-300 pt-2">1 credit = 1 AI decoration design</p>
     </div>
   </div>
 )

@@ -43,6 +43,7 @@ export default function GiftsScreen() {
       const existing = prev.find(g => g.gift_id === gift.id)
       const newQty = (existing?.quantity || 0) + delta
       if (newQty <= 0) return prev.filter(g => g.gift_id !== gift.id)
+      if (newQty > 10) return prev // cap at 10 per gift
       if (existing) return prev.map(g => g.gift_id === gift.id ? { ...g, quantity: newQty } : g)
       return [...prev, { gift_id: gift.id, name: gift.name, price: gift.price, quantity: 1, image_url: gift.image_url }]
     })

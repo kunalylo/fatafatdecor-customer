@@ -47,8 +47,11 @@ export default function TrackingScreen() {
     if (window.google?.maps) {
       initGMap()
     } else {
+      let attempts = 0
       const poll = setInterval(() => {
+        attempts++
         if (window.google?.maps) { clearInterval(poll); initGMap() }
+        else if (attempts > 100) { clearInterval(poll) } // stop after 10s
       }, 100)
       return () => clearInterval(poll)
     }
