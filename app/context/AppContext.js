@@ -80,8 +80,11 @@ export function AppProvider({ children }) {
       setOrders([])
       setSelectedDesign(null)
       setSelectedOrder(null)
+      setGiftCart([])
+      setGiftOrders([])
+      setSelectedGiftOrder(null)
       setScreen(SCREENS.AUTH)
-      try { localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts') } catch {}
+      try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts'); localStorage.removeItem('fd_gifts_cache'); localStorage.removeItem('fd_gifts_ts'); localStorage.removeItem('fd_location') } catch {}
     }
     window.addEventListener('fd:auth-expired', onAuthExpired)
     return () => window.removeEventListener('fd:auth-expired', onAuthExpired)
@@ -651,8 +654,11 @@ export function AppProvider({ children }) {
     setOrders([])
     setSelectedDesign(null)
     setSelectedOrder(null)
+    setGiftCart([])
+    setGiftOrders([])
+    setSelectedGiftOrder(null)
     setScreen(SCREENS.AUTH)
-    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts'); localStorage.removeItem('fd_gifts_cache'); localStorage.removeItem('fd_gifts_ts') } catch {}
+    try { localStorage.removeItem('fd_user'); localStorage.removeItem('fd_token'); localStorage.removeItem('fd_designs_cache'); localStorage.removeItem('fd_designs_ts'); localStorage.removeItem('fd_gifts_cache'); localStorage.removeItem('fd_gifts_ts'); localStorage.removeItem('fd_location') } catch {}
   }, [])
 
   const handleBookSlot = async () => {

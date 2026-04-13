@@ -1010,8 +1010,12 @@ async function handleRoute(request, { params }) {
       return ok({ success: true })
     }
     if (path[0] === 'gift-orders' && path[1] && !path[2] && method === 'GET') {
+      const url2 = new URL(request.url)
+      const user_id = await getUserIdFromRequest(request, url2.searchParams.get('user_id'))
+      if (!user_id) return err('user_id required')
       const giftOrder = await db.collection('gift_orders').findOne({ id: path[1] })
       if (!giftOrder) return err('Gift order not found', 404)
+      if (giftOrder.user_id !== user_id) return err('Not authorized', 403)
       const { _id, ...cleanGO } = giftOrder; return ok(cleanGO)
     }
 
