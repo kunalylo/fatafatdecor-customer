@@ -1033,6 +1033,13 @@ async function handleRoute(request, { params }) {
       const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!type || !amount || !user_id) return err('type, amount, user_id required')
       if (Number(amount) <= 0) return err('Invalid payment amount', 400)
+      // Verify order ownership
+      if (order_id) {
+        const coll = type === 'gift_delivery' ? 'gift_orders' : 'orders'
+        const order = await db.collection(coll).findOne({ id: order_id })
+        if (!order) return err('Order not found', 404)
+        if (order.user_id !== user_id) return err('Not authorized', 403)
+      }
       try {
         const Razorpay = (await import('razorpay')).default
         const rzp = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
@@ -1044,10 +1051,14 @@ async function handleRoute(request, { params }) {
     }
     // Payment failure — mark payment as failed so it's visible in DB
     if (path[0] === 'payments' && path[1] === 'handle-failure' && method === 'POST') {
-      const { payment_id, reason } = await request.json()
+      const body = await request.json()
+      const { payment_id, reason } = body
+      const user_id = await getUserIdFromRequest(request, body.user_id)
       if (payment_id) {
+        const payment = await db.collection('payments').findOne({ id: payment_id })
+        if (payment && payment.user_id !== user_id) return err('Not authorized', 403)
         await db.collection('payments').updateOne(
-          { id: payment_id },
+          { id: payment_id, user_id },
           { $set: { status: 'failed', failed_at: new Date(), failure_reason: reason || 'user_cancelled' } }
         )
       }
@@ -1083,13 +1094,17 @@ async function handleRoute(request, { params }) {
     }
 
     if (path[0] === 'payments' && path[1] === 'verify' && method === 'POST') {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
+      const body = await request.json()
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body
       if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return err('Missing payment fields', 400)
       const generatedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(razorpay_order_id + '|' + razorpay_payment_id).digest('hex')
       if (generatedSig !== razorpay_signature) return err('Payment verification failed', 400)
       const payment = await db.collection('payments').findOne({ razorpay_order_id })
       if (!payment) return err('Payment not found', 404)
-      await db.collection('payments').updateOne({ razorpay_order_id }, { $set: { status: 'verified', razorpay_payment_id, razorpay_signature } })
+      const user_id = await getUserIdFromRequest(request, body.user_id)
+      if (user_id && payment.user_id !== user_id) return err('Not authorized', 403)
+      if (payment.status === 'verified') return ok({ success: true, type: payment.type, message: 'Already verified' })
+      await db.collection('payments').updateOne({ razorpay_order_id }, { $set: { status: 'verified', razorpay_payment_id, razorpay_signature, verified_at: new Date() } })
       if (payment.type === 'credits') await db.collection('users').updateOne({ id: payment.user_id }, { $inc: { credits: payment.credits_count }, $set: { has_purchased_credits: true } })
       if (payment.type === 'delivery' && payment.order_id) {
         await db.collection('orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'partial', payment_amount: payment.amount } })
