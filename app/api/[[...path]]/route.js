@@ -890,12 +890,17 @@ async function handleRoute(request, { params }) {
       if (!user_id || !design_id) return err('user_id, design_id required')
       const design = await db.collection('designs').findOne({ id: design_id })
       if (!design) return err('Design not found', 404)
-      // Validate total_override — must be between 50% and 100% of original total
+      // Check if an unpaid order already exists for this design — reuse it instead of creating duplicate
+      const existingOrder = await db.collection('orders').findOne({ design_id, user_id, payment_status: 'pending' })
+      if (existingOrder) {
+        const { _id, ...cleanExisting } = existingOrder; return ok(cleanExisting)
+      }
+      // Validate total_override — allow down to 10% (user may remove most addon items)
       let finalTotal = design.total_cost
       if (total_override) {
         const overrideNum = Math.round(Number(total_override))
-        const minAllowed = Math.round(design.total_cost * 0.5)
-        if (overrideNum < minAllowed || overrideNum > design.total_cost) {
+        const minAllowed = Math.round(design.total_cost * 0.1)
+        if (overrideNum < minAllowed || overrideNum > design.total_cost * 1.5) {
           return err('Invalid total override amount', 400)
         }
         finalTotal = overrideNum
@@ -905,7 +910,9 @@ async function handleRoute(request, { params }) {
       const computedGiftTotal = hasGifts ? gift_items.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0) : 0
       // Include gift total in order total so 50% advance payment covers both decoration + gifts
       const orderTotal = finalTotal + computedGiftTotal
-      const order = { id: uuidv4(), user_id, design_id, items: design.items_used || [], total_cost: orderTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
+      // Use items_override from client if user removed addon items, otherwise fall back to design items
+      const orderItems = (Array.isArray(body.items_override) && body.items_override.length > 0) ? body.items_override : (design.items_used || [])
+      const order = { id: uuidv4(), user_id, design_id, items: orderItems, total_cost: orderTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
@@ -922,7 +929,7 @@ async function handleRoute(request, { params }) {
           }
         }
       }
-      await db.collection('designs').updateOne({ id: design_id }, { $set: { status: 'ordered' } })
+      // NOTE: Design status stays 'generated' until payment succeeds (prevents stuck designs on payment failure)
       // WhatsApp: order placed confirmation to customer
       const orderUser = await db.collection('users').findOne({ id: user_id })
       if (orderUser?.phone) {
@@ -1086,6 +1093,11 @@ async function handleRoute(request, { params }) {
       if (payment.type === 'credits') await db.collection('users').updateOne({ id: payment.user_id }, { $inc: { credits: payment.credits_count }, $set: { has_purchased_credits: true } })
       if (payment.type === 'delivery' && payment.order_id) {
         await db.collection('orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'partial', payment_amount: payment.amount } })
+        // Mark design as 'ordered' NOW that payment succeeded (not at order creation)
+        const paidOrder = await db.collection('orders').findOne({ id: payment.order_id })
+        if (paidOrder?.design_id) {
+          await db.collection('designs').updateOne({ id: paidOrder.design_id }, { $set: { status: 'ordered' } })
+        }
         // SMS: payment received
         const payUser = await db.collection('users').findOne({ id: payment.user_id })
         if (payUser?.phone) {

@@ -435,7 +435,7 @@ export function AppProvider({ children }) {
     } catch (e) { showToast('Generation failed. Try again.', 'error'); navigate(SCREENS.UPLOAD) }
   }
 
-  const handleCreateOrder = async (overrideTotal = null, giftItems = []) => {
+  const handleCreateOrder = async (overrideTotal = null, giftItems = [], itemsOverride = null) => {
     if (!selectedDesign) return
     // If delivery address not yet completed, send user to address screen first
     if (!userAddress?.flat?.trim()) {
@@ -481,6 +481,8 @@ export function AppProvider({ children }) {
           delivery_lng: userAddress?.lng || null,
           // Pass override total if customer removed rentable items from design
           total_override: overrideTotal ? Math.round(overrideTotal) : null,
+          // Pass current items list (kit + remaining addons) so order reflects user's removals
+          items_override: itemsOverride || null,
           gift_items: giftItems,
           gift_total: giftItems.reduce((s, g) => s + g.price * (g.quantity || 1), 0),
         }

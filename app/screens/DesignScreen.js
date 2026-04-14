@@ -198,7 +198,11 @@ export default function DesignScreen() {
         <div className="space-y-3 pt-2">
           {d.status === 'generated' && (
             <>
-              <Button onClick={() => handleCreateOrder(localAddonItems !== null ? decorationTotal : null, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [])} disabled={loading}
+              <Button onClick={() => {
+                // Build current items list: kit items (always kept) + user's current addon items
+                const currentItems = localAddonItems !== null ? [...kitItems, ...localAddonItems] : null
+                handleCreateOrder(localAddonItems !== null ? decorationTotal : null, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [], currentItems)
+              }} disabled={loading}
                 className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>
