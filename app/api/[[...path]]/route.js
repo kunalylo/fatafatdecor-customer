@@ -198,7 +198,7 @@ async function handleRoute(request, { params }) {
       const user = {
         id: uuidv4(), name, email, phone: phone || '',
         password: hashPwd(password), role: role || 'user',
-        credits: 3, has_purchased_credits: false,
+        credits: 1, has_purchased_credits: false,
         location: null, city: body.city || null,
         auth_provider: 'email', created_at: new Date()
       }
@@ -215,7 +215,7 @@ async function handleRoute(request, { params }) {
 
       // Phone uniqueness check — stop here so user sees error before waiting for OTP
       const cleanPhoneCheck = String(phone).replace(/\D/g, '').slice(-10)
-      const existingPhone = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhoneCheck + '$') } })
+      const existingPhone = await db.collection('users').findOne({ phone: { $regex: new RegExp('^(\\+?91)?' + cleanPhoneCheck + '$') } })
       if (existingPhone) return err('This phone number is already registered. Please login instead.')
 
       // Rate limiting — max 3 OTPs per phone per 10 minutes
@@ -279,7 +279,7 @@ async function handleRoute(request, { params }) {
         phone,
         password: hashPwd(password),
         role: 'user',
-        credits: 3,
+        credits: 1,
         has_purchased_credits: false,
         location: null,
         city: null,
@@ -324,7 +324,7 @@ async function handleRoute(request, { params }) {
       const { phone } = await request.json()
       if (!phone) return err('Phone number required')
       const cleanPhone = phone.replace(/\D/g, '').slice(-10)
-      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp('^(\\+?91)?' + cleanPhone + '$') } })
       if (!user) return err('No account found with this phone number', 404)
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
@@ -356,7 +356,7 @@ async function handleRoute(request, { params }) {
       const actualLoginHash = Buffer.from(otpDoc.otp_hash, 'hex')
       if (expectedLoginHash.length !== actualLoginHash.length || !crypto.timingSafeEqual(expectedLoginHash, actualLoginHash)) return err('Invalid OTP', 401)
       await db.collection('login_otps').deleteOne({ phone: cleanPhone })
-      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+      const user = await db.collection('users').findOne({ phone: { $regex: new RegExp('^(\\+?91)?' + cleanPhone + '$') } })
       if (!user) return err('User not found', 404)
       const { password: _, _id, ...safeUser } = user
       const token = await signToken({ user_id: safeUser.id, role: safeUser.role })
@@ -372,7 +372,7 @@ async function handleRoute(request, { params }) {
         user = await db.collection('users').findOne({ email: identifier.toLowerCase().trim() })
       } else {
         const cleanPhone = identifier.replace(/\D/g, '').slice(-10)
-        user = await db.collection('users').findOne({ phone: { $regex: new RegExp(cleanPhone + '$') } })
+        user = await db.collection('users').findOne({ phone: { $regex: new RegExp('^(\\+?91)?' + cleanPhone + '$') } })
       }
       if (!user) return err('No account found with this email or phone', 404)
       if (!user.phone) return err('No phone number linked to this account. Please contact support.', 400)
@@ -410,7 +410,7 @@ async function handleRoute(request, { params }) {
       if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) return err('Invalid OTP', 401)
       await db.collection('forgot_otps').deleteOne({ phone: cleanPhone })
       const result = await db.collection('users').updateOne(
-        { phone: { $regex: new RegExp(cleanPhone + '$') } },
+        { phone: { $regex: new RegExp('^(\\+?91)?' + cleanPhone + '$') } },
         { $set: { password: hashPwd(new_password), updated_at: new Date() } }
       )
       if (!result.matchedCount) return err('User not found', 404)
@@ -427,6 +427,8 @@ async function handleRoute(request, { params }) {
       await db.collection('users').deleteOne({ id: user.id })
       await db.collection('orders').deleteMany({ user_id: user.id })
       await db.collection('designs').deleteMany({ user_id: user.id })
+      await db.collection('gift_orders').deleteMany({ user_id: user.id })
+      await db.collection('payments').deleteMany({ user_id: user.id })
       const cleanPhone = user.phone?.replace(/\D/g, '').slice(-10)
       if (cleanPhone) {
         await db.collection('signup_otps').deleteMany({ phone: { $in: [user.phone, cleanPhone] } })
@@ -444,7 +446,7 @@ async function handleRoute(request, { params }) {
         user = {
           id: uuidv4(), name: name || email.split('@')[0], email,
           phone: '', password: null, role: 'user',
-          credits: 3, has_purchased_credits: false,
+          credits: 1, has_purchased_credits: false,
           location: null, city: city || null,
           google_id, photo_url: photo_url || null,
           auth_provider: 'google', created_at: new Date()
@@ -630,10 +632,13 @@ async function handleRoute(request, { params }) {
       if (!VALID_BUDGETS.some(([mn,mx]) => mn === bMin && mx === bMax)) return err('Invalid budget range', 400)
       const safeDescription = description ? String(description).slice(0, 200) : ''
 
-      // ── Check user + credits ─────────────────────────────────────────────
-      const user = await db.collection('users').findOne({ id: user_id })
-      if (!user) return err('User not found', 404)
-      if (user.credits <= 0) return err('No credits remaining. Please purchase credits.', 402)
+      // ── Deduct credit atomically BEFORE AI call ──────────────────────────
+      const creditResult = await db.collection('users').findOneAndUpdate(
+        { id: user_id, credits: { $gt: 0 } },
+        { $inc: { credits: -1 } },
+        { returnDocument: 'after' }
+      )
+      if (!creditResult) return err('No credits remaining. Please purchase credits.', 402)
 
       // ── Fetch all DB data in parallel ────────────────────────────────────
       const [allKits, allItems, allRentItems] = await Promise.all([
@@ -762,7 +767,11 @@ async function handleRoute(request, { params }) {
         // ── Fallback: old DB logic + direct /generate ──────────────────────
         console.warn('[designs/generate] smart-generate failed, using fallback:', aiErr.message)
         const isTimeout = aiErr.name === 'AbortError' || aiErr.message?.includes('aborted')
-        if (isTimeout) return err('AI generation timed out. Please try again.', 500)
+        if (isTimeout) {
+          // Refund credit on timeout
+          await db.collection('users').updateOne({ id: user_id }, { $inc: { credits: 1 } })
+          return err('AI generation timed out. Please try again.', 500)
+        }
 
         const occasionMap = { birthday:['birthday','Birthday'], anniversary:['anniversary','Anniversary'], wedding:['wedding','Wedding'], baby_shower:['Ceremony','baby_shower'], engagement:['Proposal','engagement'], party:['birthday','Birthday'], housewarming:['housewarming'], corporate:['corporate'], dinner:['anniversary','Anniversary'], festival:['Holi','festival'] }
         const tagVariants = occasionMap[occasion] || [occasion]
@@ -831,18 +840,12 @@ async function handleRoute(request, { params }) {
             decoratedImageUrl = ikData.url
           } catch (_) { console.warn('[imagekit-fallback] upload failed:', _.message); decoratedImageUrl = fbData.image_url }
         } catch (fbErr) {
+          // Refund credit on fallback failure
+          await db.collection('users').updateOne({ id: user_id }, { $inc: { credits: 1 } })
           const isTo = fbErr.name === 'AbortError' || fbErr.message?.includes('aborted')
           return err(isTo ? 'AI generation timed out. Please try again.' : 'AI image generation failed. Please try again.', 500)
         }
       }
-
-      // ── Deduct credit atomically ──────────────────────────────────────────
-      const creditResult = await db.collection('users').findOneAndUpdate(
-        { id: user_id, credits: { $gt: 0 } },
-        { $inc: { credits: -1 } },
-        { returnDocument: 'after' }
-      )
-      if (!creditResult) return err('No credits remaining. Please purchase credits.', 402)
 
       // ── Save design to MongoDB ────────────────────────────────────────────
       const allSelectedItems = [...kitItems, ...addOnItems]
@@ -863,7 +866,8 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('designs').insertOne(design)
       const { _id, ...cleanDesign } = design
-      return ok({ ...cleanDesign, remaining_credits: creditResult.credits, kit_used: !!selectedKit })
+      const updatedUser = await db.collection('users').findOne({ id: user_id })
+      return ok({ ...cleanDesign, remaining_credits: updatedUser?.credits ?? 0, kit_used: !!selectedKit })
     }
     if (path[0] === 'designs' && !path[1] && method === 'GET') {
       const url = new URL(request.url)
@@ -912,7 +916,7 @@ async function handleRoute(request, { params }) {
       const orderTotal = finalTotal + computedGiftTotal
       // Use items_override from client if user removed addon items, otherwise fall back to design items
       const orderItems = (Array.isArray(body.items_override) && body.items_override.length > 0) ? body.items_override : (design.items_used || [])
-      const order = { id: uuidv4(), user_id, design_id, items: orderItems, total_cost: orderTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? (gift_total !== undefined ? Number(gift_total) : computedGiftTotal) : 0, created_at: new Date() }
+      const order = { id: uuidv4(), user_id, design_id, items: orderItems, total_cost: orderTotal, payment_status: 'pending', payment_amount: 0, delivery_person_id: null, delivery_slot: null, delivery_status: 'pending', delivery_address: delivery_address || '', delivery_landmark: delivery_landmark || '', delivery_location: { lat: delivery_lat || null, lng: delivery_lng || null }, assigned_decorators: [], accepted_decorators: [], has_gifts: hasGifts, gift_items: hasGifts ? gift_items : [], gift_total: hasGifts ? computedGiftTotal : 0, created_at: new Date() }
       await db.collection('orders').insertOne(order)
       // Notify ALL active decorators — each will see the request and first 2 to accept get the job
       const availablePersons = await db.collection('delivery_persons').find({ is_active: true }).toArray()
@@ -1013,6 +1017,7 @@ async function handleRoute(request, { params }) {
       const slotGO = await db.collection('gift_orders').findOne({ id: path[1] })
       if (!slotGO) return err('Gift order not found', 404)
       if (slotGO.user_id !== user_id) return err('Not authorized', 403)
+      if (slotGO.payment_status !== 'full') return err('Gift order must be paid before booking a slot', 402)
       await db.collection('gift_orders').updateOne({ id: path[1] }, { $set: { requested_slot: { date, hour }, delivery_slot: { date, hour } } })
       return ok({ success: true })
     }
@@ -1032,7 +1037,13 @@ async function handleRoute(request, { params }) {
       const { type, amount, order_id, credits_count } = body
       const user_id = await getUserIdFromRequest(request, body.user_id)
       if (!type || !amount || !user_id) return err('type, amount, user_id required')
-      if (Number(amount) <= 0) return err('Invalid payment amount', 400)
+      const amt = Number(amount)
+      if (amt <= 0) return err('Invalid payment amount', 400)
+      if (amt > 100000) return err('Payment amount exceeds limit', 400)
+      if (type === 'credits') {
+        const cc = Number(credits_count)
+        if (!Number.isInteger(cc) || cc <= 0 || cc > 50) return err('Invalid credits count', 400)
+      }
       // Verify order ownership
       if (order_id) {
         const coll = type === 'gift_delivery' ? 'gift_orders' : 'orders'
@@ -1113,13 +1124,18 @@ async function handleRoute(request, { params }) {
         if (paidOrder?.design_id) {
           await db.collection('designs').updateOne({ id: paidOrder.design_id }, { $set: { status: 'ordered' } })
         }
-        // SMS: payment received
+        // +1 credit bonus for booking a design
+        await db.collection('users').updateOne({ id: payment.user_id }, { $inc: { credits: 1 } })
+        // SMS: payment received + credit bonus
         const payUser = await db.collection('users').findOne({ id: payment.user_id })
         if (payUser?.phone) {
-          await sendWhatsApp(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. Decorator will arrive at the selected time. -FatafatDecor`)
+          await sendWhatsApp(payUser.phone, `FatafatDecor: Payment of Rs.${payment.amount} received! Your booking is confirmed. You earned +1 free credit! Decorator will arrive at the selected time. -FatafatDecor`)
         }
       }
       if (payment.type === 'gift_delivery' && payment.order_id) {
+        // Verify payment amount covers the gift total
+        const giftOrder = await db.collection('gift_orders').findOne({ id: payment.order_id })
+        if (giftOrder && payment.amount < giftOrder.gift_total) return err('Payment amount less than gift order total', 400)
         await db.collection('gift_orders').updateOne({ id: payment.order_id }, { $set: { payment_status: 'full', payment_amount: payment.amount } })
         const giftPayUser = await db.collection('users').findOne({ id: payment.user_id })
         if (giftPayUser?.phone) {
@@ -1200,12 +1216,19 @@ async function handleRoute(request, { params }) {
     if (path[0] === 'delivery' && path[1] === 'status' && method === 'POST') {
       const { order_id, status, dp_id } = await request.json()
       if (!order_id || !status || !dp_id) return err('order_id, status, dp_id required')
-      const VALID_STATUSES = ['pending', 'assigned', 'en_route', 'arrived', 'decorating', 'delivered', 'cancelled']
-      if (!VALID_STATUSES.includes(status)) return err('Invalid status', 400)
       const authOrder = await db.collection('orders').findOne({ id: order_id })
       if (!authOrder) return err('Order not found', 404)
       const isAssigned = (authOrder.accepted_decorators || []).includes(dp_id) || authOrder.delivery_person_id === dp_id
       if (!isAssigned) return err('Not authorized to update this order', 403)
+      // State machine — only allow valid transitions
+      const TRANSITIONS = {
+        pending: ['assigned','cancelled'], assigned: ['en_route','cancelled'],
+        en_route: ['arrived','cancelled'], arrived: ['decorating','cancelled'],
+        decorating: ['delivered'], delivered: [], cancelled: [],
+      }
+      const currentStatus = authOrder.delivery_status || 'pending'
+      const allowed = TRANSITIONS[currentStatus] || []
+      if (!allowed.includes(status)) return err(`Cannot move from "${currentStatus}" to "${status}"`, 400)
       await db.collection('orders').updateOne({ id: order_id }, { $set: { delivery_status: status } })
       return ok({ success: true })
     }
@@ -1445,6 +1468,15 @@ async function handleRoute(request, { params }) {
       if (!usOrder) return err('Order not found', 404)
       const usAssigned = (usOrder.accepted_decorators || []).includes(dp_id) || usOrder.delivery_person_id === dp_id
       if (!usAssigned) return err('Not authorized for this order', 403)
+      // State machine — only allow valid transitions
+      const US_TRANSITIONS = {
+        pending: ['assigned','cancelled'], assigned: ['en_route','cancelled'],
+        en_route: ['arrived','cancelled'], arrived: ['decorating','cancelled'],
+        decorating: ['delivered'], delivered: [], cancelled: [],
+      }
+      const usCurrent = usOrder.delivery_status || 'pending'
+      const usAllowed = US_TRANSITIONS[usCurrent] || []
+      if (!usAllowed.includes(status)) return err(`Cannot move from "${usCurrent}" to "${status}"`, 400)
       const update = { delivery_status: status }
       if (status === 'en_route') update.en_route_at = new Date()
       if (status === 'arrived') update.arrived_at = new Date()
