@@ -526,7 +526,14 @@ export function AppProvider({ children }) {
               const slotHour = selectedSlotHour
               await api(`orders/${orderId}/request-slot`, { method: 'POST', body: { date: slotDate, hour: slotHour } })
               setSelectedOrder(prev => ({ ...prev, payment_status: 'partial', payment_amount: amount, delivery_status: 'pending', requested_slot: { date: slotDate, hour: slotHour } }))
-              showToast('Payment done! Waiting for a decorator to accept your booking.', 'success')
+              // NOW mark design as 'ordered' — payment succeeded (matches backend)
+              if (selectedDesign) {
+                setSelectedDesign(prev => ({ ...prev, status: 'ordered' }))
+                setDesigns(prev => prev.map(d => d.id === selectedDesign.id ? { ...d, status: 'ordered' } : d))
+              }
+              // +1 credit bonus (backend awards it — update local count)
+              setUser(prev => ({ ...prev, credits: (prev.credits || 0) + 1 }))
+              showToast('Payment done! You earned +1 free credit! Waiting for decorator.', 'success')
               navigate(SCREENS.TRACKING)
             }
           } else { showToast('Payment verification failed', 'error') }
