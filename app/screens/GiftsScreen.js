@@ -22,6 +22,7 @@ export default function GiftsScreen() {
   const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user } = useApp()
   const [search, setSearch] = useState('')
   const [giftsLoading, setGiftsLoading] = useState(false)
+  const [selectedGift, setSelectedGift] = useState(null)
 
   useEffect(() => {
     if (gifts.length === 0) {
@@ -43,7 +44,7 @@ export default function GiftsScreen() {
       const existing = prev.find(g => g.gift_id === gift.id)
       const newQty = (existing?.quantity || 0) + delta
       if (newQty <= 0) return prev.filter(g => g.gift_id !== gift.id)
-      if (newQty > 10) return prev // cap at 10 per gift
+      if (newQty > 10) return prev
       if (existing) return prev.map(g => g.gift_id === gift.id ? { ...g, quantity: newQty } : g)
       return [...prev, { gift_id: gift.id, name: gift.name, price: gift.price, quantity: 1, image_url: gift.image_url }]
     })
@@ -57,6 +58,11 @@ export default function GiftsScreen() {
     if (giftMode === 'standalone') handleCreateGiftOrder()
     else goBack()
   }
+
+  const getImgSrc = (gift) =>
+    gift?.image_url?.includes('ik.imagekit.io')
+      ? `${gift.image_url}?tr=w-800,h-600,q-85,c-maintain_ratio`
+      : gift?.image_url
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -102,77 +108,79 @@ export default function GiftsScreen() {
       {/* Grid */}
       <div className="flex-1 p-4 pb-36 grid grid-cols-2 gap-3">
 
-        {/* Skeleton while loading */}
         {giftsLoading && Array.from({ length: 6 }).map((_, i) => <GiftSkeleton key={i} />)}
 
-        {/* Gift cards */}
         {!giftsLoading && filtered.map(gift => {
           const qty = getQty(gift.id)
           const imgSrc = gift.image_url?.includes('ik.imagekit.io')
             ? `${gift.image_url}?tr=w-400,h-300,q-80,c-maintain_ratio`
             : gift.image_url
           return (
-            <div key={gift.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col">
+            <div key={gift.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col active:scale-[0.98] transition-transform">
 
-              {/* Image */}
-              <div className="relative w-full h-36 bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center shrink-0">
-                {imgSrc ? (
-                  <img
-                    src={imgSrc}
-                    alt={gift.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={e => { e.target.onerror = null; e.target.style.display = 'none' }}
-                  />
-                ) : (
-                  <span className="text-4xl">🎁</span>
-                )}
-                {/* Price badge */}
-                <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm">
-                  <span className="text-xs font-bold text-pink-600">₹{gift.price.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="p-3 flex flex-col flex-1">
-                <p className="text-sm font-bold text-gray-800 leading-tight line-clamp-2 mb-1">{gift.name}</p>
-                {gift.description && (
-                  <p className="text-xs text-gray-400 line-clamp-2 mb-auto">{gift.description}</p>
-                )}
-
-                {/* Add / stepper */}
-                <div className="mt-3">
-                  {qty === 0 ? (
-                    <button
-                      onClick={() => updateCart(gift, 1)}
-                      className="w-full py-2 gradient-pink text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm shadow-pink-200"
-                    >
-                      Add
-                    </button>
+              {/* Tappable top area → opens detail */}
+              <button
+                onClick={() => setSelectedGift(gift)}
+                className="w-full text-left focus:outline-none"
+              >
+                {/* Image */}
+                <div className="relative w-full h-36 bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center">
+                  {imgSrc ? (
+                    <img
+                      src={imgSrc}
+                      alt={gift.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={e => { e.target.onerror = null; e.target.style.display = 'none' }}
+                    />
                   ) : (
-                    <div className="flex items-center justify-between bg-pink-50 rounded-xl p-1">
-                      <button
-                        onClick={() => updateCart(gift, -1)}
-                        className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform"
-                      >
-                        <Minus className="w-4 h-4 text-pink-500" />
-                      </button>
-                      <span className="text-sm font-bold text-pink-600 w-6 text-center">{qty}</span>
-                      <button
-                        onClick={() => updateCart(gift, 1)}
-                        className="w-8 h-8 flex items-center justify-center gradient-pink rounded-lg shadow-sm active:scale-90 transition-transform"
-                      >
-                        <Plus className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
+                    <span className="text-4xl">🎁</span>
+                  )}
+                  <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm">
+                    <span className="text-xs font-bold text-pink-600">₹{gift.price.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+
+                {/* Name + desc */}
+                <div className="px-3 pt-3 pb-1">
+                  <p className="text-sm font-bold text-gray-800 leading-tight line-clamp-2 mb-1">{gift.name}</p>
+                  {gift.description && (
+                    <p className="text-xs text-gray-400 line-clamp-2">{gift.description}</p>
                   )}
                 </div>
+              </button>
+
+              {/* Add / stepper — separate from tap area */}
+              <div className="px-3 pb-3 pt-2 mt-auto">
+                {qty === 0 ? (
+                  <button
+                    onClick={() => updateCart(gift, 1)}
+                    className="w-full py-2 gradient-pink text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm shadow-pink-200"
+                  >
+                    Add
+                  </button>
+                ) : (
+                  <div className="flex items-center justify-between bg-pink-50 rounded-xl p-1">
+                    <button
+                      onClick={() => updateCart(gift, -1)}
+                      className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform"
+                    >
+                      <Minus className="w-4 h-4 text-pink-500" />
+                    </button>
+                    <span className="text-sm font-bold text-pink-600 w-6 text-center">{qty}</span>
+                    <button
+                      onClick={() => updateCart(gift, 1)}
+                      className="w-8 h-8 flex items-center justify-center gradient-pink rounded-lg shadow-sm active:scale-90 transition-transform"
+                    >
+                      <Plus className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )
         })}
 
-        {/* Empty state */}
         {!giftsLoading && filtered.length === 0 && gifts.length > 0 && (
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
             <span className="text-5xl mb-3">🔍</span>
@@ -211,6 +219,107 @@ export default function GiftsScreen() {
           </button>
         </div>
       )}
+
+      {/* ── Gift Detail Bottom Sheet ── */}
+      {selectedGift && (() => {
+        const qty = getQty(selectedGift.id)
+        const imgSrc = getImgSrc(selectedGift)
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setSelectedGift(null)}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+            {/* Sheet */}
+            <div
+              className="relative bg-white w-full max-w-md rounded-t-3xl overflow-hidden shadow-2xl"
+              style={{ animation: 'slideUp 0.25s ease-out' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Close pill */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-200 rounded-full" />
+              </div>
+
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedGift(null)}
+                className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center z-10 active:scale-90 transition-transform"
+              >
+                <X className="w-4 h-4 text-gray-600" />
+              </button>
+
+              {/* Image */}
+              <div className="w-full h-64 bg-gradient-to-br from-pink-50 to-rose-100 relative">
+                {imgSrc ? (
+                  <img
+                    src={imgSrc}
+                    alt={selectedGift.name}
+                    className="w-full h-full object-cover"
+                    onError={e => { e.target.onerror = null; e.target.style.display = 'none' }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h2 className="text-lg font-black text-gray-800 flex-1 leading-tight">{selectedGift.name}</h2>
+                  <span className="text-xl font-black text-pink-500 shrink-0">₹{selectedGift.price.toLocaleString('en-IN')}</span>
+                </div>
+                {selectedGift.description && (
+                  <p className="text-sm text-gray-500 leading-relaxed mb-5">{selectedGift.description}</p>
+                )}
+
+                {/* Add / Stepper */}
+                {qty === 0 ? (
+                  <button
+                    onClick={() => { updateCart(selectedGift, 1); setSelectedGift(null) }}
+                    className="w-full py-3.5 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm"
+                  >
+                    Add to Cart · ₹{selectedGift.price.toLocaleString('en-IN')}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 bg-pink-50 rounded-2xl p-1.5 flex-1 justify-between">
+                      <button
+                        onClick={() => updateCart(selectedGift, -1)}
+                        className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm active:scale-90 transition-transform"
+                      >
+                        <Minus className="w-4 h-4 text-pink-500" />
+                      </button>
+                      <span className="text-lg font-black text-pink-600 min-w-[1.5rem] text-center">{qty}</span>
+                      <button
+                        onClick={() => updateCart(selectedGift, 1)}
+                        className="w-10 h-10 flex items-center justify-center gradient-pink rounded-xl shadow-sm active:scale-90 transition-transform"
+                      >
+                        <Plus className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setSelectedGift(null)}
+                      className="flex-1 py-3 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Safe area spacing */}
+              <div className="pb-6" />
+            </div>
+          </div>
+        )
+      })()}
+
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
