@@ -92,7 +92,7 @@ export default function AuthScreen() {
       </div>
 
       {/* ── Card overlapping hero ── */}
-      <div className="flex-1 flex flex-col items-center px-4 -mt-6 pb-8">
+      <div className="flex-1 flex flex-col items-center px-4 -mt-6 pb-8 relative z-10">
         <Card className="w-full max-w-sm border border-pink-100 shadow-xl shadow-pink-100/60 rounded-3xl overflow-hidden bg-white">
           <CardContent className="p-5 space-y-3">
 

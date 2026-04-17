@@ -100,7 +100,7 @@ export default function HomeScreen() {
     </div>
 
     {/* ── Main CTA card — overlaps header ── */}
-    <div className="px-4 -mt-9">
+    <div className="px-4 -mt-9 relative z-10">
       <Card className="border-0 shadow-xl shadow-pink-200/40 cursor-pointer hover:scale-[1.01] transition-transform bg-white rounded-2xl" onClick={() => navigate(SCREENS.UPLOAD)}>
         <CardContent className="p-4 flex items-center gap-4">
           <div className="w-14 h-14 gradient-pink rounded-2xl flex items-center justify-center shrink-0 shadow-pink text-2xl">
