@@ -41,7 +41,7 @@ export default function HomeScreen() {
   <div className="slide-up pb-24 bg-rose-50 min-h-screen">
 
     {/* ── Pink header ── */}
-    <div className="gradient-pink p-6 pb-12 rounded-b-3xl relative overflow-hidden">
+    <div className="gradient-pink p-6 pb-14 rounded-b-3xl relative overflow-hidden">
       {/* Decorative blobs */}
       <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
@@ -100,7 +100,7 @@ export default function HomeScreen() {
     </div>
 
     {/* ── Main CTA card — overlaps header ── */}
-    <div className="px-4 -mt-7">
+    <div className="px-4 -mt-9">
       <Card className="border-0 shadow-xl shadow-pink-200/40 cursor-pointer hover:scale-[1.01] transition-transform bg-white rounded-2xl" onClick={() => navigate(SCREENS.UPLOAD)}>
         <CardContent className="p-4 flex items-center gap-4">
           <div className="w-14 h-14 gradient-pink rounded-2xl flex items-center justify-center shrink-0 shadow-pink text-2xl">

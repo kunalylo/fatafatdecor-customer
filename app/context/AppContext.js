@@ -35,6 +35,9 @@ export function AppProvider({ children }) {
   const [signupOtpSent, setSignupOtpSent] = useState(false)
   const [signupOtpValue, setSignupOtpValue] = useState('')
   const [devOtp, setDevOtp] = useState('')
+  const [loginOtpSent, setLoginOtpSent] = useState(false)
+  const [loginOtpValue, setLoginOtpValue] = useState('')
+  const [loginDevOtp, setLoginDevOtp] = useState('')
   const [userAddress, setUserAddress] = useState(null)
   const [locationLoading, setLocationLoading] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
@@ -413,6 +416,47 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
+  const handleSendLoginOtp = async () => {
+    const cleanPhone = authForm.phone.replace(/\D/g, '')
+    if (!/^\d{10}$/.test(cleanPhone)) { showToast('Enter a valid 10-digit phone number', 'error'); return false }
+    setLoading(true)
+    try {
+      const data = await api('auth/send-login-otp', { method: 'POST', body: { phone: cleanPhone } })
+      if (data.error) { showToast(data.error, 'error'); return false }
+      setLoginOtpSent(true)
+      setLoginOtpValue('')
+      if (data.dev_otp) setLoginDevOtp(data.dev_otp)
+      else setLoginDevOtp('')
+      showToast('OTP sent to your phone!', 'success')
+      return true
+    } catch (e) {
+      showToast(e.message || 'Failed to send OTP. Try again.', 'error')
+      return false
+    }
+    finally { setLoading(false) }
+  }
+
+  const handleVerifyLoginOtp = async () => {
+    if (!loginOtpValue || loginOtpValue.trim().length < 6) { showToast('Enter the 6-digit OTP sent to your phone', 'error'); return }
+    setLoading(true)
+    try {
+      const data = await api('auth/verify-login-otp', {
+        method: 'POST',
+        body: { phone: authForm.phone.replace(/\D/g, ''), otp: loginOtpValue.trim() }
+      })
+      if (data.error) { showToast(data.error, 'error'); return }
+      setUser(data)
+      try { localStorage.setItem('fd_user', JSON.stringify(data)); if (data.token) localStorage.setItem('fd_token', data.token) } catch {}
+      setLoginOtpSent(false)
+      setLoginOtpValue('')
+      showToast(`Welcome back, ${data.name}!`, 'success')
+      navigate(SCREENS.HOME)
+    } catch (e) {
+      showToast(e.message || 'Verification failed. Try again.', 'error')
+    }
+    finally { setLoading(false) }
+  }
+
   const handleGenerate = async () => {
     if (!originalImage) { showToast('Please upload or take a photo of your space first!', 'error'); return }
     if (!uploadForm.budget) { showToast('Please select a budget bracket', 'error'); return }
@@ -743,11 +787,13 @@ export function AppProvider({ children }) {
     selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour,
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp,
+    loginOtpSent, setLoginOtpSent, loginOtpValue, setLoginOtpValue, loginDevOtp, setLoginDevOtp,
     userAddress, locationLoading, locationDenied, detectLocation, saveAddress,
     showAddressModal, setShowAddressModal, updateAddressDetails,
     mapRef, mapInstance,
     showToast, navigate, goBack,
     handleGoogleAuth, handleAuth, handleSendSignupOtp, handleVerifySignupOtp,
+    handleSendLoginOtp, handleVerifyLoginOtp,
     handleGenerate, handleCreateOrder, handlePayment,
     handleBookSlot, loadSlots, handleFileUpload, handleLogout,
     paymentFailed, setPaymentFailed,
