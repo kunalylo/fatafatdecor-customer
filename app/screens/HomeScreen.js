@@ -186,7 +186,7 @@ export default function HomeScreen() {
                       {d.status === 'ordered' ? 'ORDERED' : 'READY'}
                     </span>
                   </div>
-                  <p className="text-xs font-bold capitalize text-gray-700">{d.occasion?.replace('_', ' ')}</p>
+                  <p className="text-xs font-bold text-gray-700">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
                   <p className="text-[10px] text-gray-400">{d.room_type}</p>
                   <div className="flex items-center mt-1">
                     <IndianRupee className="w-3 h-3 text-pink-500" />

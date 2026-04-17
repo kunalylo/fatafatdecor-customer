@@ -37,8 +37,8 @@ export default function OrderDetailScreen() {
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
         <h1 className="font-bold text-lg text-gray-800">Order Details</h1>
-        <Badge className={`ml-auto capitalize ${statusColor[o.delivery_status] || 'bg-gray-100 text-gray-500'}`}>
-          {o.delivery_status?.replace('_', ' ')}
+        <Badge className={`ml-auto ${statusColor[o.delivery_status] || 'bg-gray-100 text-gray-500'}`}>
+          {o.delivery_status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
         </Badge>
       </div>
 
@@ -62,7 +62,7 @@ export default function OrderDetailScreen() {
               <span className="text-gray-400 text-sm">Payment</span>
               <div className="flex items-center gap-2">
                 {o.payment_amount > 0 && <span className="text-xs text-gray-500">Rs {o.payment_amount} paid</span>}
-                <Badge className={paymentColor[o.payment_status] || 'bg-gray-100 text-gray-500'}>{o.payment_status}</Badge>
+                <Badge className={paymentColor[o.payment_status] || 'bg-gray-100 text-gray-500'}>{o.payment_status?.replace(/\b\w/g, c => c.toUpperCase())}</Badge>
               </div>
             </div>
           </CardContent>

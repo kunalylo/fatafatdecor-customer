@@ -27,7 +27,7 @@ export default function OrdersScreen() {
         <button
           onClick={() => setTab('gifts')}
           className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'gifts' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'}`}>
-          Gifts {giftOrders.length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{giftOrders.length}</span>}
+          Gifts {giftOrders.filter(o => o.payment_status !== 'pending').length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{giftOrders.filter(o => o.payment_status !== 'pending').length}</span>}
         </button>
       </div>
     </div>
@@ -35,18 +35,17 @@ export default function OrdersScreen() {
     <div className="px-4 space-y-3">
       {tab === 'decoration' && (
         <>
-          {orders.length === 0 ? (
+          {orders.filter(o => o.payment_status !== 'pending').length === 0 ? (
             <div className="text-center py-12">
               <ShoppingBag className="w-12 h-12 text-pink-200 mx-auto mb-3" />
               <p className="text-gray-400">No orders yet</p>
               <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 gradient-pink border-0 text-white shadow-pink">Create Design</Button>
             </div>
-          ) : orders.map(o => (
+          ) : orders.filter(o => o.payment_status !== 'pending').map(o => (
             <Card key={o.id} className="border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => {
                 setSelectedOrder(o)
                 if (['assigned', 'en_route', 'arrived', 'decorating'].includes(o.delivery_status)) navigate(SCREENS.TRACKING)
-                else if (o.payment_status === 'pending') navigate(SCREENS.BOOKING)
                 else navigate(SCREENS.ORDER_DETAIL)
               }}>
               <CardContent className="p-4">
@@ -58,7 +57,7 @@ export default function OrdersScreen() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-pink-500 flex items-center justify-end"><IndianRupee className="w-3 h-3" />{o.total_cost}</p>
-                    <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'en_route' ? 'bg-blue-100 text-blue-600' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{o.delivery_status}</Badge>
+                    <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'en_route' ? 'bg-blue-100 text-blue-600' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{o.delivery_status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -69,13 +68,13 @@ export default function OrdersScreen() {
 
       {tab === 'gifts' && (
         <>
-          {giftOrders.length === 0 ? (
+          {giftOrders.filter(o => o.payment_status !== 'pending').length === 0 ? (
             <div className="text-center py-12">
               <Gift className="w-12 h-12 text-pink-200 mx-auto mb-3" />
               <p className="text-gray-400">No gift orders yet</p>
               <Button onClick={() => navigate(SCREENS.GIFTS)} className="mt-3 gradient-pink border-0 text-white shadow-pink">Send Gifts</Button>
             </div>
-          ) : giftOrders.map(o => (
+          ) : giftOrders.filter(o => o.payment_status !== 'pending').map(o => (
             <Card key={o.id} className="border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => {
                 setSelectedOrder(o)
@@ -94,7 +93,7 @@ export default function OrdersScreen() {
                   <div className="text-right">
                     <p className="text-sm font-bold text-pink-500 flex items-center justify-end"><IndianRupee className="w-3 h-3" />{o.gift_total}</p>
                     <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.payment_status === 'full' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                      {o.delivery_status || (o.payment_status === 'full' ? 'paid' : 'pending')}
+                      {(o.delivery_status || (o.payment_status === 'full' ? 'paid' : 'pending'))?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </Badge>
                   </div>
                 </div>

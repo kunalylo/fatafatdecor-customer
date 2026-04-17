@@ -46,7 +46,7 @@ export default function DesignScreen() {
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
         <h1 className="font-bold text-lg text-gray-800">Design Preview</h1>
-        <Badge className="ml-auto capitalize gradient-pink border-0 text-white">{d.occasion}</Badge>
+        <Badge className="ml-auto gradient-pink border-0 text-white">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
       </div>
       <div className="px-4 space-y-4">
         {imageLoading ? (
@@ -75,13 +75,13 @@ export default function DesignScreen() {
                   <div key={i} className="flex items-center gap-2 py-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-pink-400" />
                     <span className="text-xs text-gray-600 flex-1">{item.name} {item.color ? `(${item.color})` : ''}</span>
-                    <span className="text-xs font-semibold text-pink-500">Rs {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
+                    <span className="text-xs font-semibold text-pink-500">₹{((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
                   </div>
                 ))}
               </div>
               <div className="flex justify-between mt-2 pt-2 border-t border-pink-100">
                 <span className="text-xs font-bold text-gray-600">Kit Cost</span>
-                <span className="text-sm font-bold text-pink-500">Rs {d.kit_cost || kitItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)}</span>
+                <span className="text-sm font-bold text-pink-500">₹{d.kit_cost || kitItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)}</span>
               </div>
             </CardContent>
           </Card>
@@ -109,7 +109,7 @@ export default function DesignScreen() {
                       </p>
                     </div>
                     <p className="text-sm font-bold shrink-0 text-purple-500">
-                      Rs {((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
+                      ₹{((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
                     </p>
                     {item.is_rentable && (
                       <button onClick={() => deleteAddonItem(item.id)}
@@ -122,7 +122,7 @@ export default function DesignScreen() {
               ))}
               <div className="flex justify-between px-1">
                 <span className="text-xs text-gray-400">Add-ons Total</span>
-                <span className="text-xs font-bold text-purple-500">Rs {addonTotal.toFixed(0)}</span>
+                <span className="text-xs font-bold text-purple-500">₹{addonTotal.toFixed(0)}</span>
               </div>
             </div>
           </div>

@@ -9,7 +9,7 @@ import { useApp } from '../context/AppContext'
 import { SCREENS, SUPPORT_PHONE, api } from '../lib/constants'
 
 export default function ProfileScreen() {
-  const { user, setUser, userAddress, navigate, handleLogout, showToast, loading } = useApp()
+  const { user, setUser, userAddress, navigate, handleLogout, showToast, loading, orders } = useApp()
 
   // Edit profile state
   const [editing, setEditing] = useState(false)
@@ -122,8 +122,8 @@ export default function ProfileScreen() {
         <Card className="border border-gray-100 cursor-pointer" onClick={() => navigate(SCREENS.ORDERS)}>
           <CardContent className="p-4 text-center">
             <ShoppingBag className="w-6 h-6 text-pink-500 mx-auto mb-1" />
-            <p className="text-xl font-bold text-gray-800">Orders</p>
-            <p className="text-[10px] text-gray-400">View all</p>
+            <p className="text-xl font-bold text-gray-800">{(orders || []).length}</p>
+            <p className="text-[10px] text-gray-400">Orders</p>
           </CardContent>
         </Card>
       </div>
@@ -164,12 +164,14 @@ export default function ProfileScreen() {
             <span className="flex-1 text-left text-sm text-gray-700">My Orders</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </button>
+          {user?.auth_provider !== 'google' && (
           <button onClick={() => { setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); setShowPwdModal(true) }}
             className="w-full flex items-center gap-3 py-3 border-b border-gray-50">
             <Lock className="w-5 h-5 text-purple-500" />
             <span className="flex-1 text-left text-sm text-gray-700">Change Password</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </button>
+          )}
           <a href={`tel:${SUPPORT_PHONE}`} className="w-full flex items-center gap-3 py-3">
             <Phone className="w-5 h-5 text-green-500" />
             <span className="flex-1 text-left text-sm text-gray-700">Contact Support</span>

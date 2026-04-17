@@ -67,12 +67,12 @@ export default function TrackingScreen() {
   const statusOrder = ['pending', 'assigned', 'en_route', 'arrived', 'decorating', 'delivered']
 
   const statusSteps = [
-    { key: 'pending',    label: 'Order Confirmed — Waiting for Decorator', icon: <CheckCircle2 className="w-4 h-4 text-white" /> },
-    { key: 'assigned',   label: 'Decorator Accepted Your Order',           icon: <CheckCircle2 className="w-4 h-4 text-white" /> },
-    { key: 'en_route',   label: 'Decorator is On the Way',                 icon: <Truck className="w-4 h-4 text-white" /> },
-    { key: 'arrived',    label: 'Decorator Arrived at Your Place',         icon: <MapPin className="w-4 h-4 text-white" /> },
-    { key: 'decorating', label: 'Decorating in Progress 🎨',               icon: <Star className="w-4 h-4 text-white" /> },
-    { key: 'delivered',  label: 'Decoration Complete 🎉',                  icon: <CheckCircle2 className="w-4 h-4 text-white" /> },
+    { key: 'pending',    label: 'Order Confirmed — Waiting for Decorator', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { key: 'assigned',   label: 'Decorator Accepted Your Order',           icon: <CheckCircle2 className="w-4 h-4" /> },
+    { key: 'en_route',   label: 'Decorator is On the Way',                 icon: <Truck className="w-4 h-4" /> },
+    { key: 'arrived',    label: 'Decorator Arrived at Your Place',         icon: <MapPin className="w-4 h-4" /> },
+    { key: 'decorating', label: 'Decorating in Progress 🎨',               icon: <Star className="w-4 h-4" /> },
+    { key: 'delivered',  label: 'Decoration Complete 🎉',                  icon: <CheckCircle2 className="w-4 h-4" /> },
   ]
 
   // Decorator has accepted = delivery_person is set (not just auto-assigned)
@@ -101,7 +101,7 @@ export default function TrackingScreen() {
               <Truck className="w-5 h-5 text-pink-500" />
               <div>
                 <p className="text-sm font-semibold text-gray-700">Order #{o.id.slice(0, 8)}</p>
-                <p className="text-xs text-gray-400 capitalize">{o.delivery_status}</p>
+                <p className="text-xs text-gray-400 capitalize">{o.delivery_status?.replace(/_/g, ' ')}</p>
               </div>
               <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
             </CardContent>
@@ -155,7 +155,7 @@ export default function TrackingScreen() {
                     const isActive = statusOrder.indexOf(trackingData.delivery_status) >= i
                     return (
                       <div key={key} className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'gradient-pink' : 'bg-gray-100'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'gradient-pink text-white' : 'bg-gray-100 text-gray-400'}`}>
                           {icon}
                         </div>
                         <p className={`text-sm font-semibold ${isActive ? 'text-gray-700' : 'text-gray-300'}`}>{label}</p>
