@@ -419,10 +419,18 @@ async function handleRoute(request, { params }) {
 
     // ====== DELETE ACCOUNT ======
     if (path[0] === 'auth' && path[1] === 'delete-account' && method === 'POST') {
-      const { email, password } = await request.json()
-      if (!email || !password) return err('Email and password required')
-      const user = await db.collection('users').findOne({ email, password: hashPwd(password) })
-      if (!user) return err('Invalid email or password', 401)
+      const { email, password, google_account } = await request.json()
+      if (!email) return err('Email required')
+      let user
+      if (google_account) {
+        // Google-only users have no password — verify by email + auth_provider
+        user = await db.collection('users').findOne({ email, auth_provider: 'google' })
+        if (!user) return err('No Google account found with this email', 401)
+      } else {
+        if (!password) return err('Email and password required')
+        user = await db.collection('users').findOne({ email, password: hashPwd(password) })
+        if (!user) return err('Invalid email or password', 401)
+      }
       // Delete user data
       await db.collection('users').deleteOne({ id: user.id })
       await db.collection('orders').deleteMany({ user_id: user.id })
@@ -1238,25 +1246,6 @@ async function handleRoute(request, { params }) {
       const user = await db.collection('users').findOne({ id: path[1] })
       if (!user) return err('User not found', 404)
       return ok({ user_id: user.id, credits: user.credits })
-    }
-
-    // ====== DELIVERY PERSONS ======
-    if (path[0] === 'delivery-persons' && !path[1] && method === 'GET') {
-      const dps = await db.collection('delivery_persons').find({}).toArray()
-      return ok(dps.map(({ _id, ...dp }) => dp))
-    }
-    if (path[0] === 'delivery-persons' && !path[1] && method === 'POST') {
-      const body = await request.json()
-      const dp = { id: uuidv4(), name: body.name, phone: body.phone || '', password: hashPwd(body.password || '1234'), is_active: true, current_location: null, schedule: {}, rating: 5.0, total_deliveries: 0, created_at: new Date() }
-      await db.collection('delivery_persons').insertOne(dp)
-      const { _id, password: _, ...clean } = dp; return ok(clean)
-    }
-    if (path[0] === 'delivery-persons' && path[1] && method === 'PUT') {
-      const body = await request.json(); delete body._id
-      await db.collection('delivery_persons').updateOne({ id: path[1] }, { $set: body })
-      const dp = await db.collection('delivery_persons').findOne({ id: path[1] })
-      if (!dp) return err('Delivery person not found', 404)
-      const { _id, ...clean } = dp; return ok(clean)
     }
 
     // ====== USER LOCATION ======

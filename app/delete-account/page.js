@@ -2,24 +2,32 @@
 import { useState } from 'react'
 
 export default function DeleteAccount() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState(null) // 'success' | 'error'
-  const [errorMsg, setErrorMsg] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
+  const [email, setEmail]           = useState('')
+  const [password, setPassword]     = useState('')
+  const [isGoogle, setIsGoogle]     = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [status, setStatus]         = useState(null) // 'success' | 'error'
+  const [errorMsg, setErrorMsg]     = useState('')
+  const [confirmed, setConfirmed]   = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   async function handleDelete(e) {
     e.preventDefault()
     if (!confirmed) { setErrorMsg('Please tick the confirmation checkbox'); return }
+    if (!isGoogle && !password) { setErrorMsg('Please enter your password'); return }
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await fetch('/api/auth/delete-account', {
-        method: 'POST',
+      // For Google accounts, we send google_account:true so the backend
+      // looks up the user by email + verifies auth_provider === 'google'
+      const body = isGoogle
+        ? { email, google_account: true }
+        : { email, password }
+
+      const res  = await fetch('/api/auth/delete-account', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body:    JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) { setErrorMsg(data.error || 'Something went wrong'); setLoading(false); return }
@@ -30,7 +38,7 @@ export default function DeleteAccount() {
     setLoading(false)
   }
 
-  // ── Success Screen ────────────────────────────────────────────────
+  // ── Success Screen ─────────────────────────────────────────────
   if (status === 'success') {
     return (
       <div style={styles.page}>
@@ -55,7 +63,7 @@ export default function DeleteAccount() {
     )
   }
 
-  // ── Delete Form ───────────────────────────────────────────────────
+  // ── Delete Form ────────────────────────────────────────────────
   return (
     <div style={styles.page}>
       <div style={styles.card}>
@@ -80,38 +88,75 @@ export default function DeleteAccount() {
           </ul>
         </div>
 
+        {/* Account type toggle */}
+        <div style={{ display: 'flex', gap: 8, width: '100%', margin: '4px 0 12px' }}>
+          {[
+            { key: false, label: '🔑 Email / Password' },
+            { key: true,  label: '🔵 Google Account' },
+          ].map(({ key, label }) => (
+            <button
+              key={String(key)}
+              type="button"
+              onClick={() => { setIsGoogle(key); setErrorMsg('') }}
+              style={{
+                flex: 1, padding: '9px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+                background: isGoogle === key ? '#DC2626' : '#F3F4F6',
+                color: isGoogle === key ? '#fff' : '#374151',
+                transition: 'all 0.2s',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Form */}
         <form onSubmit={handleDelete} style={{ width: '100%' }}>
+
           {/* Email */}
           <label style={styles.label}>Email Address</label>
           <input
             type="email"
-            placeholder="Enter your email"
+            placeholder="Enter your registered email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
             style={styles.input}
           />
 
-          {/* Password */}
-          <label style={styles.label}>Password</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Enter your password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              style={{ ...styles.input, paddingRight: 48 }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}
-            >
-              {showPassword ? '🙈' : '👁️'}
-            </button>
-          </div>
+          {/* Password — only for email accounts */}
+          {!isGoogle && (
+            <>
+              <label style={styles.label}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  style={{ ...styles.input, paddingRight: 48 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Google info box */}
+          {isGoogle && (
+            <div style={styles.infoBox('#EFF6FF', '#BFDBFE')}>
+              <p style={{ margin: 0, fontSize: 13, color: '#1E40AF', lineHeight: 1.6 }}>
+                ℹ️ Enter the email address linked to your Google account. We'll verify it's a Google-authenticated account and permanently delete all your data.
+              </p>
+            </div>
+          )}
 
           {/* Confirm checkbox */}
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: '16px 0' }}>
@@ -136,12 +181,12 @@ export default function DeleteAccount() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || !email || !password}
+            disabled={loading || !email || (!isGoogle && !password)}
             style={{
               width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-              background: loading || !email || !password ? '#FCA5A5' : '#DC2626',
+              background: loading || !email || (!isGoogle && !password) ? '#FCA5A5' : '#DC2626',
               color: 'white', fontWeight: 700, fontSize: 15, cursor: loading ? 'wait' : 'pointer',
-              transition: 'all 0.2s', marginBottom: 12
+              transition: 'all 0.2s', marginBottom: 12,
             }}
           >
             {loading ? '⏳ Deleting Account...' : '🗑️ Delete My Account'}
@@ -170,7 +215,7 @@ export default function DeleteAccount() {
   )
 }
 
-// ── Styles ────────────────────────────────────────────────────────
+// ── Styles ─────────────────────────────────────────────────────
 const styles = {
   page: {
     minHeight: '100vh',
@@ -197,26 +242,26 @@ const styles = {
     width: 72, height: 72, borderRadius: 18,
     background: bg, display: 'flex',
     alignItems: 'center', justifyContent: 'center',
-    fontSize: 32, marginBottom: 16
+    fontSize: 32, marginBottom: 16,
   }),
   title: {
     fontSize: 22, fontWeight: 800,
-    margin: '0 0 8px', textAlign: 'center'
+    margin: '0 0 8px', textAlign: 'center',
   },
   sub: {
     fontSize: 14, color: '#6B7280',
     textAlign: 'center', margin: '0 0 20px',
-    lineHeight: 1.6
+    lineHeight: 1.6,
   },
   infoBox: (bg, border) => ({
     background: bg, border: `1px solid ${border}`,
     borderRadius: 12, padding: '14px 16px',
-    width: '100%', marginBottom: 20, boxSizing: 'border-box'
+    width: '100%', marginBottom: 20, boxSizing: 'border-box',
   }),
   label: {
     display: 'block', fontSize: 13,
     fontWeight: 600, color: '#374151',
-    marginBottom: 6, marginTop: 12
+    marginBottom: 6, marginTop: 12,
   },
   input: {
     width: '100%', padding: '12px 14px',
