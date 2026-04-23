@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
         }}>🎀</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: '#EC4899', margin: 0 }}>FatafatDecor</h1>
         <h2 style={{ fontSize: 20, fontWeight: 600, color: '#374151', margin: '8px 0 0' }}>Privacy Policy</h2>
-        <p style={{ color: '#6B7280', fontSize: 14, margin: '8px 0 0' }}>Last updated: March 2025</p>
+        <p style={{ color: '#6B7280', fontSize: 14, margin: '8px 0 0' }}>Last updated: April 2026</p>
       </div>
 
       <Section title="1. Introduction">
@@ -92,6 +92,7 @@ export default function PrivacyPolicy() {
         <ul>
           <li><strong>Razorpay</strong> – Payment processing (<a href="https://razorpay.com/privacy/" style={{ color: '#EC4899' }}>Privacy Policy</a>)</li>
           <li><strong>Google Sign-In</strong> – Authentication (<a href="https://policies.google.com/privacy" style={{ color: '#EC4899' }}>Privacy Policy</a>)</li>
+          <li><strong>Apple Sign-In</strong> – Authentication (<a href="https://www.apple.com/legal/privacy/" style={{ color: '#EC4899' }}>Privacy Policy</a>)</li>
           <li><strong>ImageKit</strong> – Image storage & CDN</li>
           <li><strong>MongoDB Atlas</strong> – Database (MongoDB, Inc.)</li>
         </ul>
@@ -111,7 +112,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 24, marginTop: 40, textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
-        © 2025 FatafatDecor. All rights reserved.
+        © 2026 FatafatDecor. All rights reserved.
       </div>
     </div>
   )
