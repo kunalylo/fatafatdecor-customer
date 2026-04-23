@@ -4,7 +4,7 @@ import { useState } from 'react'
 export default function DeleteAccount() {
   const [email, setEmail]           = useState('')
   const [password, setPassword]     = useState('')
-  const [isGoogle, setIsGoogle]     = useState(false)
+  const [authType, setAuthType]     = useState('email') // 'email' | 'google' | 'apple'
   const [loading, setLoading]       = useState(false)
   const [status, setStatus]         = useState(null) // 'success' | 'error'
   const [errorMsg, setErrorMsg]     = useState('')
@@ -20,8 +20,10 @@ export default function DeleteAccount() {
     try {
       // For Google accounts, we send google_account:true so the backend
       // looks up the user by email + verifies auth_provider === 'google'
-      const body = isGoogle
+      const body = authType === 'google'
         ? { email, google_account: true }
+        : authType === 'apple'
+        ? { email, apple_account: true }
         : { email, password }
 
       const res  = await fetch('/api/auth/delete-account', {
@@ -91,18 +93,19 @@ export default function DeleteAccount() {
         {/* Account type toggle */}
         <div style={{ display: 'flex', gap: 8, width: '100%', margin: '4px 0 12px' }}>
           {[
-            { key: false, label: '🔑 Email / Password' },
-            { key: true,  label: '🔵 Google Account' },
+            { key: 'email', label: '🔑 Email' },
+            { key: 'google', label: '🔵 Google' },
+            { key: 'apple', label: '🍎 Apple' },
           ].map(({ key, label }) => (
             <button
-              key={String(key)}
+              key={key}
               type="button"
-              onClick={() => { setIsGoogle(key); setErrorMsg('') }}
+              onClick={() => { setAuthType(key); setErrorMsg('') }}
               style={{
                 flex: 1, padding: '9px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
                 fontSize: 13, fontWeight: 600,
-                background: isGoogle === key ? '#DC2626' : '#F3F4F6',
-                color: isGoogle === key ? '#fff' : '#374151',
+                background: authType === key ? '#DC2626' : '#F3F4F6',
+                color: authType === key ? '#fff' : '#374151',
                 transition: 'all 0.2s',
               }}
             >
@@ -126,7 +129,7 @@ export default function DeleteAccount() {
           />
 
           {/* Password — only for email accounts */}
-          {!isGoogle && (
+          {authType === 'email' && (
             <>
               <label style={styles.label}>Password</label>
               <div style={{ position: 'relative' }}>
@@ -150,10 +153,18 @@ export default function DeleteAccount() {
           )}
 
           {/* Google info box */}
-          {isGoogle && (
+          {authType === 'google' && (
             <div style={styles.infoBox('#EFF6FF', '#BFDBFE')}>
               <p style={{ margin: 0, fontSize: 13, color: '#1E40AF', lineHeight: 1.6 }}>
                 ℹ️ Enter the email address linked to your Google account. We'll verify it's a Google-authenticated account and permanently delete all your data.
+              </p>
+            </div>
+          )}
+          {/* Apple info box */}
+          {authType === 'apple' && (
+            <div style={styles.infoBox('#F5F3FF', '#DDD6FE')}>
+              <p style={{ margin: 0, fontSize: 13, color: '#4C1D95', lineHeight: 1.6 }}>
+                ℹ️ Enter the email address linked to your Apple account (including hide-my-email addresses). We'll verify it's an Apple-authenticated account and permanently delete all your data.
               </p>
             </div>
           )}
@@ -181,10 +192,10 @@ export default function DeleteAccount() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || !email || (!isGoogle && !password)}
+            disabled={loading || !email || (authType === 'email' && !password)}
             style={{
               width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-              background: loading || !email || (!isGoogle && !password) ? '#FCA5A5' : '#DC2626',
+              background: loading || !email || (authType === 'email' && !password) ? '#FCA5A5' : '#DC2626',
               color: 'white', fontWeight: 700, fontSize: 15, cursor: loading ? 'wait' : 'pointer',
               transition: 'all 0.2s', marginBottom: 12,
             }}
