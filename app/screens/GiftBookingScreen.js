@@ -11,6 +11,7 @@ export default function GiftBookingScreen() {
   const [selectedHour, setSelectedHour] = useState(null)
   const [slots, setSlots] = useState([])
   const [loadingSlots, setLoadingSlots] = useState(false)
+  const [giftMessage, setGiftMessage] = useState(selectedGiftOrder?.gift_message || '')
 
   // Include today + next 6 days (gifts can be ordered same-day)
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -79,6 +80,22 @@ export default function GiftBookingScreen() {
             <span>Total</span>
             <span className="text-pink-600">Rs {selectedGiftOrder.gift_total?.toLocaleString('en-IN')}</span>
           </div>
+        </div>
+
+        {/* Gift Message */}
+        <div className="bg-white rounded-2xl p-4 border border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">💌</span>
+            <p className="font-bold text-sm text-gray-700">Gift Message <span className="font-normal text-gray-400">(optional)</span></p>
+          </div>
+          <textarea
+            value={giftMessage}
+            onChange={e => setGiftMessage(e.target.value)}
+            placeholder="Add a personal message for the recipient..."
+            maxLength={200}
+            className="w-full h-20 rounded-xl border border-gray-200 p-3 text-sm outline-none resize-none focus:ring-2 focus:ring-pink-300 placeholder-gray-300"
+          />
+          <p className="text-right text-[10px] text-gray-300 mt-1">{giftMessage.length}/200</p>
         </div>
 
         {/* Step 1: Date */}

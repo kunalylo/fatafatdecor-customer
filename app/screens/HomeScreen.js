@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Settings, Zap, Camera, ArrowRight, ImageIcon, Package, IndianRupee, Sparkles, Truck, MapPin, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -20,8 +21,10 @@ export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign,
     userAddress, locationLoading, locationDenied, detectLocation,
-    setGiftMode, setGiftCart,
+    setGiftMode, setGiftCart, gifts, loadGifts,
   } = useApp()
+
+  useEffect(() => { if (gifts.length === 0) loadGifts() }, [])
 
   const locationTop = () => {
     if (userAddress?.flat && userAddress?.area) return `${userAddress.flat}, ${userAddress.area}`
@@ -117,15 +120,46 @@ export default function HomeScreen() {
       </Card>
     </div>
 
-    {/* ── Gifts banner ── */}
-    <div onClick={() => { setGiftMode('standalone'); setGiftCart([]); navigate(SCREENS.GIFTS) }}
-      className="mx-4 mt-3 p-4 bg-white rounded-2xl border border-pink-100 shadow-sm flex items-center gap-3 cursor-pointer hover:scale-[1.01] transition-transform">
-      <div className="w-11 h-11 bg-pink-50 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 border border-pink-100">🎁</div>
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-gray-800 text-sm">Send Gifts</p>
-        <p className="text-xs text-gray-500 truncate">Bouquets, flowers & arrangements — delivered</p>
+    {/* ── Gifts Section ── */}
+    <div className="mx-4 mt-3">
+      <div onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
+        className="p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl border border-pink-100 shadow-sm cursor-pointer hover:scale-[1.01] transition-transform mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-pink-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 border border-pink-200">🎁</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-gray-800 text-sm">Send Gifts & Flowers</p>
+            <p className="text-xs text-gray-500 truncate">Same-day delivery — surprise your loved ones</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-pink-400 flex-shrink-0" />
+        </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-pink-400 flex-shrink-0" />
+      {/* Featured gifts horizontal scroll */}
+      {gifts.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+          {gifts.slice(0, 6).map(gift => {
+            const imgUrl = (gift.images?.[0] || gift.image_url || '')
+            const src = imgUrl?.includes('ik.imagekit.io') ? `${imgUrl}?tr=w-280,h-200,q-80,c-maintain_ratio` : imgUrl
+            return (
+              <div key={gift.id} onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
+                className="shrink-0 w-32 bg-white rounded-2xl border border-pink-100 shadow-sm overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform">
+                <div className="w-full h-24 bg-pink-50 relative">
+                  {src ? <img src={src} alt={gift.name} className="w-full h-full object-cover" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center text-2xl">🌸</div>}
+                  <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-pink-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">Rs {gift.price?.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="p-2">
+                  <p className="text-[11px] font-bold text-gray-800 line-clamp-1">{gift.name}</p>
+                  {gift.occasion && <p className="text-[9px] text-gray-400 mt-0.5">{gift.occasion}</p>}
+                </div>
+              </div>
+            )
+          })}
+          <div onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
+            className="shrink-0 w-24 bg-pink-50 rounded-2xl border-2 border-dashed border-pink-200 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-pink-400 transition-all">
+            <span className="text-xl">🎁</span>
+            <span className="text-[10px] font-bold text-pink-400">View All</span>
+          </div>
+        </div>
+      )}
     </div>
 
     {/* ── Occasions strip ── */}

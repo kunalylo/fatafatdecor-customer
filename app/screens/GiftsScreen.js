@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart } from 'lucide-react'
 
 function GiftSkeleton() {
   return (
@@ -18,11 +18,36 @@ function GiftSkeleton() {
   )
 }
 
+const PRICE_RANGES = [
+  { label: 'All', min: 0, max: Infinity },
+  { label: 'Under 500', min: 0, max: 500 },
+  { label: '500-1000', min: 500, max: 1000 },
+  { label: '1000-2000', min: 1000, max: 2000 },
+  { label: '2000+', min: 2000, max: Infinity },
+]
+
+const SORT_OPTIONS = [
+  { label: 'Recommended', value: 'default' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' },
+  { label: 'Newest First', value: 'newest' },
+]
+
 export default function GiftsScreen() {
   const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user } = useApp()
   const [search, setSearch] = useState('')
   const [giftsLoading, setGiftsLoading] = useState(false)
   const [selectedGift, setSelectedGift] = useState(null)
+  const [activeCategory, setActiveCategory] = useState('All')
+  const [activeOccasion, setActiveOccasion] = useState('All')
+  const [priceRange, setPriceRange] = useState(0)
+  const [sortBy, setSortBy] = useState('default')
+  const [showFilters, setShowFilters] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
+  const [wishlist, setWishlist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fd_wishlist') || '[]') } catch { return [] }
+  })
+  const catScrollRef = useRef(null)
 
   useEffect(() => {
     if (gifts.length === 0) {
@@ -31,22 +56,59 @@ export default function GiftsScreen() {
     }
   }, [])
 
+  // Persist wishlist
+  useEffect(() => {
+    try { localStorage.setItem('fd_wishlist', JSON.stringify(wishlist)) } catch {}
+  }, [wishlist])
+
+  const toggleWishlist = (id) => {
+    setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  // Dynamic categories & occasions from gift data
+  const categories = useMemo(() => {
+    const cats = [...new Set(gifts.map(g => g.category).filter(Boolean))].sort()
+    return ['All', ...cats]
+  }, [gifts])
+
+  const occasions = useMemo(() => {
+    const occs = [...new Set(gifts.map(g => g.occasion).filter(Boolean))].sort()
+    return ['All', ...occs]
+  }, [gifts])
+
   const searchLower = useMemo(() => search.toLowerCase(), [search])
-  const filtered = useMemo(
-    () => gifts.filter(g => (g.name || '').toLowerCase().includes(searchLower)),
-    [gifts, searchLower]
-  )
+  const filtered = useMemo(() => {
+    const range = PRICE_RANGES[priceRange]
+    return gifts
+      .filter(g => {
+        if (searchLower && !(g.name || '').toLowerCase().includes(searchLower) && !(g.description || '').toLowerCase().includes(searchLower)) return false
+        if (activeCategory !== 'All' && g.category !== activeCategory) return false
+        if (activeOccasion !== 'All' && g.occasion !== activeOccasion) return false
+        if (g.price < range.min || g.price > range.max) return false
+        return true
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'price_asc': return (a.price || 0) - (b.price || 0)
+          case 'price_desc': return (b.price || 0) - (a.price || 0)
+          case 'newest': return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+          default: return 0
+        }
+      })
+  }, [gifts, searchLower, activeCategory, activeOccasion, priceRange, sortBy])
 
   const getQty = (id) => (giftCart.find(g => g.gift_id === id)?.quantity || 0)
 
   const updateCart = (gift, delta) => {
+    if ((gift.stock !== undefined && gift.stock <= 0) && delta > 0) return
     setGiftCart(prev => {
       const existing = prev.find(g => g.gift_id === gift.id)
       const newQty = (existing?.quantity || 0) + delta
       if (newQty <= 0) return prev.filter(g => g.gift_id !== gift.id)
       if (newQty > 10) return prev
+      if (gift.stock !== undefined && newQty > gift.stock) return prev
       if (existing) return prev.map(g => g.gift_id === gift.id ? { ...g, quantity: newQty } : g)
-      return [...prev, { gift_id: gift.id, name: gift.name, price: gift.price, quantity: 1, image_url: gift.image_url }]
+      return [...prev, { gift_id: gift.id, name: gift.name, price: gift.price, quantity: 1, image_url: gift.images?.[0] || gift.image_url }]
     })
   }
 
@@ -59,10 +121,22 @@ export default function GiftsScreen() {
     else goBack()
   }
 
-  const getImgSrc = (gift) =>
-    gift?.image_url?.includes('ik.imagekit.io')
-      ? `${gift.image_url}?tr=w-800,h-600,q-85,c-maintain_ratio`
-      : gift?.image_url
+  const isOutOfStock = (gift) => gift.stock !== undefined && gift.stock <= 0
+
+  const getImgs = (gift) => {
+    if (gift?.images?.length) return gift.images
+    if (gift?.image_url) return [gift.image_url]
+    return []
+  }
+
+  const getImgSrc = (url, size = 'large') => {
+    if (!url?.includes('ik.imagekit.io')) return url
+    return size === 'thumb'
+      ? `${url}?tr=w-400,h-300,q-80,c-maintain_ratio`
+      : `${url}?tr=w-800,h-600,q-85,c-maintain_ratio`
+  }
+
+  const activeFilterCount = (activeCategory !== 'All' ? 1 : 0) + (activeOccasion !== 'All' ? 1 : 0) + (priceRange !== 0 ? 1 : 0) + (sortBy !== 'default' ? 1 : 0)
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -74,14 +148,18 @@ export default function GiftsScreen() {
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-white">🎁 Gifts</h1>
-            <p className="text-white/70 text-xs">Bouquets, flowers & arrangements</p>
+            <h1 className="text-lg font-bold text-white">{giftMode === 'addon' ? '🎁 Add Gifts to Decor' : '🎁 Gifts'}</h1>
+            <p className="text-white/70 text-xs">{filtered.length} gifts available</p>
           </div>
+          <button onClick={() => setShowFilters(!showFilters)} className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 active:scale-95 transition-transform">
+            <SlidersHorizontal className="w-4 h-4 text-white" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full text-[9px] font-bold text-gray-800 flex items-center justify-center">{activeFilterCount}</span>
+            )}
+          </button>
           {cartCount > 0 && (
-            <button
-              onClick={handleProceed}
-              className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl active:scale-95 transition-transform shadow-sm"
-            >
+            <button onClick={handleProceed}
+              className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl active:scale-95 transition-transform shadow-sm">
               <ShoppingBag className="w-4 h-4 text-pink-500" />
               <span className="text-sm font-bold text-pink-600">{cartCount}</span>
             </button>
@@ -91,19 +169,81 @@ export default function GiftsScreen() {
         {/* Search */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search gifts..."
-            className="w-full pl-9 pr-9 py-2.5 bg-white rounded-xl text-sm outline-none text-gray-800 placeholder-gray-400"
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search gifts, bouquets, combos..."
+            className="w-full pl-9 pr-9 py-2.5 bg-white rounded-xl text-sm outline-none text-gray-800 placeholder-gray-400" />
           {search.length > 0 && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
               <X className="w-4 h-4 text-gray-400" />
             </button>
           )}
         </div>
+
+        {/* Category chips */}
+        <div ref={catScrollRef} className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
+          {categories.map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                activeCategory === cat
+                  ? 'bg-white text-pink-600 shadow-sm'
+                  : 'bg-white/20 text-white/90 border border-white/30'}`}>
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Filter panel */}
+      {showFilters && (
+        <div className="bg-white border-b border-gray-100 px-4 py-4 space-y-4 shadow-sm">
+          {/* Occasion */}
+          {occasions.length > 1 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">Occasion</p>
+              <div className="flex flex-wrap gap-1.5">
+                {occasions.map(o => (
+                  <button key={o} onClick={() => setActiveOccasion(o)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      activeOccasion === o ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Price range */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 mb-2">Price Range</p>
+            <div className="flex flex-wrap gap-1.5">
+              {PRICE_RANGES.map((r, i) => (
+                <button key={i} onClick={() => setPriceRange(i)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    priceRange === i ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  {r.label === 'All' ? 'All Prices' : `Rs ${r.label}`}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Sort */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 mb-2">Sort By</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SORT_OPTIONS.map(s => (
+                <button key={s.value} onClick={() => setSortBy(s.value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    sortBy === s.value ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Clear */}
+          {activeFilterCount > 0 && (
+            <button onClick={() => { setActiveCategory('All'); setActiveOccasion('All'); setPriceRange(0); setSortBy('default') }}
+              className="text-xs text-pink-500 font-bold">Clear all filters</button>
+          )}
+        </div>
+      )}
 
       {/* Grid */}
       <div className="flex-1 p-4 pb-36 grid grid-cols-2 gap-3">
@@ -112,66 +252,85 @@ export default function GiftsScreen() {
 
         {!giftsLoading && filtered.map(gift => {
           const qty = getQty(gift.id)
-          const imgSrc = gift.image_url?.includes('ik.imagekit.io')
-            ? `${gift.image_url}?tr=w-400,h-300,q-80,c-maintain_ratio`
-            : gift.image_url
+          const imgs = getImgs(gift)
+          const imgSrc = getImgSrc(imgs[0], 'thumb')
+          const outOfStock = isOutOfStock(gift)
+          const lowStock = !outOfStock && gift.stock !== undefined && gift.stock > 0 && gift.stock < 5
           return (
-            <div key={gift.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex flex-col active:scale-[0.98] transition-transform">
+            <div key={gift.id} className={`bg-white rounded-2xl overflow-hidden border shadow-sm flex flex-col transition-transform active:scale-[0.98]
+              ${outOfStock ? 'border-gray-200 opacity-70' : 'border-gray-100'}`}>
 
-              {/* Tappable top area → opens detail */}
-              <button
-                onClick={() => setSelectedGift(gift)}
-                className="w-full text-left focus:outline-none"
-              >
-                {/* Image */}
+              {/* Image area */}
+              <button onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }} className="w-full text-left focus:outline-none">
                 <div className="relative w-full h-36 bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center">
                   {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt={gift.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={e => { e.target.onerror = null; e.target.style.display = 'none' }}
-                    />
+                    <img src={imgSrc} alt={gift.name} className="w-full h-full object-cover" loading="lazy"
+                      onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                   ) : (
                     <span className="text-4xl">🎁</span>
                   )}
+                  {/* Price badge */}
                   <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm">
-                    <span className="text-xs font-bold text-pink-600">₹{gift.price.toLocaleString('en-IN')}</span>
+                    <span className="text-xs font-bold text-pink-600">Rs {gift.price?.toLocaleString('en-IN')}</span>
                   </div>
+                  {/* Image count */}
+                  {imgs.length > 1 && (
+                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                      +{imgs.length - 1}
+                    </span>
+                  )}
+                  {/* Out of stock overlay */}
+                  {outOfStock && (
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <span className="bg-white/95 text-red-500 text-xs font-bold px-3 py-1.5 rounded-full">Out of Stock</span>
+                    </div>
+                  )}
+                  {/* Low stock badge */}
+                  {lowStock && (
+                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                      Only {gift.stock} left
+                    </span>
+                  )}
+                  {/* Wishlist */}
+                  <button onClick={(e) => { e.stopPropagation(); toggleWishlist(gift.id) }}
+                    className="absolute bottom-2 left-2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform">
+                    <Heart className={`w-3.5 h-3.5 ${wishlist.includes(gift.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                  </button>
                 </div>
 
-                {/* Name + desc */}
+                {/* Name + tags */}
                 <div className="px-3 pt-3 pb-1">
                   <p className="text-sm font-bold text-gray-800 leading-tight line-clamp-2 mb-1">{gift.name}</p>
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {gift.occasion && <span className="text-[9px] bg-orange-50 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">{gift.occasion}</span>}
+                    {gift.category && <span className="text-[9px] bg-purple-50 text-purple-600 font-semibold px-1.5 py-0.5 rounded-full">{gift.category}</span>}
+                  </div>
                   {gift.description && (
-                    <p className="text-xs text-gray-400 line-clamp-2">{gift.description}</p>
+                    <p className="text-xs text-gray-400 line-clamp-1">{gift.description}</p>
                   )}
                 </div>
               </button>
 
-              {/* Add / stepper — separate from tap area */}
+              {/* Add / stepper */}
               <div className="px-3 pb-3 pt-2 mt-auto">
-                {qty === 0 ? (
-                  <button
-                    onClick={() => updateCart(gift, 1)}
-                    className="w-full py-2 gradient-pink text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm shadow-pink-200"
-                  >
+                {outOfStock ? (
+                  <div className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold rounded-xl text-center">
+                    Out of Stock
+                  </div>
+                ) : qty === 0 ? (
+                  <button onClick={() => updateCart(gift, 1)}
+                    className="w-full py-2 gradient-pink text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm shadow-pink-200">
                     Add
                   </button>
                 ) : (
                   <div className="flex items-center justify-between bg-pink-50 rounded-xl p-1">
-                    <button
-                      onClick={() => updateCart(gift, -1)}
-                      className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform"
-                    >
+                    <button onClick={() => updateCart(gift, -1)}
+                      className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform">
                       <Minus className="w-4 h-4 text-pink-500" />
                     </button>
                     <span className="text-sm font-bold text-pink-600 w-6 text-center">{qty}</span>
-                    <button
-                      onClick={() => updateCart(gift, 1)}
-                      className="w-8 h-8 flex items-center justify-center gradient-pink rounded-lg shadow-sm active:scale-90 transition-transform"
-                    >
+                    <button onClick={() => updateCart(gift, 1)}
+                      className="w-8 h-8 flex items-center justify-center gradient-pink rounded-lg shadow-sm active:scale-90 transition-transform">
                       <Plus className="w-4 h-4 text-white" />
                     </button>
                   </div>
@@ -185,7 +344,9 @@ export default function GiftsScreen() {
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
             <span className="text-5xl mb-3">🔍</span>
             <p className="font-semibold text-gray-500">No gifts found</p>
-            <p className="text-xs mt-1">Try a different search</p>
+            <p className="text-xs mt-1">Try a different search or filter</p>
+            <button onClick={() => { setSearch(''); setActiveCategory('All'); setActiveOccasion('All'); setPriceRange(0) }}
+              className="mt-3 text-sm text-pink-500 font-bold">Clear all filters</button>
           </div>
         )}
         {!giftsLoading && gifts.length === 0 && (
@@ -198,7 +359,7 @@ export default function GiftsScreen() {
 
       {/* Bottom CTA */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 pt-3 pb-8 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 pt-3 pb-8 shadow-2xl z-40">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 gradient-pink rounded-full flex items-center justify-center">
@@ -206,108 +367,144 @@ export default function GiftsScreen() {
               </div>
               <span className="text-sm font-semibold text-gray-700">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
             </div>
-            <span className="text-base font-bold text-gray-900">₹{cartTotal.toLocaleString('en-IN')}</span>
+            <span className="text-base font-bold text-gray-900">Rs {cartTotal.toLocaleString('en-IN')}</span>
           </div>
-          <button
-            onClick={handleProceed}
-            disabled={loading}
-            className="w-full gradient-pink text-white font-bold py-3.5 rounded-2xl text-sm shadow-pink active:scale-[0.98] transition-transform disabled:opacity-60"
-          >
+          <button onClick={handleProceed} disabled={loading}
+            className="w-full gradient-pink text-white font-bold py-3.5 rounded-2xl text-sm shadow-pink active:scale-[0.98] transition-transform disabled:opacity-60">
             {loading ? 'Processing...' : giftMode === 'addon'
-              ? `Add to Decoration · ₹${cartTotal.toLocaleString('en-IN')}`
-              : `Proceed to Book · ₹${cartTotal.toLocaleString('en-IN')}`}
+              ? `Add to Decoration · Rs ${cartTotal.toLocaleString('en-IN')}`
+              : `Proceed to Book · Rs ${cartTotal.toLocaleString('en-IN')}`}
           </button>
         </div>
       )}
 
-      {/* ── Gift Detail Bottom Sheet ── */}
+      {/* ── Gift Detail Bottom Sheet with Carousel ── */}
       {selectedGift && (() => {
         const qty = getQty(selectedGift.id)
-        const imgSrc = getImgSrc(selectedGift)
+        const imgs = getImgs(selectedGift)
+        const outOfStock = isOutOfStock(selectedGift)
         return (
           <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setSelectedGift(null)}>
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="relative bg-white w-full max-w-md rounded-t-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+              style={{ animation: 'slideUp 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
 
-            {/* Sheet */}
-            <div
-              className="relative bg-white w-full max-w-md rounded-t-3xl overflow-hidden shadow-2xl"
-              style={{ animation: 'slideUp 0.25s ease-out' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Close pill */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 bg-gray-200 rounded-full" />
-              </div>
-
-              {/* Close button */}
-              <button
-                onClick={() => setSelectedGift(null)}
-                className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center z-10 active:scale-90 transition-transform"
-              >
+              <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-200 rounded-full" /></div>
+              <button onClick={() => setSelectedGift(null)}
+                className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center z-10 active:scale-90 transition-transform">
                 <X className="w-4 h-4 text-gray-600" />
               </button>
 
-              {/* Image */}
-              <div className="w-full h-64 bg-gradient-to-br from-pink-50 to-rose-100 relative">
-                {imgSrc ? (
-                  <img
-                    src={imgSrc}
-                    alt={selectedGift.name}
-                    className="w-full h-full object-cover"
-                    onError={e => { e.target.onerror = null; e.target.style.display = 'none' }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <h2 className="text-lg font-black text-gray-800 flex-1 leading-tight">{selectedGift.name}</h2>
-                  <span className="text-xl font-black text-pink-500 shrink-0">₹{selectedGift.price.toLocaleString('en-IN')}</span>
-                </div>
-                {selectedGift.description && (
-                  <p className="text-sm text-gray-500 leading-relaxed mb-5">{selectedGift.description}</p>
-                )}
-
-                {/* Add / Stepper */}
-                {qty === 0 ? (
-                  <button
-                    onClick={() => { updateCart(selectedGift, 1); setSelectedGift(null) }}
-                    className="w-full py-3.5 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm"
-                  >
-                    Add to Cart · ₹{selectedGift.price.toLocaleString('en-IN')}
+              <div className="overflow-y-auto flex-1">
+                {/* Image Carousel */}
+                <div className="relative w-full h-72 bg-gradient-to-br from-pink-50 to-rose-100">
+                  {imgs.length > 0 ? (
+                    <img src={getImgSrc(imgs[galleryIndex])} alt={selectedGift.name}
+                      className="w-full h-full object-cover transition-opacity duration-200"
+                      onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
+                  )}
+                  {imgs.length > 1 && (
+                    <>
+                      <button onClick={() => setGalleryIndex(i => (i - 1 + imgs.length) % imgs.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md active:scale-90 transition">
+                        <ChevronLeft className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button onClick={() => setGalleryIndex(i => (i + 1) % imgs.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md active:scale-90 transition">
+                        <ChevronRight className="w-4 h-4 text-gray-700" />
+                      </button>
+                      {/* Dots */}
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                        {imgs.map((_, i) => (
+                          <button key={i} onClick={() => setGalleryIndex(i)}
+                            className={`w-2 h-2 rounded-full transition-all ${i === galleryIndex ? 'bg-white w-5' : 'bg-white/50'}`} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {/* Wishlist on detail */}
+                  <button onClick={() => toggleWishlist(selectedGift.id)}
+                    className="absolute top-4 left-4 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform">
+                    <Heart className={`w-4 h-4 ${wishlist.includes(selectedGift.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
                   </button>
-                ) : (
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3 bg-pink-50 rounded-2xl p-1.5 flex-1 justify-between">
-                      <button
-                        onClick={() => updateCart(selectedGift, -1)}
-                        className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm active:scale-90 transition-transform"
-                      >
-                        <Minus className="w-4 h-4 text-pink-500" />
+                  {outOfStock && (
+                    <div className="absolute top-4 right-14 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">Out of Stock</div>
+                  )}
+                </div>
+
+                {/* Thumbnail strip */}
+                {imgs.length > 1 && (
+                  <div className="flex gap-2 px-5 py-3 overflow-x-auto no-scrollbar">
+                    {imgs.map((url, i) => (
+                      <button key={i} onClick={() => setGalleryIndex(i)}
+                        className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                          i === galleryIndex ? 'border-pink-500 scale-105' : 'border-gray-200 opacity-60 hover:opacity-100'}`}>
+                        <img src={getImgSrc(url, 'thumb')} alt="" className="w-full h-full object-cover" />
                       </button>
-                      <span className="text-lg font-black text-pink-600 min-w-[1.5rem] text-center">{qty}</span>
-                      <button
-                        onClick={() => updateCart(selectedGift, 1)}
-                        className="w-10 h-10 flex items-center justify-center gradient-pink rounded-xl shadow-sm active:scale-90 transition-transform"
-                      >
-                        <Plus className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => setSelectedGift(null)}
-                      className="flex-1 py-3 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm"
-                    >
-                      Done
-                    </button>
+                    ))}
                   </div>
                 )}
+
+                {/* Info */}
+                <div className="p-5 pt-3">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h2 className="text-lg font-black text-gray-800 flex-1 leading-tight">{selectedGift.name}</h2>
+                    <span className="text-xl font-black text-pink-500 shrink-0">Rs {selectedGift.price?.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {selectedGift.category && <span className="text-[10px] bg-purple-50 text-purple-600 font-semibold px-2 py-0.5 rounded-full">{selectedGift.category}</span>}
+                    {selectedGift.occasion && <span className="text-[10px] bg-orange-50 text-orange-600 font-semibold px-2 py-0.5 rounded-full">{selectedGift.occasion}</span>}
+                    {selectedGift.colour && (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-gray-50 text-gray-500 font-semibold px-2 py-0.5 rounded-full">
+                        <span className="w-2.5 h-2.5 rounded-full border border-gray-200" style={{ backgroundColor: selectedGift.colour }} />
+                        {selectedGift.colour}
+                      </span>
+                    )}
+                    {!outOfStock && selectedGift.stock !== undefined && selectedGift.stock < 5 && (
+                      <span className="text-[10px] bg-red-50 text-red-500 font-semibold px-2 py-0.5 rounded-full">Only {selectedGift.stock} left!</span>
+                    )}
+                  </div>
+
+                  {selectedGift.description && (
+                    <p className="text-sm text-gray-500 leading-relaxed mb-5">{selectedGift.description}</p>
+                  )}
+
+                  {/* Actions */}
+                  {outOfStock ? (
+                    <div className="w-full py-3.5 bg-gray-100 text-gray-400 font-bold rounded-2xl text-sm text-center">
+                      Currently Unavailable
+                    </div>
+                  ) : qty === 0 ? (
+                    <button onClick={() => { updateCart(selectedGift, 1); setSelectedGift(null) }}
+                      className="w-full py-3.5 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm">
+                      Add to Cart · Rs {selectedGift.price?.toLocaleString('en-IN')}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 bg-pink-50 rounded-2xl p-1.5 flex-1 justify-between">
+                        <button onClick={() => updateCart(selectedGift, -1)}
+                          className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm active:scale-90 transition-transform">
+                          <Minus className="w-4 h-4 text-pink-500" />
+                        </button>
+                        <span className="text-lg font-black text-pink-600 min-w-[1.5rem] text-center">{qty}</span>
+                        <button onClick={() => updateCart(selectedGift, 1)}
+                          className="w-10 h-10 flex items-center justify-center gradient-pink rounded-xl shadow-sm active:scale-90 transition-transform">
+                          <Plus className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                      <button onClick={() => setSelectedGift(null)}
+                        className="flex-1 py-3 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm">
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Safe area spacing */}
               <div className="pb-6" />
             </div>
           </div>

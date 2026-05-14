@@ -46,10 +46,17 @@ export function AppProvider({ children }) {
   const prevTrackingRef = useRef(null)
   const ordersRef = useRef([])
   const [gifts, setGifts] = useState([])
-  const [giftCart, setGiftCart] = useState([])
+  const [giftCart, setGiftCart] = useState(() => {
+    try { const c = localStorage.getItem('fd_gift_cart'); return c ? JSON.parse(c) : [] } catch { return [] }
+  })
   const [giftMode, setGiftMode] = useState('standalone') // 'standalone' | 'addon'
   const [giftOrders, setGiftOrders] = useState([])
   const [selectedGiftOrder, setSelectedGiftOrder] = useState(null)
+
+  // Persist gift cart to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('fd_gift_cart', JSON.stringify(giftCart)) } catch {}
+  }, [giftCart])
 
   // Keep refs in sync so navigate/goBack can read current values without deps
   useEffect(() => { screenRef.current = screen }, [screen])
@@ -624,7 +631,7 @@ export function AppProvider({ children }) {
     }
   }
 
-  const handleCreateGiftOrder = async () => {
+  const handleCreateGiftOrder = async (giftMessage = '') => {
     if (!userAddress?.flat) { showToast('Please set your delivery address first', 'error'); navigate(SCREENS.ADDRESS); return }
     if (giftCart.length === 0) { showToast('No gifts selected', 'error'); return }
     setLoading(true)
@@ -634,6 +641,7 @@ export function AppProvider({ children }) {
         method: 'POST',
         body: {
           gift_items: giftCart,
+          gift_message: giftMessage || '',
           delivery_address: fullAddress,
           delivery_landmark: userAddress.landmark || '',
           delivery_lat: userAddress.lat || null,
