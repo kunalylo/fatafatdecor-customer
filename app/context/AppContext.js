@@ -26,7 +26,10 @@ export function AppProvider({ children }) {
   const [slots, setSlots] = useState([])
   const [trackingData, setTrackingData] = useState(null)
   const [authForm, setAuthForm] = useState({ name: '', email: '', phone: '', password: '' })
-  const [uploadForm, setUploadForm] = useState({ room_type: 'Dining Room', occasion: 'birthday', description: '', budget: null })
+  const [uploadForm, setUploadForm] = useState({ room_type: 'Dining Room', occasion: 'birthday', description: '', budget: null, theme: '' })
+
+  // Live budget brackets from backend (replaces hardcoded list when available)
+  const [liveBrackets, setLiveBrackets] = useState([])
   const [originalImage, setOriginalImage] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedSlotHour, setSelectedSlotHour] = useState(null)
@@ -61,6 +64,13 @@ export function AppProvider({ children }) {
   // Keep refs in sync so navigate/goBack can read current values without deps
   useEffect(() => { screenRef.current = screen }, [screen])
   useEffect(() => { prevScreenRef.current = prevScreen }, [prevScreen])
+
+  // Fetch live budget brackets once on mount (overrides hardcoded list)
+  useEffect(() => {
+    api('budget-brackets').then(d => {
+      if (!d?.error && Array.isArray(d?.brackets)) setLiveBrackets(d.brackets)
+    }).catch(() => {})
+  }, [])
 
   const showToast = useCallback((msg, type = 'info') => {
     setToast({ msg, type })
@@ -467,16 +477,42 @@ export function AppProvider({ children }) {
   const handleGenerate = async () => {
     if (!originalImage) { showToast('Please upload or take a photo of your space first!', 'error'); return }
     if (!uploadForm.budget) { showToast('Please select a budget bracket', 'error'); return }
-    const budget = BUDGET_BRACKETS.find(b => b.id === uploadForm.budget)
+    // Use live brackets if available (fetched from backend); fall back to static list
+    const bracketList = (liveBrackets && liveBrackets.length > 0) ? liveBrackets : BUDGET_BRACKETS
+    const budget = bracketList.find(b => b.id === uploadForm.budget)
     if (!budget) { showToast('Please select a budget', 'error'); return }
-    // Budget is the decoration budget the customer wants — no restrictions
     if (user.credits <= 0) { showToast('No credits! Please purchase credits.', 'error'); navigate(SCREENS.CREDITS); return }
     navigate(SCREENS.GENERATING)
     try {
-      const data = await api('designs/generate', {
+      // NEW reference-based flow. Falls back to legacy /designs/generate if the
+      // new endpoint returns 404 (older Railway deploy, etc.).
+      let data = await api('designs/generate-from-reference', {
         method: 'POST',
-        body: { room_type: uploadForm.room_type, occasion: uploadForm.occasion, description: (uploadForm.description || '').slice(0, 200), original_image: originalImage, budget_min: budget.min, budget_max: budget.max }
+        body: {
+          room_type: uploadForm.room_type,
+          occasion: uploadForm.occasion,
+          description: (uploadForm.description || '').slice(0, 200),
+          original_image: originalImage,
+          budget_min: budget.min,
+          budget_max: budget.max,
+          theme_preference: uploadForm.theme || '',
+        },
       })
+      // Fall back to legacy kit-based endpoint ONLY when the new endpoint
+      // itself is missing (Railway hasn't redeployed yet). Don't fall back
+      // on legitimate errors like "no matching references" or "no credits".
+      const endpointMissing = data?.error && /^route not found|cannot post|^not found$/i.test(String(data.error))
+      if (endpointMissing) {
+        data = await api('designs/generate', {
+          method: 'POST',
+          body: {
+            room_type: uploadForm.room_type, occasion: uploadForm.occasion,
+            description: (uploadForm.description || '').slice(0, 200),
+            original_image: originalImage,
+            budget_min: budget.min, budget_max: budget.max,
+          },
+        })
+      }
       if (data.error) { showToast(data.error, 'error'); navigate(SCREENS.UPLOAD); return }
       setSelectedDesign(data)
       setUser(prev => ({ ...prev, credits: data.remaining_credits }))
@@ -792,6 +828,7 @@ export function AppProvider({ children }) {
     slots, setSlots, trackingData, setTrackingData,
     authForm, setAuthForm, uploadForm, setUploadForm,
     originalImage, setOriginalImage,
+    liveBrackets,                              // live bracket list from /api/budget-brackets
     selectedDate, setSelectedDate, selectedSlotHour, setSelectedSlotHour,
     signupOtpSent, setSignupOtpSent, signupOtpValue, setSignupOtpValue,
     devOtp, setDevOtp,

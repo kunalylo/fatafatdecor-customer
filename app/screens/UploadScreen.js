@@ -8,8 +8,10 @@ import { useApp } from '../context/AppContext'
 import { BUDGET_BRACKETS, ROOM_TYPES, OCCASIONS, SCREENS } from '../lib/constants'
 
 export default function UploadScreen() {
-  const { user, uploadForm, setUploadForm, originalImage, setOriginalImage, loading, goBack, navigate, handleGenerate, handleFileUpload, showToast } = useApp()
-  const selectedBudget = BUDGET_BRACKETS.find(b => b.id === uploadForm.budget)
+  const { user, uploadForm, setUploadForm, originalImage, setOriginalImage, loading, goBack, navigate, handleGenerate, handleFileUpload, showToast, liveBrackets } = useApp()
+  // Use live brackets from backend when available; static list while loading
+  const brackets = (liveBrackets && liveBrackets.length > 0) ? liveBrackets : BUDGET_BRACKETS
+  const selectedBudget = brackets.find(b => b.id === uploadForm.budget)
   const [showCreditsModal, setShowCreditsModal] = useState(false)
 
   const handleDecorateClick = () => {
@@ -68,7 +70,7 @@ export default function UploadScreen() {
             <IndianRupee className="w-4 h-4 inline mr-1 text-pink-500" /> Select Budget <span className="text-pink-500">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {BUDGET_BRACKETS.map(b => {
+            {brackets.map(b => {
               return (
                 <button key={b.id} onClick={() => setUploadForm(p => ({ ...p, budget: b.id }))}
                   className={`py-2.5 px-3 rounded-xl text-left transition-all relative ${
@@ -77,6 +79,7 @@ export default function UploadScreen() {
                   }`}>
                   <p className="text-xs font-bold">{b.label}</p>
                   {b.min <= 3000 && <span className="text-[9px] opacity-70">Starter</span>}
+                  {b.min >= 50000 && <span className="text-[9px] opacity-70">Premium</span>}
                 </button>
               )
             })}

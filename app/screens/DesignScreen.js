@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2 } from 'lucide-react'
+import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2, ChevronDown, Image as ImageIcon } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
+import { SCREENS, customerBreakdown } from '../lib/constants'
 import { api } from '../lib/constants'
 
 export default function DesignScreen() {
   const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, setGiftCart, giftMode, setGiftMode } = useApp()
   const [imageLoading, setImageLoading] = useState(false)
+  const [showAllItems, setShowAllItems] = useState(false)
 
   // If design was loaded from list (no image), fetch full design with image
   useEffect(() => {
@@ -23,22 +24,72 @@ export default function DesignScreen() {
     }
   }, [selectedDesign?.id])
 
-  // All hooks must be at top level — before any early returns
   const [localAddonItems, setLocalAddonItems] = useState(null)
+  const [localSnapshotItems, setLocalSnapshotItems] = useState(null)
 
   if (!selectedDesign) return null
   const d = selectedDesign
-  const kitItems = (d.kit_items || []).length > 0 ? d.kit_items : (d.items_used || []).filter(i => i.is_kit_item)
+
+  // ── Reference-flow detection ─────────────────────────────────────────
+  const isReferenceFlow = d.flow === 'reference' || !!d.reference_design_id
+
+  // Legacy fields (kit-based) — still used by older designs
+  const kitItems   = (d.kit_items   || []).length > 0 ? d.kit_items   : (d.items_used || []).filter(i => i.is_kit_item)
   const addonItems = (d.addon_items || []).length > 0 ? d.addon_items : (d.items_used || []).filter(i => !i.is_kit_item)
-  const hasKit = d.kit_name || kitItems.length > 0
+  const hasKit     = !isReferenceFlow && (d.kit_name || kitItems.length > 0)
+
+  // ── Reference-flow data ──────────────────────────────────────────────
+  const snapshotItems   = localSnapshotItems !== null
+    ? localSnapshotItems
+    : (d.snapshot?.items || [])
+  const breakdown       = d.customer_breakdown
+    || (isReferenceFlow && d.snapshot?.base_price ? customerBreakdown(d.snapshot.base_price) : null)
+  const referenceThumb  = d.reference_thumbnail_url || d.reference_image_url
+  const referencePrice  = d.reference_price || d.snapshot?.base_price
+
+  // Allow customer to remove rentable items from the snapshot
+  const deleteSnapshotItem = (idx) => {
+    const next = (snapshotItems).filter((_, i) => i !== idx)
+    setLocalSnapshotItems(next)
+  }
+
+  // ── Pricing calculation ──────────────────────────────────────────────
   const displayAddonItems = localAddonItems !== null ? localAddonItems : addonItems
   const deleteAddonItem = (id) => setLocalAddonItems((localAddonItems || addonItems).filter(i => i.id !== id))
   const addonTotal = displayAddonItems.reduce((s, i) => s + (Number(i.price) || Number(i.selling_price_unit) || 0) * (Number(i.quantity) || 1), 0)
-  const decorationTotal = (d.kit_cost || 0) + addonTotal
+
   const giftAddonTotal = (giftCart.length > 0 && giftMode === 'addon')
     ? giftCart.reduce((s, g) => s + (Number(g.price) || 0) * (Number(g.quantity) || 1), 0)
     : 0
+
+  // For reference flow, recompute totals if user removed items
+  let referenceTotal = 0
+  if (isReferenceFlow && breakdown) {
+    if (localSnapshotItems !== null) {
+      // User removed items → recompute decoration based on remaining items at 2x
+      const newItemsTotal = snapshotItems.reduce((s, i) =>
+        s + (Number(i.unit_price) || 0) * (Number(i.quantity) || 1), 0)
+      const newBreakdown = customerBreakdown(newItemsTotal)
+      referenceTotal = newBreakdown.total
+    } else {
+      referenceTotal = breakdown.total
+    }
+  }
+
+  const decorationTotal = isReferenceFlow
+    ? referenceTotal
+    : ((d.kit_cost || 0) + addonTotal)
   const displayTotal = decorationTotal + giftAddonTotal
+  const halfNow = Math.round(displayTotal / 2)
+
+  // Group reference items by category for cleaner display
+  const groupedItems = isReferenceFlow ? snapshotItems.reduce((acc, item) => {
+    const cat = item.category || 'Other'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(item)
+    return acc
+  }, {}) : {}
+
   return (
     <div className="slide-up pb-24 bg-white min-h-screen">
       <div className="flex items-center gap-3 p-4">
@@ -49,6 +100,8 @@ export default function DesignScreen() {
         <Badge className="ml-auto gradient-pink border-0 text-white">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
       </div>
       <div className="px-4 space-y-4">
+
+        {/* Hero — decorated room image */}
         {imageLoading ? (
           <div className="rounded-2xl border border-pink-100 bg-pink-50 h-64 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-pink-400 animate-spin" />
@@ -61,7 +114,69 @@ export default function DesignScreen() {
           </div>
         ) : null}
 
-        {/* Kit / Final Look */}
+        {/* "Inspired by" reference thumbnail — only for reference-flow designs */}
+        {isReferenceFlow && referenceThumb && (
+          <Card className="border border-pink-100 bg-gradient-to-r from-pink-50/30 to-rose-50/30">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="w-16 h-16 rounded-xl overflow-hidden border border-pink-200 shrink-0">
+                <img src={referenceThumb} alt="Reference" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-pink-500 font-semibold tracking-wide">Inspired by</p>
+                <p className="text-sm font-bold text-gray-700 truncate">{d.theme || 'Premium Decoration Style'}</p>
+                {referencePrice && (
+                  <p className="text-xs text-gray-500">Decoration value Rs {referencePrice.toLocaleString('en-IN')}</p>
+                )}
+              </div>
+              <Sparkles className="w-5 h-5 text-pink-400" />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── REFERENCE FLOW: Itemized list grouped by category ──────── */}
+        {isReferenceFlow && snapshotItems.length > 0 && (
+          <Card className="border border-pink-100">
+            <CardContent className="p-4">
+              <button
+                onClick={() => setShowAllItems(v => !v)}
+                className="w-full flex items-center justify-between mb-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-pink-500" />
+                  <h3 className="font-bold text-sm text-gray-700">What's Included ({snapshotItems.length} items)</h3>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showAllItems && (
+                <div className="space-y-3 mt-2">
+                  {Object.entries(groupedItems).map(([category, items]) => (
+                    <div key={category}>
+                      <p className="text-[10px] uppercase font-bold text-pink-500 tracking-wide mb-1">{category}</p>
+                      <div className="space-y-1">
+                        {items.map((item, i) => (
+                          <div key={item.id || i} className="flex items-center gap-2 py-1">
+                            <span className="text-xs text-gray-600 flex-1">
+                              <strong className="text-gray-800">{item.quantity}×</strong> {item.name}
+                            </span>
+                            <span className="text-xs font-semibold text-gray-700">Rs {((Number(item.unit_price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
+                            {item.is_removable && (
+                              <button onClick={() => deleteSnapshotItem(snapshotItems.indexOf(item))} className="w-6 h-6 rounded bg-red-50 flex items-center justify-center">
+                                <Trash2 className="w-3 h-3 text-red-400" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── LEGACY FLOW: Kit display ──────────────────────────────── */}
         {hasKit && (
           <Card className="border-2 border-pink-200 bg-pink-50/20">
             <CardContent className="p-4">
@@ -87,8 +202,8 @@ export default function DesignScreen() {
           </Card>
         )}
 
-        {/* Add-on Items */}
-        {displayAddonItems.length > 0 && (
+        {/* ── LEGACY FLOW: Add-on items ─────────────────────────────── */}
+        {!isReferenceFlow && displayAddonItems.length > 0 && (
           <div>
             <h3 className="font-bold text-sm text-gray-700 mb-2">
               <Plus className="w-4 h-4 inline text-purple-500 mr-1" />
@@ -158,62 +273,126 @@ export default function DesignScreen() {
           </div>
         )}
 
-        {/* Total Cost */}
-        <Card className="border border-green-200 bg-green-50/30">
-          <CardContent className="p-4">
-            {giftAddonTotal > 0 ? (
-              <>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-500">Decoration</span>
-                  <span className="font-semibold text-gray-700">₹{decorationTotal.toFixed(0)}</span>
+        {/* ── REFERENCE FLOW: Customer breakdown waterfall ──────────── */}
+        {isReferenceFlow && breakdown && (
+          <Card className="border border-gray-200 bg-gradient-to-b from-white to-pink-50/20">
+            <CardContent className="p-4">
+              <h3 className="font-bold text-sm text-gray-700 mb-3">Price Breakdown</h3>
+              <div className="space-y-1.5 text-sm">
+                <PriceRow label="Decoration & Material" value={breakdown.decoration_total} />
+                <PriceRow label="Setup & Transportation" value={breakdown.setup_transport} sub />
+                <PriceRow label="Platform Fee" value={breakdown.platform_fee} sub />
+                <PriceRow label="Convenience Fee" value={breakdown.convenience_fee} sub />
+                {giftAddonTotal > 0 && (
+                  <PriceRow label="🎁 Gifts" value={giftAddonTotal} accent="pink" />
+                )}
+                <div className="border-t border-gray-200 my-2" />
+                <PriceRow label="Subtotal" value={breakdown.subtotal + giftAddonTotal} muted />
+                <PriceRow label="GST (18%)" value={breakdown.gst} muted />
+                <div className="border-t border-gray-200 my-2" />
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-700">Customer Total</p>
+                    <p className="text-[10px] text-gray-400">All-inclusive</p>
+                  </div>
+                  <div className="flex items-center text-pink-600">
+                    <IndianRupee className="w-5 h-5" />
+                    <span className="text-2xl font-bold">{displayTotal.toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-500">🎁 Gifts</span>
-                  <span className="font-semibold text-pink-600">₹{giftAddonTotal.toFixed(0)}</span>
+                <div className="mt-3 p-2.5 bg-pink-50 border border-pink-100 rounded-xl flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Pay <strong className="text-pink-600">Rs {halfNow.toLocaleString('en-IN')}</strong> now (50%)</span>
+                  <span className="text-xs text-gray-500">Rest on delivery</span>
                 </div>
-                <div className="border-t border-green-200 pt-2 flex justify-between items-center">
-                  <h3 className="font-bold text-gray-700">Total (50% now)</h3>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── LEGACY FLOW: simple total card ────────────────────────── */}
+        {!isReferenceFlow && (
+          <Card className="border border-green-200 bg-green-50/30">
+            <CardContent className="p-4">
+              {giftAddonTotal > 0 ? (
+                <>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-500">Decoration</span>
+                    <span className="font-semibold text-gray-700">₹{decorationTotal.toFixed(0)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">🎁 Gifts</span>
+                    <span className="font-semibold text-pink-600">₹{giftAddonTotal.toFixed(0)}</span>
+                  </div>
+                  <div className="border-t border-green-200 pt-2 flex justify-between items-center">
+                    <h3 className="font-bold text-gray-700">Total (50% now)</h3>
+                    <div className="flex items-center text-green-600">
+                      <IndianRupee className="w-5 h-5" />
+                      <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-gray-700">Total Cost</h3>
+                    <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} · pay 50% now</p>
+                  </div>
                   <div className="flex items-center text-green-600">
                     <IndianRupee className="w-5 h-5" />
                     <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-gray-700">Total Cost</h3>
-                  <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} · pay 50% now</p>
-                </div>
-                <div className="flex items-center text-green-600">
-                  <IndianRupee className="w-5 h-5" />
-                  <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="space-y-3 pt-2">
           {d.status === 'generated' && (
             <>
               <Button onClick={() => {
-                // Build current items list: kit items (always kept) + user's current addon items
-                const currentItems = localAddonItems !== null ? [...kitItems, ...localAddonItems] : null
-                handleCreateOrder(localAddonItems !== null ? decorationTotal : null, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [], currentItems)
+                // Build current items list:
+                // Reference flow: pass localSnapshotItems if user removed items, else null
+                // Legacy flow: kit items (always kept) + user's current addon items
+                const itemsOverride = isReferenceFlow
+                  ? (localSnapshotItems !== null ? localSnapshotItems : null)
+                  : (localAddonItems !== null ? [...kitItems, ...localAddonItems] : null)
+                const totalOverride = (isReferenceFlow && localSnapshotItems !== null)
+                  ? referenceTotal
+                  : (localAddonItems !== null ? decorationTotal : null)
+                handleCreateOrder(totalOverride, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [], itemsOverride)
               }} disabled={loading}
                 className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>
               <Button onClick={() => navigate(SCREENS.UPLOAD)} variant="outline"
                 className="w-full h-12 border-pink-200 text-pink-500 font-semibold rounded-2xl hover:bg-pink-50">
-                <RefreshCw className="w-4 h-4 mr-2" /> Regenerate Design
+                <RefreshCw className="w-4 h-4 mr-2" /> Try Another Style
               </Button>
             </>
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function PriceRow({ label, value, sub, muted, accent }) {
+  const labelClass = sub
+    ? 'text-gray-500 text-xs pl-3'
+    : muted
+      ? 'text-gray-500'
+      : 'text-gray-600'
+  const valueClass = accent === 'pink'
+    ? 'text-pink-600 font-semibold'
+    : (sub || muted)
+      ? 'text-gray-700 font-semibold'
+      : 'text-gray-900 font-semibold'
+  return (
+    <div className="flex justify-between items-center">
+      <span className={labelClass}>{label}</span>
+      <span className={valueClass}>Rs {Number(value || 0).toLocaleString('en-IN')}</span>
     </div>
   )
 }
