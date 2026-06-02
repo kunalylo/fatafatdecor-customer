@@ -3,7 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, MapPin, Clock, Phone, Navigation, Package, IndianRupee, Gift } from 'lucide-react'
+import { ChevronLeft, MapPin, Clock, Phone, Navigation, Package, IndianRupee, Gift, Camera, CheckCircle2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, SUPPORT_PHONE } from '../lib/constants'
 
@@ -96,6 +96,30 @@ export default function OrderDetailScreen() {
                 <p className="text-sm font-bold text-gray-700">Delivery Address</p>
                 <p className="text-xs text-gray-500 mt-0.5">{o.delivery_address}</p>
                 {o.delivery_landmark && <p className="text-xs text-gray-400 mt-0.5">Landmark: {o.delivery_landmark}</p>}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Completion Photos — uploaded by the decorator when the job is done */}
+        {Array.isArray(o.completion_photos) && o.completion_photos.length > 0 && (
+          <Card className="border-2 border-emerald-200 bg-emerald-50/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-sm text-emerald-700">Your Decoration is Ready!</h3>
+                <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
+                  {o.completion_photos.length} photo{o.completion_photos.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3">Photos shared by your decorator. Tap any to view full size.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {o.completion_photos.map((p, i) => (
+                  <a key={p.url || i} href={p.url} target="_blank" rel="noopener noreferrer"
+                    className="aspect-square rounded-xl overflow-hidden border border-emerald-200 bg-white block">
+                    <img src={p.url} alt={`Completed ${i + 1}`} className="w-full h-full object-cover" />
+                  </a>
+                ))}
               </div>
             </CardContent>
           </Card>
