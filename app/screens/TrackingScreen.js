@@ -8,7 +8,9 @@ import { SCREENS, SUPPORT_PHONE } from '../lib/constants'
 
 export default function TrackingScreen() {
   const { orders, selectedOrder, setSelectedOrder, trackingData, mapRef, mapInstance, navigate } = useApp()
-  const trackableOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.delivery_status))
+  // Only show orders the customer has actually paid for — exclude unpaid drafts
+  // (order created but Razorpay was cancelled) and delivered/cancelled ones.
+  const trackableOrders = orders.filter(o => o.payment_status !== 'pending' && !['delivered', 'cancelled'].includes(o.delivery_status))
 
   useEffect(() => {
     if (!trackingData || !mapRef.current || typeof window === 'undefined') return
