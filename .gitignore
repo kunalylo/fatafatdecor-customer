@@ -6,3 +6,7 @@ node_modules/
 .DS_Store
 dist/
 out/
+
+# Backend + AI lives in its own repo (kunalylo/fatafatdecor-ai), deployed to Railway.
+# It physically sits here on disk but is NOT part of the customer web app.
+ai_service/
