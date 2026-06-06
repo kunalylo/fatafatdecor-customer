@@ -698,7 +698,7 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
-  const handleGiftPayment = async (amount, giftOrderId, selectedDate, selectedHour, giftMessage = '') => {
+  const handleGiftPayment = async (amount, giftOrderId, selectedDate, selectedHour, giftMessage = '', deliveryType = 'scheduled') => {
     setLoading(true)
     try {
       const orderData = await api('payments/create-order', {
@@ -727,7 +727,7 @@ export function AppProvider({ children }) {
           if (!verify.error) {
             await api(`gift-orders/${giftOrderId}/request-slot`, {
               method: 'POST',
-              body: { date: selectedDate, hour: selectedHour, gift_message: giftMessage }
+              body: { date: selectedDate, hour: selectedHour, gift_message: giftMessage, delivery_type: deliveryType }
             })
             setSelectedGiftOrder(prev => ({ ...prev, payment_status: 'full', delivery_slot: { date: selectedDate, hour: selectedHour } }))
             setGiftOrders(prev => [{ ...selectedGiftOrder, payment_status: 'full' }, ...prev])

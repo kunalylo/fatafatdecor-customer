@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2, ChevronDown, Image as ImageIcon } from 'lucide-react'
+import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2, ChevronDown, Image as ImageIcon, X, Maximize2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, customerBreakdown } from '../lib/constants'
 import { api } from '../lib/constants'
@@ -13,6 +13,7 @@ export default function DesignScreen() {
   const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, setGiftCart, giftMode, setGiftMode } = useApp()
   const [imageLoading, setImageLoading] = useState(false)
   const [showAllItems, setShowAllItems] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
 
   // If design was loaded from list (no image), fetch full design with image
   useEffect(() => {
@@ -92,6 +93,39 @@ export default function DesignScreen() {
 
   return (
     <div className="slide-up pb-24 bg-white min-h-screen">
+
+      {/* ── Full-screen comparison: AI result + your room + reference ── */}
+      {fullscreen && (
+        <div className="fixed inset-0 z-50 bg-black/95 overflow-y-auto" onClick={() => setFullscreen(false)}>
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur-sm">
+            <span className="text-white font-bold text-sm">Design Comparison</span>
+            <button onClick={() => setFullscreen(false)} className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="p-4 space-y-6 pb-16" onClick={e => e.stopPropagation()}>
+            {d.decorated_image && (
+              <div>
+                <p className="text-pink-300 text-[11px] font-bold uppercase tracking-wide mb-2 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI Decorated Result</p>
+                <img src={d.decorated_image} alt="AI result" className="w-full rounded-2xl border border-white/10" />
+              </div>
+            )}
+            {d.original_image_url && (
+              <div>
+                <p className="text-sky-300 text-[11px] font-bold uppercase tracking-wide mb-2">📷 Your Room (uploaded)</p>
+                <img src={d.original_image_url} alt="Your room" className="w-full rounded-2xl border border-white/10" />
+              </div>
+            )}
+            {d.reference_image_url && (
+              <div>
+                <p className="text-amber-300 text-[11px] font-bold uppercase tracking-wide mb-2">💡 Inspired By (reference)</p>
+                <img src={d.reference_image_url} alt="Reference" className="w-full rounded-2xl border border-white/10" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 p-4">
         <button onClick={() => navigate(SCREENS.HOME)} className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
@@ -107,10 +141,13 @@ export default function DesignScreen() {
             <Loader2 className="w-8 h-8 text-pink-400 animate-spin" />
           </div>
         ) : d.decorated_image ? (
-          <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30">
+          <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30 relative cursor-pointer" onClick={() => setFullscreen(true)}>
             <img
               src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-800,c-maintain_ratio` : d.decorated_image}
               alt="Decorated" className="w-full" loading="eager" />
+            <div className="absolute bottom-3 right-3 bg-black/55 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
+              <Maximize2 className="w-3 h-3" /> Tap to view full screen
+            </div>
           </div>
         ) : null}
 
