@@ -43,8 +43,9 @@ export default function ProfileScreen() {
     const data = await api('user/profile', { method: 'PUT', body })
     if (data.error) { showToast(data.error, 'error') }
     else {
+      // setUser triggers the AppContext effect that persists the fresh user to localStorage —
+      // don't write it here from a stale `user` closure (that could clobber recent credit updates).
       setUser(prev => ({ ...prev, name: data.name, phone: data.phone }))
-      try { localStorage.setItem('fd_user', JSON.stringify({ ...user, name: data.name, phone: data.phone })) } catch {}
       showToast('Profile updated!', 'success')
       setEditing(false)
     }

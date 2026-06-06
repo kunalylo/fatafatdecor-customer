@@ -42,7 +42,7 @@ export default function GiftBookingScreen() {
 
   const handlePay = () => {
     if (!selectedGiftOrder || !selectedDate || selectedHour === null) return
-    handleGiftPayment(selectedGiftOrder.gift_total, selectedGiftOrder.id, selectedDate, selectedHour)
+    handleGiftPayment(selectedGiftOrder.gift_total, selectedGiftOrder.id, selectedDate, selectedHour, giftMessage)
   }
 
   if (!selectedGiftOrder) return null

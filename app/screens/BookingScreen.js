@@ -107,9 +107,9 @@ export default function BookingScreen() {
                 </div>
               )}
               {!isPaid ? (
-                <Button onClick={() => { setPaymentFailed(false); handlePayment('delivery', partialAmount, selectedOrder?.id) }}
-                  disabled={loading} className="w-full h-11 gradient-pink border-0 text-white font-bold rounded-xl shadow-pink">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" />{paymentFailed ? 'Retry Payment' : `Pay ₹${partialAmount} & Confirm Slot`}</>}
+                <Button onClick={() => { if (partialAmount <= 0) return; setPaymentFailed(false); handlePayment('delivery', partialAmount, selectedOrder?.id) }}
+                  disabled={loading || partialAmount <= 0} className="w-full h-11 gradient-pink border-0 text-white font-bold rounded-xl shadow-pink">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" />{partialAmount <= 0 ? 'Order total unavailable — go back' : (paymentFailed ? 'Retry Payment' : `Pay ₹${partialAmount} & Confirm Slot`)}</>}
                 </Button>
               ) : (
                 <Badge className="bg-green-100 text-green-600 border-green-200">Payment Done</Badge>

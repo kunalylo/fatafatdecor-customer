@@ -61,6 +61,13 @@ export function AppProvider({ children }) {
     try { localStorage.setItem('fd_gift_cart', JSON.stringify(giftCart)) } catch {}
   }, [giftCart])
 
+  // Keep fd_user in localStorage in sync with the user object (credits, profile edits…) so a
+  // page refresh never loses freshly-awarded credits or profile changes.
+  useEffect(() => {
+    if (!mounted) return
+    try { if (user) localStorage.setItem('fd_user', JSON.stringify(user)) } catch {}
+  }, [user, mounted])
+
   // Keep refs in sync so navigate/goBack can read current values without deps
   useEffect(() => { screenRef.current = screen }, [screen])
   useEffect(() => { prevScreenRef.current = prevScreen }, [prevScreen])
@@ -691,7 +698,7 @@ export function AppProvider({ children }) {
     finally { setLoading(false) }
   }
 
-  const handleGiftPayment = async (amount, giftOrderId, selectedDate, selectedHour) => {
+  const handleGiftPayment = async (amount, giftOrderId, selectedDate, selectedHour, giftMessage = '') => {
     setLoading(true)
     try {
       const orderData = await api('payments/create-order', {
@@ -720,7 +727,7 @@ export function AppProvider({ children }) {
           if (!verify.error) {
             await api(`gift-orders/${giftOrderId}/request-slot`, {
               method: 'POST',
-              body: { date: selectedDate, hour: selectedHour }
+              body: { date: selectedDate, hour: selectedHour, gift_message: giftMessage }
             })
             setSelectedGiftOrder(prev => ({ ...prev, payment_status: 'full', delivery_slot: { date: selectedDate, hour: selectedHour } }))
             setGiftOrders(prev => [{ ...selectedGiftOrder, payment_status: 'full' }, ...prev])
