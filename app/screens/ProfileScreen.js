@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   User, Zap, ShoppingBag, MapPin, Phone, Mail, ChevronRight, LogOut, X, Lock,
-  Check, Loader2, Eye, EyeOff, Star, Shield, Plus, Headphones, Wand2, Gift, Edit3,
+  Check, Loader2, Eye, EyeOff, Star, Plus, Headphones, Wand2, Gift, Edit3,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, SUPPORT_PHONE, api } from '../lib/constants'
@@ -13,13 +13,13 @@ import { SCREENS, SUPPORT_PHONE, api } from '../lib/constants'
 export default function ProfileScreen() {
   const { user, setUser, userAddress, navigate, handleLogout, showToast, orders } = useApp()
 
-  // Edit profile state
-  const [editing, setEditing] = useState(false)
+  // Edit profile modal
+  const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Change password state
+  // Change password modal
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [currentPwd, setCurrentPwd] = useState('')
   const [newPwd, setNewPwd] = useState('')
@@ -28,7 +28,7 @@ export default function ProfileScreen() {
   const [showNewPwd, setShowNewPwd] = useState(false)
   const [changingPwd, setChangingPwd] = useState(false)
 
-  const startEditing = () => { setEditName(user?.name || ''); setEditPhone(user?.phone || ''); setEditing(true) }
+  const openEdit = () => { setEditName(user?.name || ''); setEditPhone(user?.phone || ''); setShowEditModal(true) }
 
   const saveProfile = async () => {
     if (!editName.trim() || editName.trim().length < 2) { showToast('Name must be at least 2 characters', 'error'); return }
@@ -38,7 +38,7 @@ export default function ProfileScreen() {
     if (editPhone.replace(/\D/g, '').length === 10) body.phone = editPhone.replace(/\D/g, '')
     const data = await api('user/profile', { method: 'PUT', body })
     if (data.error) { showToast(data.error, 'error') }
-    else { setUser(prev => ({ ...prev, name: data.name, phone: data.phone })); showToast('Profile updated!', 'success'); setEditing(false) }
+    else { setUser(prev => ({ ...prev, name: data.name, phone: data.phone })); showToast('Profile updated!', 'success'); setShowEditModal(false) }
     setSaving(false)
   }
 
@@ -71,7 +71,7 @@ export default function ProfileScreen() {
             <p className="eyebrow text-gray-500">Your account</p>
             <h1 className="font-display text-xl font-medium text-gray-900 leading-tight">Profile</h1>
           </div>
-          <button onClick={startEditing} className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center">
+          <button onClick={openEdit} className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center">
             <Edit3 className="w-4 h-4 text-gray-800" strokeWidth={2.2} />
           </button>
         </div>
@@ -82,48 +82,34 @@ export default function ProfileScreen() {
 
         {/* Profile info */}
         <section className="relative z-10">
-          {!editing ? (
-            <>
-              <div className="flex items-center gap-4">
-                <div className="relative w-20 h-20 rounded-3xl iridescent flex items-center justify-center overflow-hidden border border-white/60">
-                  {user?.photo_url ? <img src={user.photo_url} alt={user?.name} className="w-full h-full object-cover" /> : <span className="text-white font-display text-3xl">{(user?.name?.[0] || 'U').toUpperCase()}</span>}
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full iridescent flex items-center justify-center border-2 border-white">
-                    <Star className="w-3 h-3 text-white fill-white" strokeWidth={0} />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-pink-700 tracking-widest uppercase">Member</p>
-                  <h2 className="font-display text-2xl font-medium text-gray-900 truncate">{user?.name}</h2>
-                  {memberSince && <p className="text-[11px] text-gray-600 mt-0.5">{memberSince}</p>}
-                </div>
+          <div className="flex items-center gap-4">
+            <div className="relative w-20 h-20 rounded-3xl iridescent flex items-center justify-center overflow-hidden border border-white/60">
+              {user?.photo_url ? <img src={user.photo_url} alt={user?.name} className="w-full h-full object-cover" /> : <span className="text-white font-display text-3xl">{(user?.name?.[0] || 'U').toUpperCase()}</span>}
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full iridescent flex items-center justify-center border-2 border-white">
+                <Star className="w-3 h-3 text-white fill-white" strokeWidth={0} />
               </div>
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                {user?.phone && (
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800">
-                    <div className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center"><Phone className="w-3 h-3 text-gray-700" strokeWidth={2.4} /></div>
-                    {user.phone}
-                  </div>
-                )}
-                <div className="flex items-center gap-2.5 text-sm text-gray-800">
-                  <div className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center"><Mail className="w-3 h-3 text-gray-700" strokeWidth={2.4} /></div>
-                  {user?.email}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="glass-floating rounded-[24px] p-5 space-y-3">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-bold text-sm text-gray-800">Edit Profile</h3>
-                <button onClick={() => setEditing(false)} className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center"><X className="w-4 h-4 text-gray-500" /></button>
-              </div>
-              <Input placeholder="Full Name" value={editName} onChange={e => setEditName(e.target.value)} className="bg-white/70 border-white/80 h-11 rounded-2xl" />
-              <Input placeholder="Phone (10 digits)" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} className="bg-white/70 border-white/80 h-11 rounded-2xl" />
-              <p className="text-xs text-gray-400">Email: {user?.email} (cannot be changed)</p>
-              <Button onClick={saveProfile} disabled={saving} className="w-full h-11 btn-primary-luxury border-0 text-white font-bold rounded-2xl">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4 mr-1" /> Save Changes</>}
-              </Button>
             </div>
-          )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-pink-700 tracking-widest uppercase">Member</p>
+              <h2 className="font-display text-2xl font-medium text-gray-900 truncate">{user?.name}</h2>
+              {memberSince && <p className="text-[11px] text-gray-600 mt-0.5">{memberSince}</p>}
+            </div>
+            <button onClick={openEdit} className="w-9 h-9 rounded-full bg-white/80 border border-white/80 flex items-center justify-center shrink-0">
+              <Edit3 className="w-4 h-4 text-gray-500" strokeWidth={2.2} />
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            {user?.phone && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-800">
+                <div className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center"><Phone className="w-3 h-3 text-gray-700" strokeWidth={2.4} /></div>
+                {user.phone}
+              </div>
+            )}
+            <div className="flex items-center gap-2.5 text-sm text-gray-800">
+              <div className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center"><Mail className="w-3 h-3 text-gray-700" strokeWidth={2.4} /></div>
+              {user?.email}
+            </div>
+          </div>
         </section>
 
         {/* Wallet & rewards */}
@@ -193,13 +179,8 @@ export default function ProfileScreen() {
           </div>
         </section>
 
-        {/* Admin + sign out */}
+        {/* Sign out */}
         <section className="relative z-10 space-y-2.5">
-          {user?.role === 'admin' && (
-            <a href="/admin" className="w-full rounded-2xl p-3 flex items-center justify-center gap-2 text-gray-700 text-[11px] font-bold bg-white border border-gray-100">
-              <Shield className="w-3.5 h-3.5" strokeWidth={2.4} /> Admin Panel
-            </a>
-          )}
           <button onClick={handleLogout} className="w-full rounded-2xl p-4 flex items-center justify-center gap-2 text-red-600 text-xs font-bold bg-white border border-red-100">
             <LogOut className="w-3.5 h-3.5" strokeWidth={2.4} /> Sign out
           </button>
@@ -207,7 +188,42 @@ export default function ProfileScreen() {
         </section>
       </div>
 
-      {/* Change Password Modal */}
+      {/* ── Edit Profile Modal ── */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowEditModal(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative glass-overlay w-full max-w-md rounded-t-[28px] overflow-hidden" style={{ animation: 'sheetSlideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }} onClick={e => e.stopPropagation()}>
+            <div className="iridescent aurora-shimmer p-6 text-center relative">
+              <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 w-8 h-8 bg-white/25 rounded-full flex items-center justify-center"><X className="w-4 h-4 text-white" /></button>
+              <div className="w-20 h-20 rounded-3xl bg-white/25 flex items-center justify-center mx-auto mb-2 border border-white/40">
+                {user?.photo_url ? <img src={user.photo_url} alt="" className="w-full h-full object-cover rounded-3xl" /> : <span className="text-white font-display text-3xl">{(editName?.[0] || user?.name?.[0] || 'U').toUpperCase()}</span>}
+              </div>
+              <h2 className="text-white font-display text-2xl">Edit profile</h2>
+              <p className="text-white/85 text-xs mt-0.5">Keep your details up to date</p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1 block">Full name</label>
+                <Input placeholder="Full Name" value={editName} onChange={e => setEditName(e.target.value)} className="bg-white/70 border-white/80 h-12 rounded-2xl" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1 block">Phone</label>
+                <Input placeholder="Phone (10 digits)" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} className="bg-white/70 border-white/80 h-12 rounded-2xl" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1 block">Email</label>
+                <div className="h-12 rounded-2xl bg-gray-100/70 border border-white/60 px-4 flex items-center text-sm text-gray-500">{user?.email} <span className="ml-auto text-[10px] text-gray-400">Locked</span></div>
+              </div>
+              <Button onClick={saveProfile} disabled={saving} className="w-full h-12 btn-primary-luxury border-0 text-white font-bold rounded-2xl mt-1">
+                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Check className="w-4 h-4 mr-1.5" /> Save Changes</>}
+              </Button>
+            </div>
+            <div className="pb-5" />
+          </div>
+        </div>
+      )}
+
+      {/* ── Change Password Modal ── */}
       {showPwdModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-floating rounded-[28px] w-full max-w-sm overflow-hidden">
