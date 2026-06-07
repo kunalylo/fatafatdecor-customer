@@ -257,83 +257,55 @@ export default function GiftsScreen() {
           const outOfStock = isOutOfStock(gift)
           const lowStock = !outOfStock && gift.stock !== undefined && gift.stock > 0 && gift.stock < 5
           return (
-            <div key={gift.id} className={`glass-floating rounded-2xl overflow-hidden flex flex-col transition-transform active:scale-[0.98] ${outOfStock ? 'opacity-70' : ''}`}>
+            <div key={gift.id} className={`glass-floating rounded-[24px] overflow-hidden flex flex-col transition-transform active:scale-[0.98] ${outOfStock ? 'opacity-70' : ''}`}>
 
-              {/* Image area */}
-              <div onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }} className="w-full text-left cursor-pointer">
-                <div className="relative w-full h-36 bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center">
-                  {imgSrc ? (
-                    <img src={imgSrc} alt={gift.name} className="w-full h-full object-cover" loading="lazy"
-                      onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
-                  ) : (
-                    <Gift className="w-9 h-9 text-pink-300" />
-                  )}
-                  {/* Price badge */}
-                  <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm">
-                    <span className="text-xs font-bold text-pink-600">Rs {gift.price?.toLocaleString('en-IN')}</span>
-                  </div>
-                  {/* Image count */}
-                  {imgs.length > 1 && (
-                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                      +{imgs.length - 1}
-                    </span>
-                  )}
-                  {/* Out of stock overlay */}
-                  {outOfStock && (
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <span className="bg-white/95 text-red-500 text-xs font-bold px-3 py-1.5 rounded-full">Out of Stock</span>
-                    </div>
-                  )}
-                  {/* Low stock badge */}
-                  {lowStock && (
-                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                      Only {gift.stock} left
-                    </span>
-                  )}
-                  {/* Wishlist */}
-                  <button onClick={(e) => { e.stopPropagation(); toggleWishlist(gift.id) }}
-                    className="absolute bottom-2 left-2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform">
-                    <Heart className={`w-3.5 h-3.5 ${wishlist.includes(gift.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                  </button>
-                </div>
-
-                {/* Name + tags */}
-                <div className="px-3 pt-3 pb-1">
-                  <p className="text-sm font-bold text-gray-800 leading-tight line-clamp-2 mb-1">{gift.name}</p>
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {gift.occasion && <span className="text-[9px] bg-orange-50 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">{gift.occasion}</span>}
-                    {gift.category && <span className="text-[9px] bg-purple-50 text-purple-600 font-semibold px-1.5 py-0.5 rounded-full">{gift.category}</span>}
-                  </div>
-                  {gift.description && (
-                    <p className="text-xs text-gray-400 line-clamp-1">{gift.description}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Add / stepper */}
-              <div className="px-3 pb-3 pt-2 mt-auto">
-                {outOfStock ? (
-                  <div className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold rounded-xl text-center">
-                    Out of Stock
-                  </div>
-                ) : qty === 0 ? (
-                  <button onClick={() => updateCart(gift, 1)}
-                    className="w-full py-2 btn-primary-luxury text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
-                    Add
-                  </button>
+              {/* Image */}
+              <div onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }} className="relative aspect-square cursor-pointer bg-gradient-to-br from-pink-50 to-rose-100">
+                {imgSrc ? (
+                  <img src={imgSrc} alt={gift.name} className="w-full h-full object-cover" loading="lazy"
+                    onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                 ) : (
-                  <div className="flex items-center justify-between bg-pink-50/70 rounded-xl p-1">
-                    <button onClick={() => updateCart(gift, -1)}
-                      className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform">
-                      <Minus className="w-4 h-4 text-pink-500" />
-                    </button>
-                    <span className="text-sm font-bold text-pink-600 w-6 text-center">{qty}</span>
-                    <button onClick={() => updateCart(gift, 1)}
-                      className="w-8 h-8 flex items-center justify-center btn-primary-luxury rounded-lg shadow-sm active:scale-90 transition-transform">
-                      <Plus className="w-4 h-4 text-white" />
-                    </button>
+                  <div className="w-full h-full flex items-center justify-center"><Gift className="w-9 h-9 text-pink-300" /></div>
+                )}
+                <button onClick={(e) => { e.stopPropagation(); toggleWishlist(gift.id) }}
+                  className="absolute top-3 right-3 w-9 h-9 rounded-full glass-overlay flex items-center justify-center active:scale-90 transition-transform">
+                  <Heart className={`w-3.5 h-3.5 ${wishlist.includes(gift.id) ? 'fill-pink-600 text-pink-600' : 'text-gray-600'}`} strokeWidth={2.2} />
+                </button>
+                {imgs.length > 1 && (
+                  <span className="absolute bottom-3 right-3 bg-black/45 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">+{imgs.length - 1}</span>
+                )}
+                {lowStock && (
+                  <span className="absolute top-3 left-3 bg-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Only {gift.stock} left</span>
+                )}
+                {outOfStock && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <span className="bg-white/95 text-red-500 text-xs font-bold px-3 py-1.5 rounded-full">Out of Stock</span>
                   </div>
                 )}
+              </div>
+
+              {/* Info */}
+              <div className="p-3.5 flex flex-col flex-1">
+                {gift.occasion && <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1">{gift.occasion}</p>}
+                <h4 onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }}
+                  className="text-gray-900 font-bold text-[13px] leading-tight mb-2 line-clamp-2 min-h-[34px] cursor-pointer">{gift.name}</h4>
+                <div className="flex items-center justify-between gap-2 mt-auto">
+                  <p className="text-gray-900 text-base font-bold">₹ {gift.price?.toLocaleString('en-IN')}</p>
+                  {outOfStock ? (
+                    <span className="text-[10px] font-bold text-gray-400">Sold out</span>
+                  ) : qty === 0 ? (
+                    <button onClick={() => updateCart(gift, 1)}
+                      className="w-9 h-9 rounded-full btn-primary-luxury flex items-center justify-center active:scale-90 transition-transform">
+                      <Plus className="w-4 h-4 text-white" strokeWidth={2.6} />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1 bg-pink-50/80 rounded-full p-0.5">
+                      <button onClick={() => updateCart(gift, -1)} className="w-7 h-7 flex items-center justify-center bg-white rounded-full shadow-sm active:scale-90 transition-transform"><Minus className="w-3.5 h-3.5 text-pink-500" /></button>
+                      <span className="text-sm font-bold text-pink-600 w-5 text-center">{qty}</span>
+                      <button onClick={() => updateCart(gift, 1)} className="w-7 h-7 flex items-center justify-center btn-primary-luxury rounded-full active:scale-90 transition-transform"><Plus className="w-3.5 h-3.5 text-white" /></button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )

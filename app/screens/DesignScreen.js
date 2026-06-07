@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -91,6 +91,14 @@ export default function DesignScreen() {
     return acc
   }, {}) : {}
 
+  // Swipeable gallery: AI result, your room, reference
+  const decoratedSrc = d.decorated_image && (d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-800,c-maintain_ratio` : d.decorated_image)
+  const galleryViews = [
+    d.decorated_image     && { id: 'ai',   image: decoratedSrc,          label: 'AI Decorated', badge: 'AI Generated' },
+    d.original_image_url  && { id: 'room', image: d.original_image_url,  label: 'Your Room',    badge: 'Your Photo' },
+    d.reference_image_url && { id: 'ref',  image: d.reference_image_url, label: 'Inspired By',  badge: 'Reference' },
+  ].filter(Boolean)
+
   return (
     <div className="slide-up pb-28 bg-aurora-soft min-h-screen">
 
@@ -135,21 +143,14 @@ export default function DesignScreen() {
       </div>
       <div className="px-4 space-y-4">
 
-        {/* Hero — decorated room image */}
+        {/* Hero — swipeable design gallery */}
         {imageLoading ? (
           <div className="rounded-2xl border border-white/80 glass-card h-64 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-pink-400 animate-spin" />
           </div>
-        ) : d.decorated_image ? (
-          <div className="rounded-[22px] overflow-hidden border border-white/80 shadow-lg shadow-pink-100/30 relative cursor-pointer" onClick={() => setFullscreen(true)}>
-            <img
-              src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-800,c-maintain_ratio` : d.decorated_image}
-              alt="Decorated" className="w-full" loading="eager" />
-            <div className="absolute bottom-3 right-3 bg-black/55 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <Maximize2 className="w-3 h-3" /> Tap to view full screen
-            </div>
-          </div>
-        ) : null}
+        ) : (
+          <DesignGallery views={galleryViews} onExpand={() => setFullscreen(true)} />
+        )}
 
         {/* "Inspired by" reference thumbnail — only for reference-flow designs */}
         {isReferenceFlow && referenceThumb && (
@@ -420,6 +421,59 @@ function PriceRow({ label, value, sub, muted, accent }) {
     <div className="flex justify-between items-center">
       <span className={labelClass}>{label}</span>
       <span className={valueClass}>Rs {Number(value || 0).toLocaleString('en-IN')}</span>
+    </div>
+  )
+}
+
+// Swipeable AI design gallery — replaces the old tap-to-open hero.
+function DesignGallery({ views, onExpand }) {
+  const ref = useRef(null)
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onScroll = () => {
+      const w = el.clientWidth
+      if (!w) return
+      setIdx(Math.min(Math.round(el.scrollLeft / w), views.length - 1))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [views.length])
+
+  if (!views.length) return null
+
+  return (
+    <div className="relative">
+      <div ref={ref} className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory gap-3">
+        {views.map((v, i) => (
+          <button key={v.id} onClick={() => onExpand(i)}
+            className="snap-center flex-shrink-0 w-full aspect-[4/5] rounded-[24px] overflow-hidden relative glass-floating">
+            <img src={v.image} alt={v.label} className="w-full h-full object-cover" loading={i === 0 ? 'eager' : 'lazy'} />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+            <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-gray-900 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-white" strokeWidth={2.4} />
+              <span className="text-[10px] font-bold text-white tracking-[0.2em] uppercase">{v.badge}</span>
+            </div>
+            <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+              <div className="text-left">
+                <p className="text-white/80 text-[10px] font-bold tracking-[0.25em] uppercase">View {i + 1} of {views.length}</p>
+                <h4 className="text-white font-display text-xl font-medium leading-tight mt-1">{v.label}</h4>
+              </div>
+              <div className="w-10 h-10 rounded-full glass-overlay flex items-center justify-center">
+                <Maximize2 className="w-4 h-4 text-gray-800" strokeWidth={2.2} />
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+      {views.length > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          {views.map((_, i) => (
+            <div key={i} className={`h-1.5 rounded-full transition-all ${idx === i ? 'w-8 bg-gray-900' : 'w-1.5 bg-gray-300'}`} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
