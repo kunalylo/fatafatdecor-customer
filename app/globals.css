@@ -338,6 +338,37 @@ input, select, textarea {
   100% { transform: scale(1.6);  opacity: 0;   }
 }
 
+/* ───────── Floating nav button + home ambient animations ───────── */
+@keyframes navAmbient {
+  0%, 100% { transform: scale(1);    opacity: 0.55; }
+  50%      { transform: scale(1.12); opacity: 0.90; }
+}
+.nav-ambient { animation: navAmbient 3.2s ease-in-out infinite; }
+
+@keyframes navHalo {
+  0%, 100% { transform: scale(1);    opacity: 0.34; }
+  50%      { transform: scale(1.12); opacity: 0.6; }
+}
+.nav-halo { animation: navHalo 3.4s ease-in-out infinite; }
+
+@keyframes spinCW  { to { transform: rotate(360deg); } }
+@keyframes spinCCW { to { transform: rotate(-360deg); } }
+.nav-orbit-cw  { animation: spinCW 8s linear infinite; }
+.nav-orbit-ccw { animation: spinCCW 11s linear infinite; }
+.spin-slow     { animation: spinCW 6s linear infinite; }
+
+@keyframes sparkleTwinkle {
+  0%, 100% { opacity: 0.45; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+.sparkle-twinkle { animation: sparkleTwinkle 1.8s ease-in-out infinite; }
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.float-y { animation: floatY 6s ease-in-out infinite; }
+
 /* Leaflet tooltip restyle to match aurora aesthetic */
 .leaflet-tooltip {
   background: rgba(255,255,255,0.92) !important;

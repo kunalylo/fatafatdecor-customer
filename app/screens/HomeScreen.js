@@ -1,29 +1,30 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  Settings, Zap, ArrowRight, Image as ImageIcon, Package, IndianRupee, Sparkles,
-  Truck, MapPin, ChevronDown, ChevronRight, Loader2, Camera, Gift, Cake, Heart,
-  Gem, Baby, Home as HomeIcon, PartyPopper, Wine, ShieldCheck, Star, BadgeCheck, Wand2,
+  Bell, MapPin, Heart, Sparkles, ArrowRight, Users, ChevronDown, Wand2, Plus,
+  Cake, Baby, PartyPopper, Home as HomeIcon, Briefcase, Flame, Package, Gift,
+  Camera, CalendarCheck, Zap, IndianRupee, Loader2, ShieldCheck, Star, BadgeCheck,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, LOGO_URL } from '../lib/constants'
 
 const OCCASIONS = [
-  { icon: Cake,        label: 'Birthday',     accent: 'accent-pink'     },
-  { icon: Heart,       label: 'Anniversary',  accent: 'accent-peach'    },
-  { icon: Gem,         label: 'Engagement',   accent: 'accent-lavender' },
-  { icon: Baby,        label: 'Baby Shower',  accent: 'accent-mint'     },
-  { icon: HomeIcon,    label: 'Housewarming', accent: 'accent-peach'    },
-  { icon: PartyPopper, label: 'Party',        accent: 'accent-pink'     },
-  { icon: Sparkles,    label: 'Festival',     accent: 'accent-lavender' },
-  { icon: Wine,        label: 'Dinner',       accent: 'accent-peach'    },
+  { id: 'birthday',     name: 'Birthday',       icon: Cake,        accent: 'accent-peach',    occasion: 'birthday' },
+  { id: 'anniversary',  name: 'Anniversary',    icon: Heart,       accent: 'accent-pink',     occasion: 'anniversary' },
+  { id: 'baby-shower',  name: 'Baby Shower',    icon: Baby,        accent: 'accent-lavender', occasion: 'baby_shower' },
+  { id: 'surprise',     name: 'Surprise Room',  icon: PartyPopper, accent: 'accent-pink',     occasion: 'party' },
+  { id: 'housewarming', name: 'Housewarming',   icon: HomeIcon,    accent: 'accent-mint',     occasion: 'housewarming' },
+  { id: 'corporate',    name: 'Corporate',      icon: Briefcase,   accent: 'accent-lavender', occasion: 'corporate' },
+  { id: 'festival',     name: 'Festival Decor', icon: Flame,       accent: 'accent-peach',    occasion: 'festival' },
+  { id: 'romantic',     name: 'Romantic Setup', icon: Sparkles,    accent: 'accent-pink',     occasion: 'anniversary' },
 ]
 
 const STEPS = [
-  { step: '01', title: 'Capture your space', desc: 'Take a photo of the room you want decorated', icon: Camera },
-  { step: '02', title: 'AI decorates it',    desc: 'AI adds beautiful decor to your actual photo', icon: Wand2 },
-  { step: '03', title: 'Decorator arrives',  desc: 'A verified decorator sets it all up at home',  icon: Truck },
+  { n: 1, label: 'Upload Photo',    desc: 'Snap your space — any room works',         icon: Camera,        accent: 'accent-peach' },
+  { n: 2, label: 'Preview with AI', desc: 'See your celebration before it happens',   icon: Wand2,         accent: 'accent-pink' },
+  { n: 3, label: 'Book Decorators', desc: 'Pick a date, time and venue',              icon: CalendarCheck, accent: 'accent-lavender' },
+  { n: 4, label: 'Celebrate',       desc: 'Crew arrives, you only enjoy',             icon: PartyPopper,   accent: 'accent-mint' },
 ]
 
 const TRUST = [
@@ -32,265 +33,320 @@ const TRUST = [
   { icon: BadgeCheck,  label: 'Verified Service' },
 ]
 
+const ik = (url, tr) => (url && url.includes('ik.imagekit.io') ? `${url}?tr=${tr}` : url)
+
 export default function HomeScreen() {
   const {
-    user, designs, orders, navigate, setSelectedDesign,
+    user, designs, orders, navigate, setSelectedDesign, setSelectedOrder,
     userAddress, locationLoading, locationDenied, detectLocation,
-    setGiftMode, setGiftCart, gifts, loadGifts,
+    setGiftMode, setGiftCart, gifts, loadGifts, uploadForm, setUploadForm,
   } = useApp()
 
   useEffect(() => { if (gifts.length === 0) loadGifts() }, [])
 
-  const locationTop = () => {
-    if (userAddress?.flat && userAddress?.area) return `${userAddress.flat}, ${userAddress.area}`
-    if (userAddress?.flat && userAddress?.city) return `${userAddress.flat}, ${userAddress.city}`
-    if (userAddress?.area) return userAddress.area
-    if (userAddress?.city) return userAddress.city
-    return null
-  }
+  const cityLabel = userAddress?.city || userAddress?.area || 'your city'
 
-  const locationSub = () => {
-    if (userAddress?.flat) return [userAddress.city, userAddress.pincode].filter(Boolean).join(' - ')
-    if (userAddress?.city) return 'Tap to add flat / building'
-    return null
-  }
+  const featuredGifts = gifts
+    .filter(g => (g.active !== false && g.is_active !== false) && (g.stock === undefined || g.stock > 0))
+  const giftImg = (g) => ik(g.images?.[0] || g.image_url || '', 'w-280,h-280,q-80,c-maintain_ratio')
 
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const thumbs = featuredGifts.slice(0, 4)
+  const recentDesigns = designs.slice(0, 5)
+  const activeOrder = orders.find(o => !['delivered', 'cancelled'].includes(o.delivery_status) && o.payment_status !== 'pending')
+
+  const categories = ['All', ...[...new Set(gifts.map(g => g.category).filter(Boolean))].slice(0, 7)]
+  const [activeCat, setActiveCat] = useState('All')
+
+  const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
+  const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
+
+  const thumbPos = [
+    { className: 'top-16 left-2 -rotate-6 w-[72px] h-[72px]' },
+    { className: 'top-40 left-5 rotate-3 w-16 h-16' },
+    { className: 'top-16 right-2 rotate-6 w-[84px] h-[84px]' },
+    { className: 'top-44 right-3 -rotate-3 w-[68px] h-[68px]' },
+  ]
 
   return (
-  <div className="slide-up pb-28 bg-aurora min-h-screen relative overflow-hidden">
-    {/* Ambient orbs */}
-    <div className="iridescent-orb absolute -top-12 -right-10 w-44 h-44 rounded-full pointer-events-none" />
-    <div className="iridescent-orb absolute top-72 -left-12 w-40 h-40 rounded-full pointer-events-none" style={{ animationDelay: '3s' }} />
+    <div className="min-h-screen bg-aurora pb-28 fade-in">
 
-    <div className="relative z-10 px-4 pt-12">
+      {/* ── TALL HEADER ── */}
+      <div className="relative h-[480px] overflow-hidden">
+        <div className="absolute -top-10 -right-20 w-72 h-72 iridescent-orb opacity-60 pointer-events-none" />
+        <div className="absolute top-40 -left-12 w-56 h-56 iridescent-orb opacity-40 pointer-events-none" />
 
-      {/* ── Location bar ── */}
-      <div className="flex items-center gap-1.5 mb-4">
-        <button onClick={() => detectLocation(user?.id)} className="shrink-0 p-1">
-          {locationLoading
-            ? <Loader2 className="w-4 h-4 text-pink-400 animate-spin" />
-            : <MapPin className={`w-4 h-4 ${locationDenied ? 'text-red-400' : 'text-pink-500'}`} />}
-        </button>
-        <button onClick={() => navigate(SCREENS.ADDRESS)} className="flex-1 min-w-0 text-left glass-card rounded-2xl px-3 py-2">
-          {locationDenied ? (
-            <span className="text-red-500 text-xs font-medium">Location blocked — tap GPS to retry</span>
-          ) : locationTop() ? (
-            <>
-              <p className="text-gray-900 font-bold text-sm leading-tight truncate">{locationTop()}</p>
-              {locationSub() && <p className="text-gray-500 text-xs truncate">{locationSub()}</p>}
-            </>
-          ) : locationLoading ? (
-            <span className="text-gray-500 text-xs">Detecting location…</span>
-          ) : (
-            <span className="text-gray-500 text-xs">Tap to set your delivery location</span>
-          )}
-        </button>
-        <button onClick={() => navigate(SCREENS.ADDRESS)} className="shrink-0">
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
-      </div>
-
-      {/* ── Greeting row ── */}
-      <div className="flex justify-between items-center mb-5">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 border border-white/70 shadow glass-icon">
-            <img src={LOGO_URL} alt="FatafatDecor" className="w-full h-full object-cover" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-gray-500 text-xs">{greeting}</p>
-            <h1 className="font-display text-2xl text-gray-900 leading-tight truncate">{user?.name?.split(' ')[0] || 'there'}</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => navigate(SCREENS.CREDITS)} className="glass-card rounded-full px-3 py-1.5 flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-amber-500" />
-            <span className="text-gray-900 font-bold text-sm">{user?.credits || 0}</span>
-            <span className="text-gray-400 text-xs">credits</span>
-          </button>
-          {user?.role === 'admin' && (
-            <a href="/admin" className="glass-card rounded-full p-2.5 flex items-center justify-center">
-              <Settings className="w-4 h-4 text-gray-700" />
-            </a>
-          )}
-        </div>
-      </div>
-
-      {/* ── Hero Decorate CTA ── */}
-      <button onClick={() => navigate(SCREENS.UPLOAD)}
-        className="w-full text-left glass-floating rounded-[26px] p-4 flex items-center gap-4 hover:scale-[1.01] transition-transform mb-3">
-        <div className="relative shrink-0">
-          <div className="absolute inset-0 rounded-2xl iridescent blur-md opacity-60" />
-          <div className="relative w-14 h-14 iridescent aurora-shimmer rounded-2xl flex items-center justify-center border border-white/60">
-            <Sparkles className="w-7 h-7 text-white drop-shadow" />
-          </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="eyebrow text-pink-500/80 mb-0.5">AI Studio</p>
-          <h3 className="font-display text-xl text-gray-900 leading-tight">Decorate my <span className="italic iridescent-text">space</span></h3>
-          <p className="text-gray-500 text-xs mt-0.5">Photo → AI design → decorator delivers</p>
-        </div>
-        <div className="w-9 h-9 btn-primary-luxury rounded-full flex items-center justify-center shrink-0">
-          <ArrowRight className="w-4 h-4 text-white" />
-        </div>
-      </button>
-
-      {/* ── Gifts banner ── */}
-      <button onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
-        className="w-full text-left glass-warm rounded-[22px] p-4 flex items-center gap-3 hover:scale-[1.01] transition-transform mb-3">
-        <div className="w-11 h-11 accent-pink rounded-2xl flex items-center justify-center shrink-0">
-          <Gift className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-gray-900 text-sm">Send gifts &amp; flowers</p>
-          <p className="text-xs text-gray-500 truncate">Same-day delivery — surprise your loved ones</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-pink-400 shrink-0" />
-      </button>
-
-      {/* Featured gifts horizontal scroll */}
-      {gifts.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">
-          {gifts.slice(0, 6).map(gift => {
-            const imgUrl = (gift.images?.[0] || gift.image_url || '')
-            const src = imgUrl?.includes('ik.imagekit.io') ? `${imgUrl}?tr=w-280,h-200,q-80,c-maintain_ratio` : imgUrl
-            return (
-              <div key={gift.id} onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
-                className="shrink-0 w-32 glass-floating rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform">
-                <div className="w-full h-24 bg-pink-50/50 relative">
-                  {src ? <img src={src} alt={gift.name} className="w-full h-full object-cover" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center"><Gift className="w-7 h-7 text-pink-300" /></div>}
-                  <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-pink-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">Rs {gift.price?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="p-2">
-                  <p className="text-[11px] font-bold text-gray-800 line-clamp-1">{gift.name}</p>
-                  {gift.occasion && <p className="text-[9px] text-gray-400 mt-0.5">{gift.occasion}</p>}
-                </div>
-              </div>
-            )
-          })}
-          <div onClick={() => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }}
-            className="shrink-0 w-24 glass-card rounded-2xl border-2 border-dashed border-pink-200 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-pink-400 transition-all">
-            <Gift className="w-5 h-5 text-pink-400" />
-            <span className="text-[10px] font-bold text-pink-500">View All</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Occasions ── */}
-      <h2 className="font-display text-xl text-gray-900 mt-6 mb-3">Popular <span className="italic iridescent-text">occasions</span></h2>
-      <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">
-        {OCCASIONS.map((o, i) => (
-          <button key={i} onClick={() => navigate(SCREENS.UPLOAD)}
-            className="shrink-0 flex flex-col items-center gap-1.5 glass-card rounded-2xl px-4 py-3 hover:scale-[1.04] transition-all">
-            <span className={`w-9 h-9 ${o.accent} rounded-xl flex items-center justify-center`}>
-              <o.icon className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
-            </span>
-            <span className="text-[10px] font-bold text-gray-600 whitespace-nowrap">{o.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── Stats row ── */}
-      <div className="grid grid-cols-3 gap-3 mt-5">
-        {[
-          { label: 'Credits', value: user?.credits || 0, icon: Zap,      accent: 'accent-peach',    screen: SCREENS.CREDITS },
-          { label: 'Designs', value: designs.length,      icon: ImageIcon, accent: 'accent-pink',     screen: null },
-          { label: 'Orders',  value: orders.length,       icon: Package,  accent: 'accent-lavender', screen: SCREENS.ORDERS },
-        ].map((s, i) => (
-          <button key={i} onClick={() => s.screen && navigate(s.screen)} className="glass-floating rounded-2xl p-3 text-center hover:scale-[1.02] transition-transform">
-            <div className={`w-9 h-9 ${s.accent} rounded-xl flex items-center justify-center mx-auto mb-1.5`}>
-              <s.icon className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
+        {/* Floating decoration thumbnails (real gift images) */}
+        <div className="absolute inset-0 pointer-events-none">
+          {thumbs.map((g, i) => (
+            <div key={g.id} className={`absolute ${thumbPos[i].className} rounded-3xl overflow-hidden glass-floating float-y`} style={{ animationDelay: `${i * 0.6}s`, opacity: 0.62 }}>
+              {giftImg(g) ? <img src={giftImg(g)} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-pink-50" />}
             </div>
-            <p className="text-lg font-black text-gray-900">{s.value}</p>
-            <p className="text-[10px] text-gray-400 font-medium">{s.label}</p>
-          </button>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* ── Recent Designs ── */}
-      {designs.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-xl text-gray-900">Recent <span className="italic iridescent-text">designs</span></h2>
-            <button onClick={() => navigate(SCREENS.ORDERS)} className="text-xs text-pink-500 font-bold">See all →</button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
-            {designs.slice(0, 5).map(d => (
-              <div key={d.id} className="glass-floating rounded-2xl shrink-0 w-44 cursor-pointer hover:scale-[1.02] transition-transform overflow-hidden"
-                onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}>
-                {d.decorated_image ? (
-                  <img
-                    src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-352,h-224,q-75,c-maintain_ratio` : d.decorated_image}
-                    alt="Design" className="w-full h-28 object-cover" loading="lazy" />
-                ) : (
-                  <div className="w-full h-28 bg-pink-50/50 flex items-center justify-center"><Sparkles className="w-7 h-7 text-pink-300" /></div>
-                )}
-                <div className="p-2.5">
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${d.status === 'ordered' ? 'bg-green-100 text-green-700' : 'bg-pink-100 text-pink-600'}`}>
-                    {d.status === 'ordered' ? 'ORDERED' : 'READY'}
-                  </span>
-                  <p className="text-xs font-bold text-gray-700 mt-1">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
-                  <p className="text-[10px] text-gray-400">{d.room_type}</p>
-                  <div className="flex items-center mt-1">
-                    <IndianRupee className="w-3 h-3 text-pink-500" />
-                    <span className="text-xs font-black text-pink-500">{d.total_cost?.toLocaleString('en-IN')}</span>
-                  </div>
+        {/* Top bar */}
+        <div className="relative px-6 pt-12 z-10">
+          <div className="flex items-center justify-between mb-10">
+            <button onClick={() => navigate(SCREENS.ADDRESS)} className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full glass-overlay flex items-center justify-center">
+                {locationLoading
+                  ? <Loader2 className="w-4 h-4 text-gray-800 animate-spin" />
+                  : <MapPin className={`w-4 h-4 ${locationDenied ? 'text-red-400' : 'text-gray-800'}`} strokeWidth={2.2} />}
+              </div>
+              <div className="text-left">
+                <p className="text-gray-600 text-[10px] font-bold tracking-[0.2em] uppercase">Decor near</p>
+                <div className="flex items-center gap-1">
+                  <h1 className="text-gray-900 text-[15px] font-bold capitalize truncate max-w-[150px]">{cityLabel}</h1>
+                  <ChevronDown className="w-3 h-3 text-gray-700" strokeWidth={2.4} />
                 </div>
               </div>
-            ))}
-            <button onClick={() => navigate(SCREENS.UPLOAD)}
-              className="shrink-0 w-36 h-[164px] border-2 border-dashed border-pink-200 rounded-2xl glass-card flex flex-col items-center justify-center gap-2 hover:border-pink-400 transition-all hover:scale-[1.02]">
-              <Sparkles className="w-7 h-7 text-pink-400" />
-              <span className="text-xs font-bold text-pink-500">New Design</span>
+            </button>
+            <button onClick={() => navigate(SCREENS.ORDERS)} className="w-11 h-11 rounded-full glass-overlay flex items-center justify-center relative">
+              <Bell className="w-4 h-4 text-gray-800" strokeWidth={2.2} />
+              {activeOrder && <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-pink-500" />}
             </button>
           </div>
-        </div>
-      )}
 
-      {/* ── Empty state ── */}
-      {designs.length === 0 && (
-        <div className="mt-6 p-6 glass-floating rounded-[24px] text-center">
-          <div className="w-14 h-14 iridescent aurora-shimmer rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/60">
-            <Wand2 className="w-7 h-7 text-white" />
+          {/* Editorial hero */}
+          <div className="mb-8 mt-24">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-overlay mb-3">
+              <Sparkles className="w-3 h-3 text-pink-600" strokeWidth={2.4} />
+              <span className="text-[10px] font-bold text-gray-900 tracking-widest uppercase">India&apos;s First AI-Powered Decor</span>
+            </div>
+            <h2 className="font-display text-[40px] font-medium text-gray-900 leading-[0.98] tracking-tight">
+              See your space<br />
+              <span className="italic font-normal iridescent-text">decorated</span><br />
+              <span className="text-gray-900">before you book</span>
+            </h2>
           </div>
-          <h3 className="font-display text-xl text-gray-900 mb-1">No designs yet</h3>
-          <p className="text-gray-500 text-xs mb-4 leading-relaxed">Upload a room photo and let AI create a stunning decoration plan for you</p>
-          <button onClick={() => navigate(SCREENS.UPLOAD)}
-            className="btn-primary-luxury text-white font-bold text-sm px-6 py-3 rounded-2xl">
-            Create your first design
+        </div>
+      </div>
+
+      {/* ── AI Decorate floating CTA ── */}
+      <div className="relative px-6 -mt-16 z-20">
+        <p className="text-sm text-gray-700 leading-relaxed mb-4">
+          Click a photo of your room, see your decoration with Instant Decor AI, and book Fatafat Decor to set it up at your place — for birthdays, surprises and more.
+        </p>
+
+        <button onClick={() => navigate(SCREENS.UPLOAD)}
+          className="w-full glass-floating rounded-[28px] px-5 py-4 flex items-center gap-4 hover:-translate-y-0.5 transition-transform text-left">
+          <div className="relative w-14 h-14 rounded-2xl iridescent aurora-shimmer flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-6 h-6 text-white" strokeWidth={2} />
+            <div className="absolute inset-0 rounded-2xl iridescent opacity-50 blur-md -z-10" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="eyebrow text-pink-600">AI Powered · {user?.credits || 0} credits</p>
+            <h3 className="text-gray-900 font-bold text-[15px] mt-0.5">Try Instant Decor AI</h3>
+            <p className="text-gray-500 text-[11px] mt-0.5">Upload your room photo, see the decor</p>
+          </div>
+          <div className="px-3.5 py-2.5 rounded-full bg-gray-900 flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-white text-[11px] font-bold tracking-wide">Try</span>
+            <ArrowRight className="w-3.5 h-3.5 text-white" strokeWidth={2.4} />
+          </div>
+        </button>
+
+        {/* Secondary — gifts entry */}
+        <button onClick={openGifts}
+          className="w-full mt-3 rounded-full bg-white border border-gray-100 px-5 py-3.5 flex items-center justify-center gap-2 hover:-translate-y-0.5 transition-transform"
+          style={{ boxShadow: '0 6px 20px -10px rgba(60,30,90,0.15)' }}>
+          <Gift className="w-4 h-4 text-pink-600" strokeWidth={2.2} />
+          <span className="text-[13px] font-bold text-gray-900">Send gifts &amp; flowers</span>
+          <ArrowRight className="w-3.5 h-3.5 text-gray-700" strokeWidth={2.4} />
+        </button>
+
+        <p className="text-center text-[10px] tracking-[0.3em] uppercase text-gray-500 mt-3">From your phone · to your room</p>
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="px-6 mt-8 space-y-8 relative z-10">
+
+        {/* AI Credits card */}
+        <button onClick={() => navigate(SCREENS.CREDITS)} className="w-full glass-floating rounded-[24px] p-4 flex items-center gap-3 text-left">
+          <div className="w-12 h-12 rounded-2xl iridescent flex items-center justify-center flex-shrink-0">
+            <Wand2 className="w-5 h-5 text-white" strokeWidth={2.2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">AI Previews</p>
+            <p className="text-sm font-bold text-gray-900 mt-1"><span className="iridescent-text">{user?.credits || 0}</span> credits left</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">Each credit = 1 AI room preview</p>
+          </div>
+          <div className="px-3 py-2 rounded-full bg-gray-900 text-white text-[11px] font-bold flex items-center gap-1 flex-shrink-0">
+            <Plus className="w-3 h-3" strokeWidth={2.6} /> Buy
+          </div>
+        </button>
+
+        {/* Occasion quick cards */}
+        <section>
+          <div className="mb-4">
+            <p className="eyebrow text-gray-600">Pick a vibe</p>
+            <h3 className="font-display text-2xl font-medium text-gray-900 mt-1">What are we <span className="italic font-normal iridescent-text">celebrating?</span></h3>
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 -mx-6 px-6">
+            {OCCASIONS.map((o) => (
+              <button key={o.id} onClick={() => startOccasion(o.occasion)} className="flex-shrink-0 w-28 glass-floating rounded-[20px] p-3.5 text-center hover:-translate-y-1 transition-transform">
+                <div className={`w-12 h-12 rounded-2xl ${o.accent} flex items-center justify-center mx-auto mb-2.5`}>
+                  <o.icon className="w-5 h-5 text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[11px] font-bold text-gray-900 leading-tight">{o.name}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Recent AI Designs */}
+        {recentDesigns.length > 0 ? (
+          <section>
+            <div className="flex items-end justify-between mb-5">
+              <div>
+                <p className="eyebrow text-gray-600">Your studio</p>
+                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Recent <span className="italic font-normal iridescent-text">designs</span></h3>
+              </div>
+              <button onClick={() => navigate(SCREENS.ORDERS)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
+              {recentDesigns.map((d) => (
+                <button key={d.id} onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}
+                  className="flex-shrink-0 w-44 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                  <div className="aspect-square relative bg-pink-50/50">
+                    {d.decorated_image ? <img src={ik(d.decorated_image, 'w-352,h-352,q-75,c-maintain_ratio')} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Sparkles className="w-8 h-8 text-pink-300" /></div>}
+                    <span className={`absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'ordered' ? 'bg-green-100 text-green-700' : 'bg-white/90 text-pink-600'}`}>{d.status === 'ordered' ? 'ORDERED' : 'READY'}</span>
+                  </div>
+                  <div className="p-3.5">
+                    <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1 capitalize">{d.occasion?.replace(/_/g, ' ')}</p>
+                    <h4 className="text-gray-900 font-bold text-[13px] leading-tight mb-2 capitalize">{d.room_type}</h4>
+                    <p className="text-gray-900 text-base font-bold flex items-center"><IndianRupee className="w-3.5 h-3.5" />{d.total_cost?.toLocaleString('en-IN')}</p>
+                  </div>
+                </button>
+              ))}
+              <button onClick={() => navigate(SCREENS.UPLOAD)} className="flex-shrink-0 w-32 rounded-[24px] glass-card border-2 border-dashed border-pink-200 flex flex-col items-center justify-center gap-2 hover:border-pink-400 transition-colors">
+                <Sparkles className="w-7 h-7 text-pink-400" />
+                <span className="text-xs font-bold text-pink-500">New Design</span>
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section>
+            <div className="glass-floating rounded-[28px] p-6 text-center">
+              <div className="w-14 h-14 iridescent aurora-shimmer rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/60">
+                <Wand2 className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="font-display text-2xl text-gray-900 mb-1">No designs yet</h3>
+              <p className="text-gray-500 text-xs mb-4 leading-relaxed">Upload a room photo and let AI create a stunning decoration plan for you</p>
+              <button onClick={() => navigate(SCREENS.UPLOAD)} className="btn-primary-luxury text-white font-bold text-sm px-6 py-3 rounded-2xl">Create your first design</button>
+            </div>
+          </section>
+        )}
+
+        {/* Top Picks — real gifts */}
+        {featuredGifts.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-5">
+              <div className="flex items-end gap-2">
+                <div>
+                  <p className="eyebrow text-gray-600">Curated</p>
+                  <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Top Picks</h3>
+                </div>
+                <Flame className="w-5 h-5 text-orange-500 mb-2" />
+              </div>
+              <button onClick={openGifts} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+            </div>
+
+            {categories.length > 1 && (
+              <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar pb-2 -mx-6 px-6">
+                {categories.map((cat) => (
+                  <button key={cat} onClick={() => setActiveCat(cat)}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-full text-xs font-bold transition-all ${activeCat === cat ? 'bg-gray-900 text-white shadow-sm' : 'glass-card text-gray-700'}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
+              {featuredGifts.filter(g => activeCat === 'All' || g.category === activeCat).slice(0, 10).map((g) => (
+                <button key={g.id} onClick={openGifts}
+                  className="flex-shrink-0 w-44 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                  <div className="aspect-square relative bg-pink-50/50">
+                    {giftImg(g) ? <img src={giftImg(g)} alt={g.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
+                    <span className="absolute top-3 right-3 w-9 h-9 rounded-full glass-overlay flex items-center justify-center">
+                      <Heart className="w-3.5 h-3.5 text-pink-600" strokeWidth={2.2} />
+                    </span>
+                  </div>
+                  <div className="p-3.5">
+                    {g.occasion && <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1">{g.occasion}</p>}
+                    <h4 className="text-gray-900 font-bold text-[13px] leading-tight mb-2 line-clamp-2 min-h-[32px]">{g.name}</h4>
+                    <p className="text-gray-900 text-base font-bold flex items-center"><IndianRupee className="w-3.5 h-3.5" />{g.price?.toLocaleString('en-IN')}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Active order strip */}
+        {activeOrder && (
+          <button onClick={() => { setSelectedOrder(activeOrder); navigate(SCREENS.TRACKING) }}
+            className="w-full glass-floating rounded-[24px] p-4 flex items-center gap-3 text-left hover:-translate-y-0.5 transition-transform">
+            <div className="w-12 h-12 rounded-2xl iridescent flex items-center justify-center flex-shrink-0 premium-pulse">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="eyebrow text-pink-600">Live order</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">Order #{activeOrder.id.slice(0, 8)}</p>
+              <p className="text-[11px] text-gray-500 capitalize">{activeOrder.delivery_status?.replace(/_/g, ' ')} · tap to track</p>
+            </div>
+            <div className="px-3.5 py-2.5 rounded-full bg-gray-900 flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-white text-[11px] font-bold">Track</span>
+              <ArrowRight className="w-3.5 h-3.5 text-white" strokeWidth={2.4} />
+            </div>
           </button>
-        </div>
-      )}
+        )}
 
-      {/* ── How It Works ── */}
-      <h2 className="font-display text-xl text-gray-900 mt-7 mb-4">How it <span className="italic iridescent-text">works</span></h2>
-      <div className="space-y-3">
-        {STEPS.map(s => (
-          <div key={s.step} className="flex items-center gap-4 glass-card rounded-2xl p-4">
-            <div className="w-12 h-12 iridescent rounded-2xl flex items-center justify-center shrink-0 border border-white/60">
-              <s.icon className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="eyebrow text-pink-400 mb-0.5">Step {s.step}</div>
-              <p className="text-sm font-bold text-gray-900">{s.title}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{s.desc}</p>
+        {/* How it works */}
+        <section>
+          <div className="mb-5">
+            <p className="eyebrow text-gray-600">Effortless flow</p>
+            <h3 className="font-display text-3xl font-medium text-gray-900 leading-tight mt-1">How it <span className="italic font-normal iridescent-text">works</span></h3>
+          </div>
+          <div className="glass-floating rounded-[28px] p-5">
+            <div className="space-y-4">
+              {STEPS.map((s, i) => (
+                <div key={s.n} className="flex items-start gap-3">
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-12 h-12 rounded-2xl ${s.accent} flex items-center justify-center`}>
+                      <s.icon className="w-5 h-5 text-white" strokeWidth={2.2} />
+                    </div>
+                    {i < STEPS.length - 1 && <div className="absolute left-1/2 top-12 w-px h-4" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.18), transparent)', transform: 'translateX(-0.5px)' }} />}
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <span className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Step {s.n}</span>
+                    <h4 className="text-sm font-bold text-gray-900 mt-0.5">{s.label}</h4>
+                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        </section>
 
-      {/* ── Trust badges ── */}
-      <div className="flex gap-2 mt-5">
-        {TRUST.map((t, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center justify-center gap-1 glass-card rounded-2xl py-3">
-            <t.icon className="w-4 h-4 text-pink-500" />
-            <span className="text-[10px] font-bold text-gray-600 text-center">{t.label}</span>
+        {/* About / trust */}
+        <section className="glass-floating rounded-[28px] p-6">
+          <p className="eyebrow text-gray-600 mb-2">About</p>
+          <h3 className="font-display text-2xl font-medium text-gray-900 mb-3">Crafted to celebrate</h3>
+          <p className="text-gray-700 text-sm leading-relaxed mb-4">
+            Planning a moment can be a daunting task — especially when every detail matters. With our curated decor and AI-assisted ideation, every celebration becomes effortless.
+          </p>
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/40">
+            {TRUST.map((t, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5 text-center">
+                <t.icon className="w-4 h-4 text-pink-500" />
+                <span className="text-[10px] font-bold text-gray-600">{t.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
 
+      </div>
     </div>
-  </div>
   )
 }
