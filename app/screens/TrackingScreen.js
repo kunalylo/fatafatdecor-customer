@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { ChevronRight, MapPin, Truck, CheckCircle2, Star, User, Phone, Clock } from 'lucide-react'
+import { ChevronRight, MapPin, Truck, CheckCircle2, Star, User, Phone, Clock, ShieldCheck } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, SUPPORT_PHONE } from '../lib/constants'
 
@@ -73,20 +72,23 @@ export default function TrackingScreen() {
     { key: 'assigned',   label: 'Decorator Accepted Your Order',           icon: <CheckCircle2 className="w-4 h-4" /> },
     { key: 'en_route',   label: 'Decorator is On the Way',                 icon: <Truck className="w-4 h-4" /> },
     { key: 'arrived',    label: 'Decorator Arrived at Your Place',         icon: <MapPin className="w-4 h-4" /> },
-    { key: 'decorating', label: 'Decorating in Progress 🎨',               icon: <Star className="w-4 h-4" /> },
-    { key: 'delivered',  label: 'Decoration Complete 🎉',                  icon: <CheckCircle2 className="w-4 h-4" /> },
+    { key: 'decorating', label: 'Decorating in Progress',                  icon: <Star className="w-4 h-4" /> },
+    { key: 'delivered',  label: 'Decoration Complete',                     icon: <CheckCircle2 className="w-4 h-4" /> },
   ]
 
   // Decorator has accepted = delivery_person is set (not just auto-assigned)
   const decoratorAccepted = !!(trackingData?.delivery_person)
 
   return (
-    <div className="slide-up pb-24 bg-white min-h-screen">
-      <div className="flex items-center gap-3 p-4">
-        <button onClick={() => navigate(SCREENS.ORDERS)} className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
+    <div className="slide-up pb-28 bg-aurora min-h-screen">
+      <div className="flex items-center gap-3 p-4 pt-6">
+        <button onClick={() => navigate(SCREENS.ORDERS)} className="w-9 h-9 rounded-full glass-card flex items-center justify-center">
           <ChevronRight className="w-5 h-5 text-gray-600 rotate-180" />
         </button>
-        <h1 className="font-bold text-lg text-gray-800">Live Tracking</h1>
+        <div>
+          <p className="eyebrow text-gray-400">Live</p>
+          <h1 className="font-display text-2xl text-gray-900 leading-tight">Live <span className="italic iridescent-text">tracking</span></h1>
+        </div>
       </div>
 
       <div className="px-4 space-y-4">
@@ -98,25 +100,23 @@ export default function TrackingScreen() {
         )}
 
         {!selectedOrder && trackableOrders.length > 0 && trackableOrders.map(o => (
-          <Card key={o.id} className="border border-gray-100 cursor-pointer" onClick={() => setSelectedOrder(o)}>
-            <CardContent className="p-3 flex items-center gap-3">
-              <Truck className="w-5 h-5 text-pink-500" />
-              <div>
-                <p className="text-sm font-semibold text-gray-700">Order #{o.id.slice(0, 8)}</p>
-                <p className="text-xs text-gray-400 capitalize">{o.delivery_status?.replace(/_/g, ' ')}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
-            </CardContent>
-          </Card>
+          <div key={o.id} className="glass-floating rounded-[22px] cursor-pointer p-3 flex items-center gap-3" onClick={() => setSelectedOrder(o)}>
+            <Truck className="w-5 h-5 text-pink-500" />
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Order #{o.id.slice(0, 8)}</p>
+              <p className="text-xs text-gray-400 capitalize">{o.delivery_status?.replace(/_/g, ' ')}</p>
+            </div>
+            <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
+          </div>
         ))}
 
         {/* Loading state before trackingData arrives */}
         {selectedOrder && !trackingData && (
           <div className="text-center py-10">
-            <div className="w-16 h-16 rounded-full gradient-pink flex items-center justify-center mx-auto mb-4 animate-pulse shadow-pink">
+            <div className="w-16 h-16 rounded-full iridescent aurora-shimmer flex items-center justify-center mx-auto mb-4 animate-pulse border border-white/60">
               <Truck className="w-8 h-8 text-white" />
             </div>
-            <p className="font-bold text-gray-700 text-lg">Order Confirmed!</p>
+            <p className="font-display text-xl text-gray-900">Order Confirmed!</p>
             <p className="text-sm text-gray-400 mt-1">Payment received. Finding your decorator...</p>
             <div className="mt-4 flex justify-center gap-1">
               {[0, 1, 2].map(i => (
@@ -130,121 +130,109 @@ export default function TrackingScreen() {
           <>
             {/* Map — only show once decorator is en_route or further */}
             {['en_route','arrived','decorating','delivered'].includes(trackingData.delivery_status) && (
-              <div ref={mapRef} style={{ width: '100%', height: '250px', borderRadius: '16px' }} className="bg-pink-50 border border-pink-100" />
+              <div ref={mapRef} style={{ width: '100%', height: '250px', borderRadius: '20px' }} className="bg-pink-50 border border-white/80 shadow-lg" />
             )}
 
             {/* Order confirmed banner shown when still pending/waiting */}
             {trackingData.delivery_status === 'pending' && (
-              <Card className="border-2 border-yellow-200 bg-yellow-50/40">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5 text-yellow-500" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm text-yellow-700">Order Confirmed ✅ Payment Done ✅</p>
-                    <p className="text-xs text-yellow-600 mt-0.5">Waiting for a decorator to accept your order...</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="glass-floating rounded-[22px] p-4 flex items-center gap-3 ring-1 ring-yellow-200">
+                <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-yellow-700">Order Confirmed · Payment Done</p>
+                  <p className="text-xs text-yellow-600 mt-0.5">Waiting for a decorator to accept your order...</p>
+                </div>
+              </div>
             )}
 
             {/* Status Steps */}
-            <Card className="border border-gray-100">
-              <CardContent className="p-4">
-                <h3 className="font-bold text-sm text-gray-700 mb-3">Status</h3>
-                <div className="space-y-3">
-                  {statusSteps.map(({ key, label, icon }, i) => {
-                    const isActive = statusOrder.indexOf(trackingData.delivery_status) >= i
-                    return (
-                      <div key={key} className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'gradient-pink text-white' : 'bg-gray-100 text-gray-400'}`}>
-                          {icon}
-                        </div>
-                        <p className={`text-sm font-semibold ${isActive ? 'text-gray-700' : 'text-gray-300'}`}>{label}</p>
+            <div className="glass-floating rounded-[22px] p-4">
+              <h3 className="font-bold text-sm text-gray-800 mb-3">Status</h3>
+              <div className="space-y-3">
+                {statusSteps.map(({ key, label, icon }, i) => {
+                  const isActive = statusOrder.indexOf(trackingData.delivery_status) >= i
+                  return (
+                    <div key={key} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'iridescent text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        {icon}
                       </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      <p className={`text-sm font-semibold ${isActive ? 'text-gray-700' : 'text-gray-300'}`}>{label}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
             {/* Decorator card — show name ONLY after decorator accepts */}
             {decoratorAccepted ? (
-              <Card className="border border-gray-100">
-                <CardContent className="p-4">
-                  <h3 className="font-bold text-sm text-gray-700 mb-3">Your Decorator</h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full gradient-pink flex items-center justify-center shadow-pink">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-gray-700">{trackingData.delivery_person.name}</p>
-                      <p className="text-xs text-gray-400">Your Decorator</p>
-                    </div>
-                    <a href={`tel:${trackingData.delivery_person.phone}`}
-                      className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
-                      <Phone className="w-5 h-5 text-white" />
-                    </a>
+              <div className="glass-floating rounded-[22px] p-4">
+                <h3 className="font-bold text-sm text-gray-800 mb-3">Your Decorator</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full iridescent flex items-center justify-center border border-white/60">
+                    <User className="w-5 h-5 text-white" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-gray-800">{trackingData.delivery_person.name}</p>
+                    <p className="text-xs text-gray-400">Your Decorator</p>
+                  </div>
+                  <a href={`tel:${trackingData.delivery_person.phone}`}
+                    className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+                    <Phone className="w-5 h-5 text-white" />
+                  </a>
+                </div>
+              </div>
             ) : (
               /* Decorator not yet accepted — show contact support */
-              <Card className="border border-orange-100 bg-orange-50/30">
-                <CardContent className="p-4">
-                  <h3 className="font-bold text-sm text-gray-700 mb-3">Decorator Status</h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                      <User className="w-5 h-5 text-orange-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-gray-700">Decorator Not Assigned Yet</p>
-                      <p className="text-xs text-gray-400">Need help? Contact our support</p>
-                    </div>
-                    <a href={`tel:${SUPPORT_PHONE}`}
-                      className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
-                      <Phone className="w-5 h-5 text-white" />
-                    </a>
+              <div className="glass-floating rounded-[22px] p-4 ring-1 ring-orange-100">
+                <h3 className="font-bold text-sm text-gray-800 mb-3">Decorator Status</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                    <User className="w-5 h-5 text-orange-400" />
                   </div>
-                  <p className="text-xs text-center text-gray-400 mt-3 font-medium">📞 Support: {SUPPORT_PHONE}</p>
-                </CardContent>
-              </Card>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-gray-800">Decorator Not Assigned Yet</p>
+                    <p className="text-xs text-gray-400">Need help? Contact our support</p>
+                  </div>
+                  <a href={`tel:${SUPPORT_PHONE}`}
+                    className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
+                    <Phone className="w-5 h-5 text-white" />
+                  </a>
+                </div>
+                <p className="text-xs text-center text-gray-400 mt-3 font-medium">Support: {SUPPORT_PHONE}</p>
+              </div>
             )}
 
             {/* OTP block — shown when decorator arrives */}
             {trackingData.verification_otp && !trackingData.otp_verified && (
-              <Card className="border-2 border-pink-300 bg-pink-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full gradient-pink flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">🔐</span>
+              <div className="glass-floating rounded-[22px] p-4 ring-2 ring-pink-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full iridescent flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="font-bold text-sm text-pink-700">Your Verification OTP</h3>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">Your decorator has arrived! Share this code with them to start the decoration.</p>
+                <div className="flex items-center justify-center gap-2 bg-white/80 rounded-2xl py-4 border-2 border-pink-200">
+                  {trackingData.verification_otp.split('').map((digit, i) => (
+                    <div key={i} className="w-14 h-16 rounded-xl iridescent flex items-center justify-center">
+                      <span className="text-white text-3xl font-black">{digit}</span>
                     </div>
-                    <h3 className="font-bold text-sm text-pink-700">Your Verification OTP</h3>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-3">Your decorator has arrived! Share this code with them to start the decoration.</p>
-                  <div className="flex items-center justify-center gap-2 bg-white rounded-2xl py-4 border-2 border-pink-200">
-                    {trackingData.verification_otp.split('').map((digit, i) => (
-                      <div key={i} className="w-14 h-16 rounded-xl gradient-pink flex items-center justify-center shadow-pink">
-                        <span className="text-white text-3xl font-black">{digit}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-center text-pink-400 mt-2 font-medium">Show this to your decorator — do not share with anyone else</p>
-                </CardContent>
-              </Card>
+                  ))}
+                </div>
+                <p className="text-[11px] text-center text-pink-400 mt-2 font-medium">Show this to your decorator — do not share with anyone else</p>
+              </div>
             )}
 
             {/* Decoration in progress confirmation */}
             {trackingData.otp_verified && (
-              <Card className="border border-green-200 bg-green-50">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <CheckCircle2 className="w-8 h-8 text-green-500" />
-                  <div>
-                    <p className="font-bold text-sm text-green-700">Decoration in Progress!</p>
-                    <p className="text-xs text-green-500">OTP verified — your decorator is at work 🎉</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="glass-floating rounded-[22px] p-4 flex items-center gap-3 ring-1 ring-green-200">
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+                <div>
+                  <p className="font-bold text-sm text-green-700">Decoration in Progress!</p>
+                  <p className="text-xs text-green-500">OTP verified — your decorator is at work</p>
+                </div>
+              </div>
             )}
           </>
         )}

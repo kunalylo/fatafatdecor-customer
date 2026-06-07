@@ -239,7 +239,7 @@ export default function AddressScreen() {
           {/* Fixed centre pin */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div style={{ marginBottom: '28px' }} className="flex flex-col items-center">
-              <div className="w-12 h-12 gradient-pink rounded-full flex items-center justify-center shadow-xl shadow-pink-400/40">
+              <div className="w-12 h-12 iridescent rounded-full flex items-center justify-center shadow-xl shadow-pink-400/40 border border-white/60">
                 <MapPin className="w-6 h-6 text-white" />
               </div>
               {/* pin shadow */}
@@ -282,7 +282,7 @@ export default function AddressScreen() {
           <button
             onClick={confirmLocation}
             disabled={geocoding || !detectedCity}
-            className="w-full gradient-pink text-white font-bold py-4 rounded-2xl text-sm shadow-pink disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+            className="w-full btn-primary-luxury text-white font-bold py-4 rounded-2xl text-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
           >
             Confirm Location
           </button>
@@ -313,7 +313,7 @@ export default function AddressScreen() {
 
         {/* Confirmed location chip */}
         <div className="flex items-start gap-3 bg-pink-50 border border-pink-100 rounded-2xl p-4 mb-5">
-          <div className="w-10 h-10 gradient-pink rounded-full flex items-center justify-center shrink-0 shadow-pink">
+          <div className="w-10 h-10 iridescent rounded-full flex items-center justify-center shrink-0 border border-white/60">
             <MapPin className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -392,14 +392,14 @@ export default function AddressScreen() {
         {flatInput.trim() && (
           <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-xs leading-relaxed">
             <p className="font-bold text-gray-500 text-[10px] uppercase tracking-widest mb-1.5">
-              🗺️ Decorator will navigate to
+              Decorator will navigate to
             </p>
             <p className="text-gray-700 font-medium">
               {[flatInput.trim(), detectedArea, detectedCity, detectedState, detectedPincode]
                 .filter(Boolean).join(', ')}
             </p>
             {landmarkInput.trim() && (
-              <p className="mt-1 text-pink-500 font-semibold">📍 Near: {landmarkInput.trim()}</p>
+              <p className="mt-1 text-pink-500 font-semibold">Near: {landmarkInput.trim()}</p>
             )}
           </div>
         )}
@@ -410,7 +410,7 @@ export default function AddressScreen() {
         <button
           onClick={handleSave}
           disabled={!flatInput.trim()}
-          className="w-full gradient-pink text-white font-bold py-4 rounded-2xl text-sm shadow-pink disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+          className="w-full btn-primary-luxury text-white font-bold py-4 rounded-2xl text-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
         >
           Save Address
         </button>

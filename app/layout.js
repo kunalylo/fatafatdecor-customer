@@ -1,11 +1,22 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 
 const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
   preload: true,
+  variable: '--font-inter',
+})
+
+// Editorial display face for the aurora redesign (used via the .font-display utility)
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  preload: true,
+  variable: '--font-playfair',
 })
 
 export const metadata = {
@@ -36,7 +47,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <head>
         {/* PWA Meta */}
         <meta name="apple-mobile-web-app-capable" content="yes" />

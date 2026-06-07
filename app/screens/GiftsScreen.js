@@ -2,12 +2,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift } from 'lucide-react'
 
 function GiftSkeleton() {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm animate-pulse">
-      <div className="w-full h-36 bg-pink-50" />
+    <div className="glass-card rounded-2xl overflow-hidden animate-pulse">
+      <div className="w-full h-36 bg-pink-50/60" />
       <div className="p-3 space-y-2">
         <div className="h-3.5 bg-gray-100 rounded-full w-3/4" />
         <div className="h-3 bg-gray-100 rounded-full w-full" />
@@ -139,29 +139,29 @@ export default function GiftsScreen() {
   const activeFilterCount = (activeCategory !== 'All' ? 1 : 0) + (activeOccasion !== 'All' ? 1 : 0) + (priceRange !== 0 ? 1 : 0) + (sortBy !== 'default' ? 1 : 0)
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-aurora flex flex-col">
 
       {/* Header */}
-      <div className="gradient-pink px-4 pt-12 pb-5">
+      <div className="glass-overlay px-4 pt-12 pb-4 sticky top-0 z-30">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={goBack} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 active:scale-95 transition-transform">
-            <ArrowLeft className="w-5 h-5 text-white" />
+          <button onClick={goBack} className="w-9 h-9 flex items-center justify-center rounded-xl glass-card active:scale-95 transition-transform">
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-white">{giftMode === 'addon' ? '🎁 Add Gifts to Decor' : '🎁 Gifts'}</h1>
-            <p className="text-white/70 text-xs">{filtered.length} gifts available</p>
+          <div className="flex-1 min-w-0">
+            <p className="eyebrow text-gray-400">{giftMode === 'addon' ? 'Add-on' : 'Boutique'}</p>
+            <h1 className="font-display text-2xl text-gray-900 leading-tight">{giftMode === 'addon' ? 'Add gifts to decor' : 'Gifts'}</h1>
           </div>
-          <button onClick={() => setShowFilters(!showFilters)} className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 active:scale-95 transition-transform">
-            <SlidersHorizontal className="w-4 h-4 text-white" />
+          <button onClick={() => setShowFilters(!showFilters)} className="relative w-9 h-9 flex items-center justify-center rounded-xl glass-card active:scale-95 transition-transform">
+            <SlidersHorizontal className="w-4 h-4 text-gray-700" />
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full text-[9px] font-bold text-gray-800 flex items-center justify-center">{activeFilterCount}</span>
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">{activeFilterCount}</span>
             )}
           </button>
           {cartCount > 0 && (
             <button onClick={handleProceed}
-              className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl active:scale-95 transition-transform shadow-sm">
-              <ShoppingBag className="w-4 h-4 text-pink-500" />
-              <span className="text-sm font-bold text-pink-600">{cartCount}</span>
+              className="flex items-center gap-1.5 btn-primary-luxury px-3 py-1.5 rounded-xl active:scale-95 transition-transform">
+              <ShoppingBag className="w-4 h-4 text-white" />
+              <span className="text-sm font-bold text-white">{cartCount}</span>
             </button>
           )}
         </div>
@@ -171,7 +171,7 @@ export default function GiftsScreen() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search gifts, bouquets, combos..."
-            className="w-full pl-9 pr-9 py-2.5 bg-white rounded-xl text-sm outline-none text-gray-800 placeholder-gray-400" />
+            className="w-full pl-9 pr-9 py-2.5 bg-white/70 border border-white/80 rounded-2xl text-sm outline-none text-gray-800 placeholder-gray-400 focus:border-pink-300" />
           {search.length > 0 && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
               <X className="w-4 h-4 text-gray-400" />
@@ -185,8 +185,8 @@ export default function GiftsScreen() {
             <button key={cat} onClick={() => setActiveCategory(cat)}
               className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
                 activeCategory === cat
-                  ? 'bg-white text-pink-600 shadow-sm'
-                  : 'bg-white/20 text-white/90 border border-white/30'}`}>
+                  ? 'btn-primary-luxury text-white'
+                  : 'bg-white/60 text-gray-600 border border-white/80'}`}>
               {cat}
             </button>
           ))}
@@ -195,7 +195,7 @@ export default function GiftsScreen() {
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="bg-white border-b border-gray-100 px-4 py-4 space-y-4 shadow-sm">
+        <div className="glass-card border-b border-white/60 px-4 py-4 space-y-4">
           {/* Occasion */}
           {occasions.length > 1 && (
             <div>
@@ -204,7 +204,7 @@ export default function GiftsScreen() {
                 {occasions.map(o => (
                   <button key={o} onClick={() => setActiveOccasion(o)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      activeOccasion === o ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      activeOccasion === o ? 'bg-pink-500 text-white' : 'bg-white/60 text-gray-600 border border-white/80'}`}>
                     {o}
                   </button>
                 ))}
@@ -218,7 +218,7 @@ export default function GiftsScreen() {
               {PRICE_RANGES.map((r, i) => (
                 <button key={i} onClick={() => setPriceRange(i)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    priceRange === i ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                    priceRange === i ? 'bg-pink-500 text-white' : 'bg-white/60 text-gray-600 border border-white/80'}`}>
                   {r.label === 'All' ? 'All Prices' : `Rs ${r.label}`}
                 </button>
               ))}
@@ -231,7 +231,7 @@ export default function GiftsScreen() {
               {SORT_OPTIONS.map(s => (
                 <button key={s.value} onClick={() => setSortBy(s.value)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    sortBy === s.value ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                    sortBy === s.value ? 'bg-pink-500 text-white' : 'bg-white/60 text-gray-600 border border-white/80'}`}>
                   {s.label}
                 </button>
               ))}
@@ -257,17 +257,16 @@ export default function GiftsScreen() {
           const outOfStock = isOutOfStock(gift)
           const lowStock = !outOfStock && gift.stock !== undefined && gift.stock > 0 && gift.stock < 5
           return (
-            <div key={gift.id} className={`bg-white rounded-2xl overflow-hidden border shadow-sm flex flex-col transition-transform active:scale-[0.98]
-              ${outOfStock ? 'border-gray-200 opacity-70' : 'border-gray-100'}`}>
+            <div key={gift.id} className={`glass-floating rounded-2xl overflow-hidden flex flex-col transition-transform active:scale-[0.98] ${outOfStock ? 'opacity-70' : ''}`}>
 
               {/* Image area */}
-              <button onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }} className="w-full text-left focus:outline-none">
+              <div onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }} className="w-full text-left cursor-pointer">
                 <div className="relative w-full h-36 bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center">
                   {imgSrc ? (
                     <img src={imgSrc} alt={gift.name} className="w-full h-full object-cover" loading="lazy"
                       onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                   ) : (
-                    <span className="text-4xl">🎁</span>
+                    <Gift className="w-9 h-9 text-pink-300" />
                   )}
                   {/* Price badge */}
                   <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm">
@@ -309,7 +308,7 @@ export default function GiftsScreen() {
                     <p className="text-xs text-gray-400 line-clamp-1">{gift.description}</p>
                   )}
                 </div>
-              </button>
+              </div>
 
               {/* Add / stepper */}
               <div className="px-3 pb-3 pt-2 mt-auto">
@@ -319,18 +318,18 @@ export default function GiftsScreen() {
                   </div>
                 ) : qty === 0 ? (
                   <button onClick={() => updateCart(gift, 1)}
-                    className="w-full py-2 gradient-pink text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm shadow-pink-200">
+                    className="w-full py-2 btn-primary-luxury text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
                     Add
                   </button>
                 ) : (
-                  <div className="flex items-center justify-between bg-pink-50 rounded-xl p-1">
+                  <div className="flex items-center justify-between bg-pink-50/70 rounded-xl p-1">
                     <button onClick={() => updateCart(gift, -1)}
                       className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm active:scale-90 transition-transform">
                       <Minus className="w-4 h-4 text-pink-500" />
                     </button>
                     <span className="text-sm font-bold text-pink-600 w-6 text-center">{qty}</span>
                     <button onClick={() => updateCart(gift, 1)}
-                      className="w-8 h-8 flex items-center justify-center gradient-pink rounded-lg shadow-sm active:scale-90 transition-transform">
+                      className="w-8 h-8 flex items-center justify-center btn-primary-luxury rounded-lg shadow-sm active:scale-90 transition-transform">
                       <Plus className="w-4 h-4 text-white" />
                     </button>
                   </div>
@@ -342,7 +341,7 @@ export default function GiftsScreen() {
 
         {!giftsLoading && filtered.length === 0 && gifts.length > 0 && (
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
-            <span className="text-5xl mb-3">🔍</span>
+            <Search className="w-12 h-12 mb-3 text-gray-300" />
             <p className="font-semibold text-gray-500">No gifts found</p>
             <p className="text-xs mt-1">Try a different search or filter</p>
             <button onClick={() => { setSearch(''); setActiveCategory('All'); setActiveOccasion('All'); setPriceRange(0) }}
@@ -351,7 +350,7 @@ export default function GiftsScreen() {
         )}
         {!giftsLoading && gifts.length === 0 && (
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
-            <span className="text-5xl mb-3">🎁</span>
+            <Gift className="w-12 h-12 mb-3 text-gray-300" />
             <p className="font-semibold text-gray-500">No gifts available</p>
           </div>
         )}
@@ -359,10 +358,10 @@ export default function GiftsScreen() {
 
       {/* Bottom CTA */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 pt-3 pb-8 shadow-2xl z-40">
+        <div className="fixed bottom-0 left-0 right-0 glass-overlay px-4 pt-3 pb-8 z-40">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 gradient-pink rounded-full flex items-center justify-center">
+              <div className="w-6 h-6 btn-primary-luxury rounded-full flex items-center justify-center">
                 <ShoppingBag className="w-3.5 h-3.5 text-white" />
               </div>
               <span className="text-sm font-semibold text-gray-700">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
@@ -370,7 +369,7 @@ export default function GiftsScreen() {
             <span className="text-base font-bold text-gray-900">Rs {cartTotal.toLocaleString('en-IN')}</span>
           </div>
           <button onClick={handleProceed} disabled={loading}
-            className="w-full gradient-pink text-white font-bold py-3.5 rounded-2xl text-sm shadow-pink active:scale-[0.98] transition-transform disabled:opacity-60">
+            className="w-full btn-primary-luxury text-white font-bold py-3.5 rounded-2xl text-sm active:scale-[0.98] transition-transform disabled:opacity-60">
             {loading ? 'Processing...' : giftMode === 'addon'
               ? `Add to Decoration · Rs ${cartTotal.toLocaleString('en-IN')}`
               : `Proceed to Book · Rs ${cartTotal.toLocaleString('en-IN')}`}
@@ -386,12 +385,12 @@ export default function GiftsScreen() {
         return (
           <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setSelectedGift(null)}>
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-            <div className="relative bg-white w-full max-w-md rounded-t-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            <div className="relative glass-overlay w-full max-w-md rounded-t-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
               style={{ animation: 'slideUp 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
 
               <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-200 rounded-full" /></div>
               <button onClick={() => setSelectedGift(null)}
-                className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center z-10 active:scale-90 transition-transform">
+                className="absolute top-4 right-4 w-8 h-8 bg-white/80 rounded-full flex items-center justify-center z-10 active:scale-90 transition-transform">
                 <X className="w-4 h-4 text-gray-600" />
               </button>
 
@@ -403,7 +402,7 @@ export default function GiftsScreen() {
                       className="w-full h-full object-cover transition-opacity duration-200"
                       onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
+                    <div className="w-full h-full flex items-center justify-center"><Gift className="w-14 h-14 text-pink-300" /></div>
                   )}
                   {imgs.length > 1 && (
                     <>
@@ -450,7 +449,7 @@ export default function GiftsScreen() {
                 {/* Info */}
                 <div className="p-5 pt-3">
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <h2 className="text-lg font-black text-gray-800 flex-1 leading-tight">{selectedGift.name}</h2>
+                    <h2 className="font-display text-2xl text-gray-900 flex-1 leading-tight">{selectedGift.name}</h2>
                     <span className="text-xl font-black text-pink-500 shrink-0">Rs {selectedGift.price?.toLocaleString('en-IN')}</span>
                   </div>
 
@@ -480,24 +479,24 @@ export default function GiftsScreen() {
                     </div>
                   ) : qty === 0 ? (
                     <button onClick={() => { updateCart(selectedGift, 1); setSelectedGift(null) }}
-                      className="w-full py-3.5 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm">
+                      className="w-full py-3.5 btn-primary-luxury text-white font-bold rounded-2xl active:scale-[0.98] transition-transform text-sm">
                       Add to Cart · Rs {selectedGift.price?.toLocaleString('en-IN')}
                     </button>
                   ) : (
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-3 bg-pink-50 rounded-2xl p-1.5 flex-1 justify-between">
+                      <div className="flex items-center gap-3 bg-pink-50/70 rounded-2xl p-1.5 flex-1 justify-between">
                         <button onClick={() => updateCart(selectedGift, -1)}
                           className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm active:scale-90 transition-transform">
                           <Minus className="w-4 h-4 text-pink-500" />
                         </button>
                         <span className="text-lg font-black text-pink-600 min-w-[1.5rem] text-center">{qty}</span>
                         <button onClick={() => updateCart(selectedGift, 1)}
-                          className="w-10 h-10 flex items-center justify-center gradient-pink rounded-xl shadow-sm active:scale-90 transition-transform">
+                          className="w-10 h-10 flex items-center justify-center btn-primary-luxury rounded-xl shadow-sm active:scale-90 transition-transform">
                           <Plus className="w-4 h-4 text-white" />
                         </button>
                       </div>
                       <button onClick={() => setSelectedGift(null)}
-                        className="flex-1 py-3 gradient-pink text-white font-bold rounded-2xl shadow-pink active:scale-[0.98] transition-transform text-sm">
+                        className="flex-1 py-3 btn-primary-luxury text-white font-bold rounded-2xl active:scale-[0.98] transition-transform text-sm">
                         Done
                       </button>
                     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Phone, Mail } from 'lucide-react'
+import { Loader2, Phone, Mail, Sparkles, Gift, Wand2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { LOGO_URL } from '../lib/constants'
 
@@ -70,38 +70,43 @@ export default function AuthScreen() {
     setLoginOtpSent(false); setLoginOtpValue(''); setLoginDevOtp('')
   }
 
+  // Shared aurora input styling
+  const inputCls = 'h-12 rounded-2xl bg-white/70 border-white/80 focus-visible:ring-pink-300/60 shadow-sm placeholder:text-gray-400'
+
   return (
-    <div className="min-h-screen bg-rose-50 fade-in flex flex-col">
+    <div className="min-h-screen bg-aurora fade-in flex flex-col relative overflow-hidden">
+      {/* Ambient iridescent orbs */}
+      <div className="iridescent-orb absolute -top-10 -left-10 w-44 h-44 rounded-full pointer-events-none" />
+      <div className="iridescent-orb absolute top-24 -right-12 w-40 h-40 rounded-full pointer-events-none" style={{ animationDelay: '2s' }} />
 
-      {/* ── Pink hero — compact ── */}
-      <div className="gradient-pink pt-10 pb-6 px-6 text-center relative overflow-hidden">
-        {/* Decorative blobs */}
-        <div className="absolute top-0 right-0 w-36 h-36 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/10 translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
-        <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 border-4 border-white/40 shadow-2xl relative z-10">
+      {/* ── Editorial hero ── */}
+      <div className="pt-14 pb-6 px-6 text-center relative z-10">
+        <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 border border-white/70 shadow-xl glass-icon">
           <img src={LOGO_URL} alt="FatafatDecor" className="w-full h-full object-cover" />
         </div>
-        <h1 className="text-white text-xl font-black tracking-tight relative z-10">FatafatDecor</h1>
-        <p className="text-white/80 text-xs mt-0.5 relative z-10">✨ AI-powered decoration at your doorstep</p>
-        <div className="flex justify-center gap-3 mt-2 relative z-10">
-          {['🎀', '🎊', '🌸', '💐', '🎉'].map((e, i) => (
-            <span key={i} className="text-lg opacity-80">{e}</span>
-          ))}
+        <p className="eyebrow text-gray-500 mb-1">AI Decoration Studio</p>
+        <h1 className="font-display text-4xl text-gray-900 leading-tight">
+          Fatafat <span className="italic iridescent-text">Decor</span>
+        </h1>
+        <p className="text-gray-500 text-sm mt-2">Your space, beautifully decorated — delivered to your door.</p>
+        <div className="flex justify-center gap-5 mt-4 text-gray-400">
+          <span className="flex flex-col items-center gap-1 text-[10px] font-semibold"><Wand2 className="w-4 h-4 text-pink-400" /> Design</span>
+          <span className="flex flex-col items-center gap-1 text-[10px] font-semibold"><Sparkles className="w-4 h-4 text-violet-400" /> AI Preview</span>
+          <span className="flex flex-col items-center gap-1 text-[10px] font-semibold"><Gift className="w-4 h-4 text-amber-400" /> Gifts</span>
         </div>
       </div>
 
-      {/* ── Card overlapping hero ── */}
-      <div className="flex-1 flex flex-col items-center px-4 -mt-6 pb-8 relative z-10">
-        <Card className="w-full max-w-sm border border-pink-100 shadow-xl shadow-pink-100/60 rounded-3xl overflow-hidden bg-white">
+      {/* ── Glass auth card ── */}
+      <div className="flex-1 flex flex-col items-center px-4 pb-10 relative z-10">
+        <Card className="w-full max-w-sm border-0 glass-floating rounded-[28px] overflow-hidden">
           <CardContent className="p-5 space-y-3">
 
             {/* Login / Sign Up tabs */}
-            <div className="flex gap-2 mb-1">
+            <div className="flex gap-1.5 p-1 rounded-2xl bg-white/50 border border-white/70 mb-1">
               {['login', 'register'].map(m => (
                 <button key={m} onClick={() => switchTab(m)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${authMode === m ? 'gradient-pink text-white shadow-pink' : 'bg-gray-50 text-gray-400'}`}>
-                  {m === 'login' ? '🔑 Login' : '🌟 Sign Up'}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${authMode === m ? 'btn-primary-luxury' : 'text-gray-500'}`}>
+                  {m === 'login' ? 'Login' : 'Sign Up'}
                 </button>
               ))}
             </div>
@@ -110,13 +115,13 @@ export default function AuthScreen() {
             {authMode === 'login' && (
               <>
                 {/* Email / OTP sub-toggle */}
-                <div className="flex gap-1.5 bg-gray-50 p-1 rounded-xl">
+                <div className="flex gap-1.5 bg-white/50 border border-white/70 p-1 rounded-2xl">
                   <button onClick={() => switchLoginMethod('password')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${loginMethod === 'password' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-400'}`}>
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${loginMethod === 'password' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}>
                     <Mail className="w-3.5 h-3.5" /> Email
                   </button>
                   <button onClick={() => switchLoginMethod('otp')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${loginMethod === 'otp' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-400'}`}>
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${loginMethod === 'otp' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}>
                     <Phone className="w-3.5 h-3.5" /> OTP
                   </button>
                 </div>
@@ -126,13 +131,13 @@ export default function AuthScreen() {
                   <>
                     <Input placeholder="Email" type="email" value={authForm.email}
                       onChange={e => setAuthForm(p => ({ ...p, email: e.target.value }))}
-                      className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                      className={inputCls} />
                     <Input placeholder="Password" type="password" value={authForm.password}
                       onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
-                      className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                      className={inputCls} />
                     <Button onClick={handleAuth} disabled={loading}
-                      className="w-full h-11 gradient-pink border-0 text-white font-bold text-sm rounded-xl shadow-pink">
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login →'}
+                      className="w-full h-12 btn-primary-luxury border-0 text-white font-bold text-sm rounded-2xl">
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Login'}
                     </Button>
                   </>
                 )}
@@ -142,25 +147,25 @@ export default function AuthScreen() {
                   <>
                     <Input placeholder="Phone Number (10 digits)" type="tel" value={authForm.phone}
                       onChange={e => setAuthForm(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                      className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                      className={inputCls} />
                     <Button onClick={handleSendLoginOtpWithCooldown} disabled={loading || loginOtpCooldown > 0}
-                      className="w-full h-10 gradient-pink border-0 text-white font-semibold text-sm rounded-xl shadow-pink disabled:opacity-60">
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : loginOtpCooldown > 0 ? `Resend in ${loginOtpCooldown}s` : loginOtpSent ? 'Resend OTP' : '📱 Send OTP'}
+                      className="w-full h-11 btn-primary-luxury border-0 text-white font-semibold text-sm rounded-2xl disabled:opacity-60">
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : loginOtpCooldown > 0 ? `Resend in ${loginOtpCooldown}s` : loginOtpSent ? 'Resend OTP' : 'Send OTP'}
                     </Button>
                     {loginOtpSent && (
                       <>
                         {loginDevOtp && process.env.NODE_ENV === 'development' && (
-                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                            <p className="text-xs text-amber-600 font-medium mb-1">⚙️ Dev Mode — OTP</p>
+                          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-center">
+                            <p className="text-xs text-amber-600 font-medium mb-1">Dev Mode — OTP</p>
                             <p className="text-2xl font-bold tracking-[0.4em] text-amber-800">{loginDevOtp}</p>
                           </div>
                         )}
                         <Input placeholder="Enter 6-digit OTP" value={loginOtpValue}
                           onChange={e => setLoginOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          maxLength={6} className="bg-gray-50 border-gray-200 h-11 rounded-xl text-center text-lg tracking-widest" />
+                          maxLength={6} className={`${inputCls} text-center text-lg tracking-widest`} />
                         <Button onClick={handleVerifyLoginOtp} disabled={loading || !loginOtpValue}
-                          className="w-full h-11 gradient-pink border-0 text-white font-bold text-sm rounded-xl shadow-pink disabled:opacity-50">
-                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : '🔑 Verify & Login'}
+                          className="w-full h-12 btn-primary-luxury border-0 text-white font-bold text-sm rounded-2xl disabled:opacity-50">
+                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Login'}
                         </Button>
                       </>
                     )}
@@ -174,34 +179,34 @@ export default function AuthScreen() {
               <>
                 <Input placeholder="Full Name" value={authForm.name}
                   onChange={e => setAuthForm(p => ({ ...p, name: e.target.value }))}
-                  className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                  className={inputCls} />
                 <Input placeholder="Phone Number (10 digits)" type="tel" value={authForm.phone}
                   onChange={e => setAuthForm(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                  className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                  className={inputCls} />
                 <Button onClick={handleSendSignupOtpWithCooldown} disabled={loading || otpCooldown > 0}
-                  className="w-full h-10 gradient-pink border-0 text-white font-semibold text-sm rounded-xl shadow-pink disabled:opacity-60">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : signupOtpSent ? 'Resend OTP' : '📱 Send OTP'}
+                  className="w-full h-11 btn-primary-luxury border-0 text-white font-semibold text-sm rounded-2xl disabled:opacity-60">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : signupOtpSent ? 'Resend OTP' : 'Send OTP'}
                 </Button>
                 {signupOtpSent && (
                   <>
                     {devOtp && process.env.NODE_ENV === 'development' && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                        <p className="text-xs text-amber-600 font-medium mb-1">⚙️ Dev Mode — OTP</p>
+                      <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-center">
+                        <p className="text-xs text-amber-600 font-medium mb-1">Dev Mode — OTP</p>
                         <p className="text-2xl font-bold tracking-[0.4em] text-amber-800">{devOtp}</p>
                       </div>
                     )}
                     <Input placeholder="Enter 6-digit OTP" value={signupOtpValue}
                       onChange={e => setSignupOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      maxLength={6} className="bg-gray-50 border-gray-200 h-11 rounded-xl text-center text-lg tracking-widest" />
+                      maxLength={6} className={`${inputCls} text-center text-lg tracking-widest`} />
                     <Input placeholder="Email" type="email" value={authForm.email}
                       onChange={e => setAuthForm(p => ({ ...p, email: e.target.value }))}
-                      className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                      className={inputCls} />
                     <Input placeholder="Password" type="password" value={authForm.password}
                       onChange={e => setAuthForm(p => ({ ...p, password: e.target.value }))}
-                      className="bg-gray-50 border-gray-200 h-11 rounded-xl" />
+                      className={inputCls} />
                     <Button onClick={handleVerifySignupOtp} disabled={loading || !signupOtpValue}
-                      className="w-full h-11 gradient-pink border-0 text-white font-bold text-sm rounded-xl shadow-pink disabled:opacity-50">
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : '🌟 Create Account'}
+                      className="w-full h-12 btn-primary-luxury border-0 text-white font-bold text-sm rounded-2xl disabled:opacity-50">
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
                     </Button>
                   </>
                 )}
@@ -210,12 +215,12 @@ export default function AuthScreen() {
 
             {/* Google */}
             <div className="flex items-center gap-3 my-1">
-              <div className="flex-1 h-px bg-gray-100" />
+              <div className="flex-1 h-px bg-gray-200/70" />
               <span className="text-xs text-gray-400">or continue with</span>
-              <div className="flex-1 h-px bg-gray-100" />
+              <div className="flex-1 h-px bg-gray-200/70" />
             </div>
             <button onClick={handleGoogleAuth} disabled={loading}
-              className="w-full h-11 flex items-center justify-center gap-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all text-sm font-semibold text-gray-700 shadow-sm">
+              className="w-full h-12 flex items-center justify-center gap-3 border border-white/80 rounded-2xl bg-white/70 hover:bg-white transition-all text-sm font-semibold text-gray-700 shadow-sm">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -230,7 +235,7 @@ export default function AuthScreen() {
 
         <p className="text-center text-gray-400 text-xs mt-4 px-4">
           By continuing, you agree to our{' '}
-          <span className="text-pink-500 font-semibold">Terms & Privacy Policy</span>
+          <span className="text-pink-500 font-semibold">Terms &amp; Privacy Policy</span>
         </p>
       </div>
     </div>

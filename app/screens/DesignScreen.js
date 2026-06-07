@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2, ChevronDown, Image as ImageIcon, X, Maximize2 } from 'lucide-react'
+import { ChevronLeft, Sparkles, Plus, Package, IndianRupee, Trash2, ShoppingBag, RefreshCw, Loader2, ChevronDown, Image as ImageIcon, X, Maximize2, Gift } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, customerBreakdown } from '../lib/constants'
 import { api } from '../lib/constants'
@@ -92,7 +92,7 @@ export default function DesignScreen() {
   }, {}) : {}
 
   return (
-    <div className="slide-up pb-24 bg-white min-h-screen">
+    <div className="slide-up pb-28 bg-aurora-soft min-h-screen">
 
       {/* ── Full-screen comparison: AI result + your room + reference ── */}
       {fullscreen && (
@@ -112,13 +112,13 @@ export default function DesignScreen() {
             )}
             {d.original_image_url && (
               <div>
-                <p className="text-sky-300 text-[11px] font-bold uppercase tracking-wide mb-2">📷 Your Room (uploaded)</p>
+                <p className="text-sky-300 text-[11px] font-bold uppercase tracking-wide mb-2 flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> Your Room (uploaded)</p>
                 <img src={d.original_image_url} alt="Your room" className="w-full rounded-2xl border border-white/10" />
               </div>
             )}
             {d.reference_image_url && (
               <div>
-                <p className="text-amber-300 text-[11px] font-bold uppercase tracking-wide mb-2">💡 Inspired By (reference)</p>
+                <p className="text-amber-300 text-[11px] font-bold uppercase tracking-wide mb-2 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Inspired By (reference)</p>
                 <img src={d.reference_image_url} alt="Reference" className="w-full rounded-2xl border border-white/10" />
               </div>
             )}
@@ -126,22 +126,22 @@ export default function DesignScreen() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 p-4">
-        <button onClick={() => navigate(SCREENS.HOME)} className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
+      <div className="flex items-center gap-3 p-4 pt-6">
+        <button onClick={() => navigate(SCREENS.HOME)} className="w-9 h-9 rounded-full glass-card flex items-center justify-center">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <h1 className="font-bold text-lg text-gray-800">Design Preview</h1>
-        <Badge className="ml-auto gradient-pink border-0 text-white">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
+        <h1 className="font-display text-2xl text-gray-900">Design <span className="italic iridescent-text">preview</span></h1>
+        <Badge className="ml-auto btn-primary-luxury border-0 text-white">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
       </div>
       <div className="px-4 space-y-4">
 
         {/* Hero — decorated room image */}
         {imageLoading ? (
-          <div className="rounded-2xl border border-pink-100 bg-pink-50 h-64 flex items-center justify-center">
+          <div className="rounded-2xl border border-white/80 glass-card h-64 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-pink-400 animate-spin" />
           </div>
         ) : d.decorated_image ? (
-          <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-lg shadow-pink-100/30 relative cursor-pointer" onClick={() => setFullscreen(true)}>
+          <div className="rounded-[22px] overflow-hidden border border-white/80 shadow-lg shadow-pink-100/30 relative cursor-pointer" onClick={() => setFullscreen(true)}>
             <img
               src={d.decorated_image.includes('ik.imagekit.io') ? `${d.decorated_image}?tr=w-800,c-maintain_ratio` : d.decorated_image}
               alt="Decorated" className="w-full" loading="eager" />
@@ -153,90 +153,84 @@ export default function DesignScreen() {
 
         {/* "Inspired by" reference thumbnail — only for reference-flow designs */}
         {isReferenceFlow && referenceThumb && (
-          <Card className="border border-pink-100 bg-gradient-to-r from-pink-50/30 to-rose-50/30">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="w-16 h-16 rounded-xl overflow-hidden border border-pink-200 shrink-0">
-                <img src={referenceThumb} alt="Reference" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase text-pink-500 font-semibold tracking-wide">Inspired by</p>
-                <p className="text-sm font-bold text-gray-700 truncate">{d.theme || 'Premium Decoration Style'}</p>
-                {referencePrice && (
-                  <p className="text-xs text-gray-500">Decoration value Rs {referencePrice.toLocaleString('en-IN')}</p>
-                )}
-              </div>
-              <Sparkles className="w-5 h-5 text-pink-400" />
-            </CardContent>
-          </Card>
+          <div className="glass-floating rounded-[22px] p-3 flex items-center gap-3">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-white/80 shrink-0">
+              <img src={referenceThumb} alt="Reference" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="eyebrow text-pink-500">Inspired by</p>
+              <p className="text-sm font-bold text-gray-800 truncate">{d.theme || 'Premium Decoration Style'}</p>
+              {referencePrice && (
+                <p className="text-xs text-gray-500">Decoration value Rs {referencePrice.toLocaleString('en-IN')}</p>
+              )}
+            </div>
+            <Sparkles className="w-5 h-5 text-pink-400" />
+          </div>
         )}
 
         {/* ── REFERENCE FLOW: Itemized list grouped by category ──────── */}
         {isReferenceFlow && snapshotItems.length > 0 && (
-          <Card className="border border-pink-100">
-            <CardContent className="p-4">
-              <button
-                onClick={() => setShowAllItems(v => !v)}
-                className="w-full flex items-center justify-between mb-2"
-              >
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-pink-500" />
-                  <h3 className="font-bold text-sm text-gray-700">What's Included ({snapshotItems.length} items)</h3>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
-              </button>
+          <div className="glass-floating rounded-[22px] p-4">
+            <button
+              onClick={() => setShowAllItems(v => !v)}
+              className="w-full flex items-center justify-between mb-2"
+            >
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-pink-500" />
+                <h3 className="font-bold text-sm text-gray-800">What&apos;s Included ({snapshotItems.length} items)</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
+            </button>
 
-              {showAllItems && (
-                <div className="space-y-3 mt-2">
-                  {Object.entries(groupedItems).map(([category, items]) => (
-                    <div key={category}>
-                      <p className="text-[10px] uppercase font-bold text-pink-500 tracking-wide mb-1">{category}</p>
-                      <div className="space-y-1">
-                        {items.map((item, i) => (
-                          <div key={item.id || i} className="flex items-center gap-2 py-1">
-                            <span className="text-xs text-gray-600 flex-1">
-                              <strong className="text-gray-800">{item.quantity}×</strong> {item.name}
-                            </span>
-                            <span className="text-xs font-semibold text-gray-700">Rs {((Number(item.unit_price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
-                            {item.is_removable && (
-                              <button onClick={() => deleteSnapshotItem(snapshotItems.indexOf(item))} className="w-6 h-6 rounded bg-red-50 flex items-center justify-center">
-                                <Trash2 className="w-3 h-3 text-red-400" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+            {showAllItems && (
+              <div className="space-y-3 mt-2">
+                {Object.entries(groupedItems).map(([category, items]) => (
+                  <div key={category}>
+                    <p className="eyebrow text-pink-500 mb-1">{category}</p>
+                    <div className="space-y-1">
+                      {items.map((item, i) => (
+                        <div key={item.id || i} className="flex items-center gap-2 py-1">
+                          <span className="text-xs text-gray-600 flex-1">
+                            <strong className="text-gray-800">{item.quantity}×</strong> {item.name}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-700">Rs {((Number(item.unit_price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
+                          {item.is_removable && (
+                            <button onClick={() => deleteSnapshotItem(snapshotItems.indexOf(item))} className="w-6 h-6 rounded bg-red-50 flex items-center justify-center">
+                              <Trash2 className="w-3 h-3 text-red-400" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── LEGACY FLOW: Kit display ──────────────────────────────── */}
         {hasKit && (
-          <Card className="border-2 border-pink-200 bg-pink-50/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-pink-500" />
-                <h3 className="font-bold text-sm text-pink-600">Final Look Kit</h3>
-              </div>
-              {d.kit_name && <p className="text-sm font-bold text-gray-700 mb-1">{d.kit_name}</p>}
-              <div className="space-y-1">
-                {kitItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-pink-400" />
-                    <span className="text-xs text-gray-600 flex-1">{item.name} {item.color ? `(${item.color})` : ''}</span>
-                    <span className="text-xs font-semibold text-pink-500">₹{((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 pt-2 border-t border-pink-100">
-                <span className="text-xs font-bold text-gray-600">Kit Cost</span>
-                <span className="text-sm font-bold text-pink-500">₹{d.kit_cost || kitItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="glass-floating rounded-[22px] p-4 border border-pink-100">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-pink-500" />
+              <h3 className="font-bold text-sm text-pink-600">Final Look Kit</h3>
+            </div>
+            {d.kit_name && <p className="text-sm font-bold text-gray-700 mb-1">{d.kit_name}</p>}
+            <div className="space-y-1">
+              {kitItems.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 py-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                  <span className="text-xs text-gray-600 flex-1">{item.name} {item.color ? `(${item.color})` : ''}</span>
+                  <span className="text-xs font-semibold text-pink-500">₹{((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between mt-2 pt-2 border-t border-pink-100/70">
+              <span className="text-xs font-bold text-gray-600">Kit Cost</span>
+              <span className="text-sm font-bold text-pink-500">₹{d.kit_cost || kitItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)}</span>
+            </div>
+          </div>
         )}
 
         {/* ── LEGACY FLOW: Add-on items ─────────────────────────────── */}
@@ -249,28 +243,26 @@ export default function DesignScreen() {
             </h3>
             <div className="space-y-2">
               {displayAddonItems.map((item, i) => (
-                <Card key={item.id || i} className="border border-gray-100">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-purple-50">
-                      <Package className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-700 truncate">{item.name}</p>
-                      <p className="text-[10px] text-gray-400">
-                        {item.color ? `${item.color} • ` : ''}{item.category ? item.category.replace('_', ' ') : ''}
-                      </p>
-                    </div>
-                    <p className="text-sm font-bold shrink-0 text-purple-500">
-                      ₹{((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
+                <div key={item.id || i} className="glass-card rounded-2xl p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-purple-50">
+                    <Package className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-700 truncate">{item.name}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {item.color ? `${item.color} • ` : ''}{item.category ? item.category.replace('_', ' ') : ''}
                     </p>
-                    {item.is_rentable && (
-                      <button onClick={() => deleteAddonItem(item.id)}
-                        className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0 hover:bg-red-100 active:bg-red-200">
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </button>
-                    )}
-                  </CardContent>
-                </Card>
+                  </div>
+                  <p className="text-sm font-bold shrink-0 text-purple-500">
+                    ₹{((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
+                  </p>
+                  {item.is_rentable && (
+                    <button onClick={() => deleteAddonItem(item.id)}
+                      className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0 hover:bg-red-100 active:bg-red-200">
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                    </button>
+                  )}
+                </div>
               ))}
               <div className="flex justify-between px-1">
                 <span className="text-xs text-gray-400">Add-ons Total</span>
@@ -282,11 +274,13 @@ export default function DesignScreen() {
 
         {/* Add Gifts to decoration */}
         <div onClick={() => { if (giftMode !== 'addon') setGiftCart([]); setGiftMode('addon'); navigate(SCREENS.GIFTS) }}
-          className="mx-0 mb-3 p-4 border-2 border-dashed border-pink-200 rounded-2xl flex items-center gap-3 cursor-pointer active:scale-95 transition-transform bg-pink-50/50">
-          <span className="text-2xl">🎁</span>
+          className="mb-3 p-4 border-2 border-dashed border-pink-200 rounded-2xl flex items-center gap-3 cursor-pointer active:scale-95 transition-transform bg-white/50">
+          <div className="w-10 h-10 accent-pink rounded-xl flex items-center justify-center shrink-0">
+            <Gift className="w-5 h-5 text-white" />
+          </div>
           <div className="flex-1">
             <p className="font-semibold text-pink-600 text-sm">Add Gifts to Decoration</p>
-            <p className="text-xs text-gray-400">Surprise them with flowers, bouquets & more</p>
+            <p className="text-xs text-gray-400">Surprise them with flowers, bouquets &amp; more</p>
           </div>
           {giftCart.length > 0 && giftMode === 'addon' && (
             <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full">{giftCart.length}</span>
@@ -295,15 +289,15 @@ export default function DesignScreen() {
 
         {/* Show selected gifts */}
         {giftCart.length > 0 && giftMode === 'addon' && (
-          <div className="mb-3 p-4 bg-white rounded-2xl border border-pink-100">
-            <p className="text-xs font-bold text-gray-600 mb-2">🎁 Added Gifts</p>
+          <div className="mb-3 p-4 glass-floating rounded-[22px]">
+            <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5"><Gift className="w-4 h-4 text-pink-500" /> Added Gifts</p>
             {giftCart.map((g, i) => (
               <div key={i} className="flex justify-between items-center py-1">
                 <span className="text-sm text-gray-700">{g.quantity}× {g.name}</span>
                 <span className="text-sm font-semibold text-pink-600">₹{(g.price * g.quantity).toLocaleString('en-IN')}</span>
               </div>
             ))}
-            <div className="border-t border-pink-100 mt-2 pt-2 flex justify-between">
+            <div className="border-t border-pink-100/70 mt-2 pt-2 flex justify-between">
               <span className="text-sm font-bold text-gray-700">Gifts Total</span>
               <span className="text-sm font-bold text-pink-600">₹{giftCart.reduce((s,g)=>s+g.price*g.quantity,0).toLocaleString('en-IN')}</span>
             </div>
@@ -312,76 +306,72 @@ export default function DesignScreen() {
 
         {/* ── REFERENCE FLOW: Customer breakdown waterfall ──────────── */}
         {isReferenceFlow && breakdown && (
-          <Card className="border border-gray-200 bg-gradient-to-b from-white to-pink-50/20">
-            <CardContent className="p-4">
-              <h3 className="font-bold text-sm text-gray-700 mb-3">Price Breakdown</h3>
-              <div className="space-y-1.5 text-sm">
-                <PriceRow label="Decoration & Material" value={breakdown.decoration_total} />
-                <PriceRow label="Setup & Transportation" value={breakdown.setup_transport} sub />
-                <PriceRow label="Platform Fee" value={breakdown.platform_fee} sub />
-                <PriceRow label="Convenience Fee" value={breakdown.convenience_fee} sub />
-                {giftAddonTotal > 0 && (
-                  <PriceRow label="🎁 Gifts" value={giftAddonTotal} accent="pink" />
-                )}
-                <div className="border-t border-gray-200 my-2" />
-                <PriceRow label="Subtotal" value={breakdown.subtotal + giftAddonTotal} muted />
-                <PriceRow label="GST (18%)" value={breakdown.gst} muted />
-                <div className="border-t border-gray-200 my-2" />
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-gray-700">Customer Total</p>
-                    <p className="text-[10px] text-gray-400">All-inclusive</p>
-                  </div>
-                  <div className="flex items-center text-pink-600">
-                    <IndianRupee className="w-5 h-5" />
-                    <span className="text-2xl font-bold">{displayTotal.toLocaleString('en-IN')}</span>
-                  </div>
+          <div className="glass-floating rounded-[22px] p-4">
+            <h3 className="font-bold text-sm text-gray-800 mb-3">Price Breakdown</h3>
+            <div className="space-y-1.5 text-sm">
+              <PriceRow label="Decoration & Material" value={breakdown.decoration_total} />
+              <PriceRow label="Setup & Transportation" value={breakdown.setup_transport} sub />
+              <PriceRow label="Platform Fee" value={breakdown.platform_fee} sub />
+              <PriceRow label="Convenience Fee" value={breakdown.convenience_fee} sub />
+              {giftAddonTotal > 0 && (
+                <PriceRow label="Gifts" value={giftAddonTotal} accent="pink" />
+              )}
+              <div className="border-t border-gray-200/70 my-2" />
+              <PriceRow label="Subtotal" value={breakdown.subtotal + giftAddonTotal} muted />
+              <PriceRow label="GST (18%)" value={breakdown.gst} muted />
+              <div className="border-t border-gray-200/70 my-2" />
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-gray-800">Customer Total</p>
+                  <p className="text-[10px] text-gray-400">All-inclusive</p>
                 </div>
-                <div className="mt-3 p-2.5 bg-pink-50 border border-pink-100 rounded-xl flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Pay <strong className="text-pink-600">Rs {halfNow.toLocaleString('en-IN')}</strong> now (50%)</span>
-                  <span className="text-xs text-gray-500">Rest on delivery</span>
+                <div className="flex items-center text-pink-600">
+                  <IndianRupee className="w-5 h-5" />
+                  <span className="text-2xl font-bold">{displayTotal.toLocaleString('en-IN')}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="mt-3 p-2.5 bg-pink-50/70 border border-pink-100 rounded-xl flex items-center justify-between">
+                <span className="text-xs text-gray-600">Pay <strong className="text-pink-600">Rs {halfNow.toLocaleString('en-IN')}</strong> now (50%)</span>
+                <span className="text-xs text-gray-500">Rest on delivery</span>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── LEGACY FLOW: simple total card ────────────────────────── */}
         {!isReferenceFlow && (
-          <Card className="border border-green-200 bg-green-50/30">
-            <CardContent className="p-4">
-              {giftAddonTotal > 0 ? (
-                <>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500">Decoration</span>
-                    <span className="font-semibold text-gray-700">₹{decorationTotal.toFixed(0)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-500">🎁 Gifts</span>
-                    <span className="font-semibold text-pink-600">₹{giftAddonTotal.toFixed(0)}</span>
-                  </div>
-                  <div className="border-t border-green-200 pt-2 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-700">Total (50% now)</h3>
-                    <div className="flex items-center text-green-600">
-                      <IndianRupee className="w-5 h-5" />
-                      <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-bold text-gray-700">Total Cost</h3>
-                    <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} · pay 50% now</p>
-                  </div>
+          <div className="glass-floating rounded-[22px] p-4 border border-green-200/60">
+            {giftAddonTotal > 0 ? (
+              <>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Decoration</span>
+                  <span className="font-semibold text-gray-700">₹{decorationTotal.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-500">Gifts</span>
+                  <span className="font-semibold text-pink-600">₹{giftAddonTotal.toFixed(0)}</span>
+                </div>
+                <div className="border-t border-green-200/60 pt-2 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-700">Total (50% now)</h3>
                   <div className="flex items-center text-green-600">
                     <IndianRupee className="w-5 h-5" />
                     <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-gray-700">Total Cost</h3>
+                  <p className="text-xs text-gray-400">{hasKit ? 'Kit + Add-ons' : 'All items'} · pay 50% now</p>
+                </div>
+                <div className="flex items-center text-green-600">
+                  <IndianRupee className="w-5 h-5" />
+                  <span className="text-2xl font-bold">{displayTotal.toFixed(0)}</span>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Actions */}
@@ -400,11 +390,11 @@ export default function DesignScreen() {
                   : (localAddonItems !== null ? decorationTotal : null)
                 handleCreateOrder(totalOverride, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [], itemsOverride)
               }} disabled={loading}
-                className="w-full h-14 gradient-pink border-0 text-white font-bold text-base rounded-2xl shadow-pink">
+                className="w-full h-14 btn-primary-luxury border-0 text-white font-bold text-base rounded-2xl">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
               </Button>
               <Button onClick={() => navigate(SCREENS.UPLOAD)} variant="outline"
-                className="w-full h-12 border-pink-200 text-pink-500 font-semibold rounded-2xl hover:bg-pink-50">
+                className="w-full h-12 border-pink-200 bg-white/50 text-pink-500 font-semibold rounded-2xl hover:bg-pink-50">
                 <RefreshCw className="w-4 h-4 mr-2" /> Try Another Style
               </Button>
             </>
