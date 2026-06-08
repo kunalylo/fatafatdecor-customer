@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   User, Zap, ShoppingBag, MapPin, Phone, Mail, ChevronRight, LogOut, X, Lock,
-  Check, Loader2, Eye, EyeOff, Star, Plus, Headphones, Wand2, Gift, Edit3,
+  Check, Loader2, Eye, EyeOff, Star, Plus, Headphones, Wand2, Gift, Edit3, Camera,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, SUPPORT_PHONE, api } from '../lib/constants'
@@ -17,6 +17,7 @@ export default function ProfileScreen() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
+  const [editPhoto, setEditPhoto] = useState(null)
   const [saving, setSaving] = useState(false)
 
   // Change password modal
@@ -28,7 +29,28 @@ export default function ProfileScreen() {
   const [showNewPwd, setShowNewPwd] = useState(false)
   const [changingPwd, setChangingPwd] = useState(false)
 
-  const openEdit = () => { setEditName(user?.name || ''); setEditPhone(user?.phone || ''); setShowEditModal(true) }
+  const openEdit = () => { setEditName(user?.name || ''); setEditPhone(user?.phone || ''); setEditPhoto(null); setShowEditModal(true) }
+
+  const handlePhotoPick = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { showToast('Please pick an image file', 'error'); return }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 256
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1)
+        const c = document.createElement('canvas')
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale)
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+        setEditPhoto(c.toDataURL('image/jpeg', 0.85))
+      }
+      img.onerror = () => showToast('Could not read that image', 'error')
+      img.src = ev.target?.result
+    }
+    reader.readAsDataURL(file)
+  }
 
   const saveProfile = async () => {
     if (!editName.trim() || editName.trim().length < 2) { showToast('Name must be at least 2 characters', 'error'); return }
@@ -36,9 +58,10 @@ export default function ProfileScreen() {
     setSaving(true)
     const body = { name: editName.trim() }
     if (editPhone.replace(/\D/g, '').length === 10) body.phone = editPhone.replace(/\D/g, '')
+    if (editPhoto) body.photo_url = editPhoto
     const data = await api('user/profile', { method: 'PUT', body })
     if (data.error) { showToast(data.error, 'error') }
-    else { setUser(prev => ({ ...prev, name: data.name, phone: data.phone })); showToast('Profile updated!', 'success'); setShowEditModal(false) }
+    else { setUser(prev => ({ ...prev, name: data.name, phone: data.phone, photo_url: data.photo_url || editPhoto || prev.photo_url })); showToast('Profile updated!', 'success'); setShowEditModal(false) }
     setSaving(false)
   }
 
@@ -94,9 +117,6 @@ export default function ProfileScreen() {
               <h2 className="font-display text-2xl font-medium text-gray-900 truncate">{user?.name}</h2>
               {memberSince && <p className="text-[11px] text-gray-600 mt-0.5">{memberSince}</p>}
             </div>
-            <button onClick={openEdit} className="w-9 h-9 rounded-full bg-white/80 border border-white/80 flex items-center justify-center shrink-0">
-              <Edit3 className="w-4 h-4 text-gray-500" strokeWidth={2.2} />
-            </button>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-2">
             {user?.phone && (
@@ -188,18 +208,23 @@ export default function ProfileScreen() {
         </section>
       </div>
 
-      {/* ── Edit Profile Modal ── */}
+      {/* ── Edit Profile Modal (centered so Save is always visible above the nav) ── */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowEditModal(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="relative glass-overlay w-full max-w-md rounded-t-[28px] overflow-hidden" style={{ animation: 'sheetSlideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
+          <div className="glass-floating rounded-[28px] w-full max-w-sm overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="iridescent aurora-shimmer p-6 text-center relative">
               <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 w-8 h-8 bg-white/25 rounded-full flex items-center justify-center"><X className="w-4 h-4 text-white" /></button>
-              <div className="w-20 h-20 rounded-3xl bg-white/25 flex items-center justify-center mx-auto mb-2 border border-white/40">
-                {user?.photo_url ? <img src={user.photo_url} alt="" className="w-full h-full object-cover rounded-3xl" /> : <span className="text-white font-display text-3xl">{(editName?.[0] || user?.name?.[0] || 'U').toUpperCase()}</span>}
+              <div className="relative w-24 h-24 mx-auto mb-3">
+                <div className="w-24 h-24 rounded-3xl bg-white/25 flex items-center justify-center overflow-hidden border border-white/40">
+                  {(editPhoto || user?.photo_url) ? <img src={editPhoto || user.photo_url} alt="" className="w-full h-full object-cover" /> : <span className="text-white font-display text-4xl">{(editName?.[0] || user?.name?.[0] || 'U').toUpperCase()}</span>}
+                </div>
+                <label className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-white shadow-lg flex items-center justify-center cursor-pointer active:scale-90 transition-transform">
+                  <Camera className="w-4 h-4 text-pink-600" strokeWidth={2.2} />
+                  <input type="file" accept="image/*" onChange={handlePhotoPick} className="hidden" />
+                </label>
               </div>
               <h2 className="text-white font-display text-2xl">Edit profile</h2>
-              <p className="text-white/85 text-xs mt-0.5">Keep your details up to date</p>
+              <p className="text-white/85 text-xs mt-0.5">Tap the camera to change your photo</p>
             </div>
             <div className="p-5 space-y-3">
               <div>
@@ -218,7 +243,6 @@ export default function ProfileScreen() {
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Check className="w-4 h-4 mr-1.5" /> Save Changes</>}
               </Button>
             </div>
-            <div className="pb-5" />
           </div>
         </div>
       )}

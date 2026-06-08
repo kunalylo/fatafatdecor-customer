@@ -330,7 +330,7 @@ export default function GiftsScreen() {
 
       {/* Bottom CTA */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 glass-overlay px-4 pt-3 pb-8 z-40">
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-overlay px-4 pt-3 pb-8 z-40">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 btn-primary-luxury rounded-full flex items-center justify-center">

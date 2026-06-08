@@ -679,6 +679,21 @@ export function AppProvider({ children }) {
     if (giftCart.length === 0) { showToast('No gifts selected', 'error'); return }
     setLoading(true)
     try {
+      // Serviceable-city check (skip in local dev) — same gate as decoration orders
+      const isLocalDev = process.env.NODE_ENV === 'development'
+      if (!isLocalDev) {
+        const detectedCity = userAddress?.city || null
+        if (detectedCity) {
+          const cityCheck = await api('city-check', { method: 'POST', body: { city: detectedCity } })
+          if (!cityCheck.allowed) {
+            showToast('Sorry! We currently serve only: ' + (cityCheck.active_cities?.join(', ') || 'selected cities') + '. You appear to be in ' + detectedCity + '.', 'error')
+            setLoading(false); return
+          }
+        } else {
+          showToast('Please add your delivery address with city to proceed.', 'error')
+          navigate(SCREENS.ADDRESS); setLoading(false); return
+        }
+      }
       const fullAddress = [userAddress.flat, userAddress.landmark, userAddress.area, userAddress.city].filter(Boolean).join(', ')
       const data = await api('gift-orders', {
         method: 'POST',
