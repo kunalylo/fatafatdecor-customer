@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2 } from 'lucide-react'
 
 function GiftSkeleton() {
   return (
@@ -34,7 +34,7 @@ const SORT_OPTIONS = [
 ]
 
 export default function GiftsScreen() {
-  const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user } = useApp()
+  const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user, pendingGiftId, setPendingGiftId } = useApp()
   const [search, setSearch] = useState('')
   const [giftsLoading, setGiftsLoading] = useState(false)
   const [selectedGift, setSelectedGift] = useState(null)
@@ -43,6 +43,7 @@ export default function GiftsScreen() {
   const [priceRange, setPriceRange] = useState(0)
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
+  const [showCart, setShowCart] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [wishlist, setWishlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fd_wishlist') || '[]') } catch { return [] }
@@ -55,6 +56,14 @@ export default function GiftsScreen() {
       loadGifts().finally(() => setGiftsLoading(false))
     }
   }, [])
+
+  // Auto-open a specific gift's detail when arriving from Home
+  useEffect(() => {
+    if (!pendingGiftId || gifts.length === 0) return
+    const g = gifts.find(x => x.id === pendingGiftId)
+    if (g) { setSelectedGift(g); setGalleryIndex(0) }
+    setPendingGiftId(null)
+  }, [pendingGiftId, gifts])
 
   // Persist wishlist
   useEffect(() => {
@@ -158,7 +167,7 @@ export default function GiftsScreen() {
             )}
           </button>
           {cartCount > 0 && (
-            <button onClick={handleProceed}
+            <button onClick={() => setShowCart(true)}
               className="flex items-center gap-1.5 btn-primary-luxury px-3 py-1.5 rounded-xl active:scale-95 transition-transform">
               <ShoppingBag className="w-4 h-4 text-white" />
               <span className="text-sm font-bold text-white">{cartCount}</span>
@@ -246,7 +255,7 @@ export default function GiftsScreen() {
       )}
 
       {/* Grid */}
-      <div className="flex-1 p-4 pb-36 grid grid-cols-2 gap-3">
+      <div className={`flex-1 p-4 grid grid-cols-2 gap-3 ${cartCount > 0 ? 'pb-56' : 'pb-28'}`}>
 
         {giftsLoading && Array.from({ length: 6 }).map((_, i) => <GiftSkeleton key={i} />)}
 
@@ -328,24 +337,79 @@ export default function GiftsScreen() {
         )}
       </div>
 
-      {/* Bottom CTA */}
-      {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-overlay px-4 pt-3 pb-8 z-40">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 btn-primary-luxury rounded-full flex items-center justify-center">
-                <ShoppingBag className="w-3.5 h-3.5 text-white" />
+      {/* Bottom cart bar — floats ABOVE the bottom nav, tap to edit */}
+      {cartCount > 0 && !selectedGift && (
+        <div className="fixed bottom-[80px] left-0 right-0 max-w-md mx-auto px-3 z-40">
+          <div className="glass-overlay rounded-[20px] px-4 pt-3 pb-3 shadow-xl border border-white/70">
+            <button onClick={() => setShowCart(true)} className="w-full flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 btn-primary-luxury rounded-full flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700">{cartCount} item{cartCount !== 1 ? 's' : ''} · <span className="text-pink-600 font-bold">edit</span></span>
               </div>
-              <span className="text-sm font-semibold text-gray-700">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
-            </div>
-            <span className="text-base font-bold text-gray-900">Rs {cartTotal.toLocaleString('en-IN')}</span>
+              <span className="text-base font-bold text-gray-900">₹ {cartTotal.toLocaleString('en-IN')}</span>
+            </button>
+            <button onClick={handleProceed} disabled={loading}
+              className="w-full btn-primary-luxury text-white font-bold py-3 rounded-2xl text-sm active:scale-[0.98] transition-transform disabled:opacity-60">
+              {loading ? 'Processing...' : giftMode === 'addon'
+                ? `Add to Decoration · ₹ ${cartTotal.toLocaleString('en-IN')}`
+                : `Proceed to Book · ₹ ${cartTotal.toLocaleString('en-IN')}`}
+            </button>
           </div>
-          <button onClick={handleProceed} disabled={loading}
-            className="w-full btn-primary-luxury text-white font-bold py-3.5 rounded-2xl text-sm active:scale-[0.98] transition-transform disabled:opacity-60">
-            {loading ? 'Processing...' : giftMode === 'addon'
-              ? `Add to Decoration · Rs ${cartTotal.toLocaleString('en-IN')}`
-              : `Proceed to Book · Rs ${cartTotal.toLocaleString('en-IN')}`}
-          </button>
+        </div>
+      )}
+
+      {/* Cart drawer — editable */}
+      {showCart && (
+        <div className="fixed inset-0 z-[55] flex items-end justify-center" onClick={() => setShowCart(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative glass-overlay w-full max-w-md rounded-t-[28px] max-h-[82vh] flex flex-col" style={{ animation: 'sheetSlideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-200 rounded-full" /></div>
+            <div className="px-5 pb-3 flex items-center justify-between">
+              <div>
+                <p className="eyebrow text-gray-500">Your cart</p>
+                <h2 className="font-display text-2xl text-gray-900">{cartCount} item{cartCount !== 1 ? 's' : ''}</h2>
+              </div>
+              <button onClick={() => setShowCart(false)} className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center"><X className="w-4 h-4 text-gray-600" /></button>
+            </div>
+            <div className="px-4 overflow-y-auto flex-1 space-y-2.5 pb-2">
+              {giftCart.length === 0 && <p className="text-center text-gray-400 text-sm py-10">Your cart is empty</p>}
+              {giftCart.map(item => {
+                const g = gifts.find(x => x.id === item.gift_id)
+                const src = getImgSrc(item.image_url || (g && (g.images?.[0] || g.image_url)), 'thumb')
+                return (
+                  <div key={item.gift_id} className="glass-card rounded-2xl p-2.5 flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-pink-50/50 shrink-0">
+                      {src ? <img src={src} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Gift className="w-6 h-6 text-pink-300" /></div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 line-clamp-2 leading-tight">{item.name}</p>
+                      <p className="text-sm font-bold text-pink-600 mt-0.5">₹ {(item.price * item.quantity).toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <button onClick={() => setGiftCart(prev => prev.filter(x => x.gift_id !== item.gift_id))} className="text-gray-300 hover:text-red-500 active:scale-90 transition-transform"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex items-center gap-1 bg-pink-50/80 rounded-full p-0.5">
+                        <button onClick={() => g ? updateCart(g, -1) : setGiftCart(prev => prev.map(x => x.gift_id === item.gift_id ? { ...x, quantity: x.quantity - 1 } : x).filter(x => x.quantity > 0))} className="w-7 h-7 flex items-center justify-center bg-white rounded-full shadow-sm active:scale-90 transition-transform"><Minus className="w-3.5 h-3.5 text-pink-500" /></button>
+                        <span className="text-sm font-bold text-pink-600 w-5 text-center">{item.quantity}</span>
+                        <button onClick={() => g && updateCart(g, 1)} className="w-7 h-7 flex items-center justify-center btn-primary-luxury rounded-full active:scale-90 transition-transform"><Plus className="w-3.5 h-3.5 text-white" /></button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="px-4 pt-3 pb-6 border-t border-white/50">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-600">Total</span>
+                <span className="text-xl font-bold text-gray-900">₹ {cartTotal.toLocaleString('en-IN')}</span>
+              </div>
+              <button onClick={() => { setShowCart(false); handleProceed() }} disabled={loading || cartCount === 0}
+                className="w-full btn-primary-luxury text-white font-bold py-3.5 rounded-2xl text-sm active:scale-[0.98] transition-transform disabled:opacity-50">
+                {giftMode === 'addon' ? 'Add to Decoration' : 'Proceed to Book'} · ₹ {cartTotal.toLocaleString('en-IN')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -363,7 +427,7 @@ export default function GiftsScreen() {
           { icon: Sparkles,    label: 'Hand curated' },
         ]
         return (
-          <div data-gift-scroll className="fixed inset-0 z-50 bg-aurora overflow-y-auto">
+          <div data-gift-scroll className="fixed inset-0 z-[55] bg-aurora overflow-y-auto">
             <div className="max-w-md mx-auto min-h-full pb-28">
               {/* Top bar */}
               <div className="sticky top-0 z-20 glass-overlay px-4 py-3 flex items-center justify-between">

@@ -49,6 +49,7 @@ export function AppProvider({ children }) {
   const prevTrackingRef = useRef(null)
   const ordersRef = useRef([])
   const [gifts, setGifts] = useState([])
+  const [pendingGiftId, setPendingGiftId] = useState(null) // gift id to auto-open in GiftsScreen (from Home)
   const [giftCart, setGiftCart] = useState(() => {
     try { const c = localStorage.getItem('fd_gift_cart'); return c ? JSON.parse(c) : [] } catch { return [] }
   })
@@ -865,6 +866,7 @@ export function AppProvider({ children }) {
     handleBookSlot, loadSlots, handleFileUpload, handleLogout,
     paymentFailed, setPaymentFailed,
     gifts, setGifts, giftCart, setGiftCart, giftMode, setGiftMode,
+    pendingGiftId, setPendingGiftId,
     giftOrders, setGiftOrders, selectedGiftOrder, setSelectedGiftOrder,
     loadGifts, handleCreateGiftOrder, handleGiftPayment,
   }

@@ -39,7 +39,7 @@ export default function HomeScreen() {
   const {
     user, designs, orders, navigate, setSelectedDesign, setSelectedOrder,
     userAddress, locationLoading, locationDenied, detectLocation,
-    setGiftMode, setGiftCart, gifts, loadGifts, uploadForm, setUploadForm,
+    setGiftMode, setGiftCart, gifts, loadGifts, uploadForm, setUploadForm, setPendingGiftId,
   } = useApp()
 
   useEffect(() => { if (gifts.length === 0) loadGifts() }, [])
@@ -59,6 +59,7 @@ export default function HomeScreen() {
 
   const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
   const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
+  const openGift = (id) => { setGiftMode('standalone'); setPendingGiftId(id); navigate(SCREENS.GIFTS) }
 
   const thumbPos = [
     { className: 'top-16 left-2 -rotate-6 w-[72px] h-[72px]' },
@@ -264,7 +265,7 @@ export default function HomeScreen() {
 
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
               {featuredGifts.filter(g => activeCat === 'All' || g.category === activeCat).slice(0, 10).map((g) => (
-                <button key={g.id} onClick={openGifts}
+                <button key={g.id} onClick={() => openGift(g.id)}
                   className="flex-shrink-0 w-44 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
                   <div className="aspect-square relative bg-pink-50/50">
                     {giftImg(g) ? <img src={giftImg(g)} alt={g.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
