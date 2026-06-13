@@ -9,6 +9,10 @@ import { useApp } from '../context/AppContext'
 import { SCREENS, customerBreakdown } from '../lib/constants'
 import { api } from '../lib/constants'
 
+// Customer-facing item-name cleanup — older designs stored raw inventory names
+// like "Orange ribbon_bow 0\"" (underscores + meaningless zero-inch size).
+const prettyName = (s) => String(s || '').replace(/_/g, ' ').replace(/\s+0"\s*$/, '').replace(/\s{2,}/g, ' ').trim()
+
 export default function DesignScreen() {
   const { selectedDesign, setSelectedDesign, loading, navigate, handleCreateOrder, giftCart, setGiftCart, giftMode, setGiftMode } = useApp()
   const [imageLoading, setImageLoading] = useState(false)
@@ -192,7 +196,7 @@ export default function DesignScreen() {
                       {items.map((item, i) => (
                         <div key={item.id || i} className="flex items-center gap-2 py-1">
                           <span className="text-xs text-gray-600 flex-1">
-                            <strong className="text-gray-800">{item.quantity}×</strong> {item.name}
+                            <strong className="text-gray-800">{item.quantity}×</strong> {prettyName(item.name)}
                           </span>
                           <span className="text-xs font-semibold text-gray-700">Rs {((Number(item.unit_price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
                           {item.is_removable && (
@@ -222,7 +226,7 @@ export default function DesignScreen() {
               {kitItems.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 py-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-pink-400" />
-                  <span className="text-xs text-gray-600 flex-1">{item.name} {item.color ? `(${item.color})` : ''}</span>
+                  <span className="text-xs text-gray-600 flex-1">{prettyName(item.name)} {item.color ? `(${item.color})` : ''}</span>
                   <span className="text-xs font-semibold text-pink-500">₹{((Number(item.price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
                 </div>
               ))}
@@ -249,7 +253,7 @@ export default function DesignScreen() {
                     <Package className="w-5 h-5 text-purple-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-700 truncate">{item.name}</p>
+                    <p className="text-sm font-semibold text-gray-700 truncate">{prettyName(item.name)}</p>
                     <p className="text-[10px] text-gray-400">
                       {item.color ? `${item.color} • ` : ''}{item.category ? item.category.replace('_', ' ') : ''}
                     </p>
