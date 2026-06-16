@@ -194,6 +194,10 @@ export default function AddressScreen() {
       showToast('Please enter flat / house number', 'error')
       return
     }
+    if (!detectedCity.trim() && !detectedArea.trim()) {
+      showToast('Please enter your city', 'error')
+      return
+    }
     const updated = {
       flat:      flatInput.trim(),
       landmark:  landmarkInput.trim(),
@@ -281,10 +285,16 @@ export default function AddressScreen() {
           </div>
           <button
             onClick={confirmLocation}
-            disabled={geocoding || !detectedCity}
+            disabled={geocoding}
             className="w-full btn-primary-luxury text-white font-bold py-4 rounded-2xl text-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
           >
             Confirm Location
+          </button>
+          <button
+            onClick={() => setStep(2)}
+            className="w-full text-pink-500 text-sm font-semibold py-3 mt-1 active:scale-[0.98] transition-transform"
+          >
+            Enter address manually
           </button>
         </div>
       </div>
@@ -311,25 +321,55 @@ export default function AddressScreen() {
       {/* Scrollable form */}
       <div className="flex-1 overflow-y-auto px-5 pt-5 pb-4">
 
-        {/* Confirmed location chip */}
-        <div className="flex items-start gap-3 bg-pink-50 border border-pink-100 rounded-2xl p-4 mb-5">
+        {/* Pinned-on-map row — tap to adjust on map */}
+        <button
+          onClick={() => setStep(1)}
+          className="w-full flex items-center gap-3 bg-pink-50 border border-pink-100 rounded-2xl p-4 mb-4 text-left"
+        >
           <div className="w-10 h-10 iridescent rounded-full flex items-center justify-center shrink-0 border border-white/60">
             <MapPin className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-gray-800 text-sm leading-tight truncate">
-              {detectedArea || detectedCity}
-            </p>
+            <p className="font-bold text-gray-800 text-sm leading-tight">Pinned location</p>
             <p className="text-gray-400 text-xs mt-0.5 truncate">
-              {[detectedCity, detectedState, detectedPincode].filter(Boolean).join(', ')}
+              {[detectedArea, detectedCity, detectedState].filter(Boolean).join(', ') || 'Tap to set on map'}
             </p>
           </div>
-          <button
-            onClick={() => { setStep(1); setFlatInput(''); setLandmarkInput('') }}
-            className="text-pink-500 text-xs font-bold shrink-0 px-1"
-          >
-            Change
-          </button>
+          <span className="text-pink-500 text-xs font-bold shrink-0 px-2">Map</span>
+        </button>
+
+        {/* City (editable — works even when auto-detect is unavailable) */}
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+            City <span className="text-pink-500">*</span>
+          </label>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 focus-within:border-pink-400 transition-colors bg-white">
+            <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              type="text"
+              value={detectedCity}
+              onChange={e => setDetectedCity(e.target.value)}
+              placeholder="e.g. Pune"
+              className="flex-1 text-sm text-gray-800 outline-none bg-transparent placeholder-gray-300"
+            />
+          </div>
+        </div>
+
+        {/* Area / Locality */}
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+            Area / Locality <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 focus-within:border-pink-400 transition-colors bg-white">
+            <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              type="text"
+              value={detectedArea}
+              onChange={e => setDetectedArea(e.target.value)}
+              placeholder="e.g. Baner, Sector 21"
+              className="flex-1 text-sm text-gray-800 outline-none bg-transparent placeholder-gray-300"
+            />
+          </div>
         </div>
 
         {/* House / Flat */}
@@ -409,7 +449,7 @@ export default function AddressScreen() {
       <div className="px-5 pb-10 pt-3 bg-white border-t border-gray-100 shrink-0">
         <button
           onClick={handleSave}
-          disabled={!flatInput.trim()}
+          disabled={!flatInput.trim() || (!detectedCity.trim() && !detectedArea.trim())}
           className="w-full btn-primary-luxury text-white font-bold py-4 rounded-2xl text-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
         >
           Save Address
