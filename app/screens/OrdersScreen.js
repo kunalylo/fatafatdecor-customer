@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingBag, Package, IndianRupee, Gift } from 'lucide-react'
+import { ShoppingBag, Package, IndianRupee, Gift, Wand2, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS } from '../lib/constants'
 
+const ik = (url, tr) => (url && url.includes('ik.imagekit.io') ? `${url}?tr=${tr}` : url)
+
 export default function OrdersScreen() {
-  const { orders, setSelectedOrder, navigate, giftOrders } = useApp()
+  const { orders, setSelectedOrder, navigate, giftOrders, designs, setSelectedDesign } = useApp()
   const [tab, setTab] = useState('decoration')
 
   return (
@@ -30,6 +32,11 @@ export default function OrdersScreen() {
           onClick={() => setTab('gifts')}
           className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'gifts' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
           Gifts {giftOrders.filter(o => o.payment_status !== 'pending').length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{giftOrders.filter(o => o.payment_status !== 'pending').length}</span>}
+        </button>
+        <button
+          onClick={() => setTab('designs')}
+          className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'designs' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+          Designs {designs.length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{designs.length}</span>}
         </button>
       </div>
     </div>
@@ -98,6 +105,37 @@ export default function OrdersScreen() {
               </div>
             </div>
           ))}
+        </>
+      )}
+
+      {tab === 'designs' && (
+        <>
+          {designs.length === 0 ? (
+            <div className="text-center py-12">
+              <Wand2 className="w-12 h-12 text-pink-200 mx-auto mb-3" />
+              <p className="text-gray-400">No designs yet</p>
+              <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 btn-primary-luxury border-0 text-white">Create Design</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {designs.map(d => (
+                <button key={d.id} onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}
+                  className="glass-floating rounded-[22px] overflow-hidden text-left hover:-translate-y-0.5 transition-transform">
+                  <div className="aspect-square relative bg-pink-50/50">
+                    {d.decorated_image
+                      ? <img src={ik(d.decorated_image, 'w-400,h-400,q-75,c-maintain_ratio')} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center"><Sparkles className="w-8 h-8 text-pink-300" /></div>}
+                    <span className={`absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'ordered' ? 'bg-green-100 text-green-700' : 'bg-white/90 text-pink-600'}`}>{d.status === 'ordered' ? 'ORDERED' : 'READY'}</span>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-pink-600 text-[10px] font-bold uppercase capitalize mb-0.5">{d.occasion?.replace(/_/g, ' ')}</p>
+                    <h4 className="text-gray-900 font-bold text-[13px] capitalize mb-1">{d.room_type}</h4>
+                    <p className="text-gray-900 text-sm font-bold flex items-center"><IndianRupee className="w-3 h-3" />{d.total_cost?.toLocaleString('en-IN')}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
