@@ -315,15 +315,14 @@ export default function DesignScreen() {
             <h3 className="font-bold text-sm text-gray-800 mb-3">Price Breakdown</h3>
             <div className="space-y-1.5 text-sm">
               <PriceRow label="Decoration & Material" value={breakdown.decoration_total} />
+              <PriceRow label="GST (18%)" value={breakdown.gst} muted />
+              <div className="border-t border-gray-200/70 my-2" />
               <PriceRow label="Setup & Transportation" value={breakdown.setup_transport} sub />
               <PriceRow label="Platform Fee" value={breakdown.platform_fee} sub />
               <PriceRow label="Convenience Fee" value={breakdown.convenience_fee} sub />
               {giftAddonTotal > 0 && (
                 <PriceRow label="Gifts" value={giftAddonTotal} accent="pink" />
               )}
-              <div className="border-t border-gray-200/70 my-2" />
-              <PriceRow label="Subtotal" value={breakdown.subtotal + giftAddonTotal} muted />
-              <PriceRow label="GST (18%)" value={breakdown.gst} muted />
               <div className="border-t border-gray-200/70 my-2" />
               <div className="flex justify-between items-center">
                 <div>

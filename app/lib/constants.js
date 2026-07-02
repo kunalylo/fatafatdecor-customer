@@ -43,9 +43,9 @@ export function customerBreakdown(decorationPrice) {
   const decoration = Math.round(Number(decorationPrice) || 0)
   const setup_transport = setupTransportFee(decoration)
   const fees_subtotal   = setup_transport + PLATFORM_FEE + CONVENIENCE_FEE
-  const subtotal        = decoration + fees_subtotal
-  const gst             = Math.round(subtotal * GST_RATE)
-  const total           = subtotal + gst
+  const gst             = Math.round(decoration * GST_RATE)  // GST on decoration ONLY
+  const subtotal        = decoration + gst                   // decoration incl. GST
+  const total           = subtotal + fees_subtotal           // fees added after tax
   return { decoration_total: decoration, setup_transport, platform_fee: PLATFORM_FEE, convenience_fee: CONVENIENCE_FEE, fees_subtotal, subtotal, gst, gst_rate: GST_RATE, total }
 }
 
