@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, IndianRupee, Camera, Trash2, Zap, Sparkles, X } from 'lucide-react'
+import { ChevronLeft, IndianRupee, Camera, Trash2, Zap, Sparkles, X, Image as ImageIcon } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { BUDGET_BRACKETS, ROOM_TYPES, OCCASIONS, SCREENS } from '../lib/constants'
 
@@ -107,11 +107,23 @@ export default function UploadScreen() {
               </button>
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-pink-200 rounded-2xl cursor-pointer hover:border-pink-400 transition-colors bg-white/50">
-              <Camera className="w-8 h-8 text-pink-300 mb-2" />
-              <p className="text-sm text-pink-400 font-medium">Tap to capture or upload</p>
-              <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
-            </label>
+            <div className="flex flex-col items-center w-full border-2 border-dashed border-pink-200 rounded-2xl bg-gradient-to-b from-pink-50/70 to-white/40 pt-6 pb-5 px-4">
+              <div className="w-14 h-14 rounded-full gradient-pink flex items-center justify-center shadow-pink mb-3">
+                <Camera className="w-7 h-7 text-white" />
+              </div>
+              <p className="text-sm font-bold text-gray-700">Add your room photo</p>
+              <p className="text-[11px] text-gray-400 mb-4">Well-lit photo of the full wall or corner</p>
+              <div className="flex gap-3 w-full max-w-xs">
+                <label className="flex-1 h-11 gradient-pink text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-pink active:scale-95 transition-transform">
+                  <Camera className="w-4 h-4" /> Camera
+                  <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
+                </label>
+                <label className="flex-1 h-11 bg-white border-2 border-pink-300 text-pink-500 font-bold text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-pink-50 active:scale-95 transition-transform">
+                  <ImageIcon className="w-4 h-4" /> Gallery
+                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
+            </div>
           )}
         </div>
       </div>
