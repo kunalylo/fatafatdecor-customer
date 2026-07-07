@@ -92,6 +92,11 @@ export default function UploadScreen() {
           <Camera className="w-4 h-4 text-pink-500" /> Room Photo <span className="text-pink-500">*</span>
         </label>
         <p className="text-xs text-gray-400 mb-2">AI will decorate YOUR actual space</p>
+        <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+          <p className="text-[11px] text-amber-700 leading-relaxed">
+            📸 <strong>For the best result:</strong> stand back and capture the <strong>full wall or corner</strong> you want decorated — include some floor and ceiling. Avoid close-ups of curtains/windows and photos of screens.
+          </p>
+        </div>
         <div className="relative">
           {originalImage ? (
             <div className="relative">
