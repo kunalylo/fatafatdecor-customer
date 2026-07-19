@@ -24,6 +24,8 @@ import FestivalScreen from './screens/FestivalScreen'
 import BulkScreen from './screens/BulkScreen'
 import CorporateScreen from './screens/CorporateScreen'
 import PrivateScreen from './screens/PrivateScreen'
+import GiftBuilderScreen from './screens/GiftBuilderScreen'
+import InvitationsScreen from './screens/InvitationsScreen'
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false } }
@@ -73,6 +75,8 @@ function AppContent() {
       {screen === SCREENS.BULK && <BulkScreen />}
       {screen === SCREENS.CORPORATE && <CorporateScreen />}
       {screen === SCREENS.PRIVATE && <PrivateScreen />}
+      {screen === SCREENS.GIFT_BUILDER && <GiftBuilderScreen />}
+      {screen === SCREENS.INVITATIONS && <InvitationsScreen />}
       {user && screen !== SCREENS.AUTH && screen !== SCREENS.GENERATING && screen !== SCREENS.ADDRESS && screen !== SCREENS.GIFT_BOOKING && <BottomNav />}
     </div>
   )

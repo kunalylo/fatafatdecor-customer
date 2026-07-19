@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, api } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2, Boxes, Lock, ArrowRight } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2, Boxes, Lock, ArrowRight, MailOpen } from 'lucide-react'
 
 const BULK_CTA_IMG = 'https://ik.imagekit.io/jcp2urr7b/content/03_gifts_shop/04_bulk_order_cta/bulk_order_-LeEPQTyP.jpg'
 
@@ -236,6 +236,23 @@ export default function GiftsScreen() {
             </div>
           )}
 
+          {/* AI Gift Builder card */}
+          <button onClick={() => navigate(SCREENS.GIFT_BUILDER)} className="w-full glass-floating rounded-[26px] p-4 flex items-center gap-4 text-left hover:-translate-y-0.5 transition-transform">
+            <div className="relative w-14 h-14 rounded-2xl iridescent aurora-shimmer flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6 text-white" strokeWidth={2} />
+              <div className="absolute inset-0 rounded-2xl iridescent opacity-50 blur-md -z-10" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="eyebrow text-pink-600">AI POWERED</p>
+              <h3 className="text-gray-900 font-bold text-[15px] mt-0.5">Let AI Create Your Gift Box</h3>
+              <p className="text-gray-500 text-[11px] mt-0.5">Occasion + quantity + budget · gift suggestions</p>
+            </div>
+            <div className="px-3.5 py-2.5 rounded-full bg-gray-900 flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-white text-[11px] font-bold">Start</span>
+              <ArrowRight className="w-3.5 h-3.5 text-white" strokeWidth={2.4} />
+            </div>
+          </button>
+
           {/* Bulk gifts card */}
           <button onClick={() => navigate(SCREENS.BULK)} className="w-full glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-0.5 transition-transform">
             <div className="relative aspect-video">
@@ -269,6 +286,19 @@ export default function GiftsScreen() {
               <p className="text-[10px] text-white/50 mt-0.5">Exclusive · not shown to everyone</p>
             </div>
             <span className="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold" style={{ border: '1px solid #E5C589', color: '#E5C589' }}>Request access</span>
+          </button>
+
+          {/* AI Invitation Studio card */}
+          <button onClick={() => navigate(SCREENS.INVITATIONS)} className="w-full glass-floating rounded-[24px] p-4 flex items-center gap-4 text-left hover:-translate-y-0.5 transition-transform">
+            <div className="w-12 h-12 rounded-2xl accent-lavender flex items-center justify-center flex-shrink-0">
+              <MailOpen className="w-5 h-5 text-white" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="eyebrow text-pink-600">AI STUDIO</p>
+              <h3 className="text-gray-900 font-bold text-[15px] mt-0.5">AI Invitation Studio</h3>
+              <p className="text-gray-500 text-[11px] mt-0.5">WhatsApp · print · event-share invites</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-700 flex-shrink-0" strokeWidth={2.4} />
           </button>
         </div>
       )}
