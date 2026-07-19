@@ -1,17 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingBag, Package, IndianRupee, Gift, Wand2, Sparkles } from 'lucide-react'
+import { ShoppingBag, Package, IndianRupee, Gift, Wand2, Sparkles, Inbox } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
+import { SCREENS, api } from '../lib/constants'
 
 const ik = (url, tr) => (url && url.includes('ik.imagekit.io') ? `${url}?tr=${tr}` : url)
 
+// Lead-status display map (matches backend SEED_LEAD_STATUSES)
+const LEAD_STATUS = {
+  'callback-pending': { label: 'Callback pending', cls: 'bg-amber-100 text-amber-700' },
+  'quote-shared':     { label: 'Quote shared',     cls: 'bg-pink-100 text-pink-700' },
+  'confirmed':        { label: 'Confirmed',        cls: 'bg-green-100 text-green-700' },
+}
+
 export default function OrdersScreen() {
-  const { orders, setSelectedOrder, navigate, giftOrders, designs, setSelectedDesign } = useApp()
+  const { orders, setSelectedOrder, navigate, giftOrders, designs, setSelectedDesign, user } = useApp()
   const [tab, setTab] = useState('decoration')
+  const [leads, setLeads] = useState([])
+
+  useEffect(() => {
+    if (!user) return
+    api('leads/mine').then(d => { if (Array.isArray(d)) setLeads(d) })
+  }, [user?.id])
 
   return (
   <div className="slide-up pb-28 bg-aurora min-h-screen">
@@ -38,6 +51,13 @@ export default function OrdersScreen() {
           className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'designs' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
           Designs {designs.length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{designs.length}</span>}
         </button>
+        {leads.length > 0 && (
+          <button
+            onClick={() => setTab('enquiries')}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'enquiries' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+            Enquiries
+          </button>
+        )}
       </div>
     </div>
 
@@ -105,6 +125,41 @@ export default function OrdersScreen() {
               </div>
             </div>
           ))}
+        </>
+      )}
+
+      {tab === 'enquiries' && (
+        <>
+          {leads.length === 0 ? (
+            <div className="text-center py-12">
+              <Inbox className="w-12 h-12 text-pink-200 mx-auto mb-3" />
+              <p className="text-gray-400">No enquiries yet</p>
+            </div>
+          ) : leads.map(l => {
+            const st = LEAD_STATUS[l.status] || LEAD_STATUS['callback-pending']
+            return (
+              <div key={l.id} className="glass-floating rounded-[22px] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl accent-lavender flex items-center justify-center flex-shrink-0">
+                    <Inbox className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-gray-800">{l.leadId}</p>
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/70 border border-gray-100 text-gray-500">{l.type}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {[l.occasion, l.quantity ? `${l.quantity} units` : '', l.budget].filter(Boolean).join(' · ') || 'Enquiry'}
+                    </p>
+                  </div>
+                  <Badge className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                </div>
+                {l.created_at && (
+                  <p className="text-[10px] text-gray-400 mt-2">{new Date(l.created_at).toLocaleDateString()}</p>
+                )}
+              </div>
+            )
+          })}
         </>
       )}
 

@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { SCREENS } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2 } from 'lucide-react'
+import { SCREENS, api } from '../lib/constants'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2, Boxes, Lock, ArrowRight } from 'lucide-react'
+
+const BULK_CTA_IMG = 'https://ik.imagekit.io/jcp2urr7b/content/03_gifts_shop/04_bulk_order_cta/bulk_order_-LeEPQTyP.jpg'
 
 function GiftSkeleton() {
   return (
@@ -49,12 +51,14 @@ export default function GiftsScreen() {
     try { return JSON.parse(localStorage.getItem('fd_wishlist') || '[]') } catch { return [] }
   })
   const catScrollRef = useRef(null)
+  const [giftCats, setGiftCats] = useState([])
 
   useEffect(() => {
     if (gifts.length === 0) {
       setGiftsLoading(true)
       loadGifts().finally(() => setGiftsLoading(false))
     }
+    api('gift-categories').then(d => { if (Array.isArray(d)) setGiftCats(d) })
   }, [])
 
   // Auto-open a specific gift's detail when arriving from Home
@@ -157,8 +161,8 @@ export default function GiftsScreen() {
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <div className="flex-1 min-w-0">
-            <p className="eyebrow text-gray-400">{giftMode === 'addon' ? 'Add-on' : 'Boutique'}</p>
-            <h1 className="font-display text-2xl text-gray-900 leading-tight">{giftMode === 'addon' ? 'Add gifts to decor' : 'Gifts'}</h1>
+            <p className="eyebrow text-gray-400">{giftMode === 'addon' ? 'Add-on' : 'Shop'}</p>
+            <h1 className="font-display text-2xl text-gray-900 leading-tight">{giftMode === 'addon' ? 'Add gifts to decor' : 'Gifts & Hampers'}</h1>
           </div>
           <button onClick={() => setShowFilters(!showFilters)} className="relative w-9 h-9 flex items-center justify-center rounded-xl glass-card active:scale-95 transition-transform">
             <SlidersHorizontal className="w-4 h-4 text-gray-700" />
@@ -179,7 +183,7 @@ export default function GiftsScreen() {
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search gifts, bouquets, combos..."
+            placeholder="Search gifts, hampers, return gifts..."
             className="w-full pl-9 pr-9 py-2.5 bg-white/70 border border-white/80 rounded-2xl text-sm outline-none text-gray-800 placeholder-gray-400 focus:border-pink-300" />
           {search.length > 0 && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -201,6 +205,73 @@ export default function GiftsScreen() {
           ))}
         </div>
       </div>
+
+      {/* ── Discovery: categories, bulk, private (standalone mode, not while searching) ── */}
+      {giftMode !== 'addon' && !search && (
+        <div className="px-4 pt-4 space-y-4">
+          {/* Browse by category — real content-pack images */}
+          {giftCats.length > 0 && (
+            <div>
+              <p className="eyebrow text-gray-500 mb-2">Browse by category</p>
+              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4">
+                {giftCats.map(c => (
+                  <button key={c.id}
+                    onClick={() => {
+                      const match = categories.find(cat => cat !== 'All' && (c.name.toLowerCase().includes(cat.toLowerCase()) || cat.toLowerCase().includes(c.name.split(' ')[0].toLowerCase())))
+                      if (match) setActiveCategory(match)
+                      else setSearch(c.name.split(' ')[0])
+                    }}
+                    className="flex-shrink-0 w-32 text-left">
+                    <div className="relative w-32 h-32 rounded-[20px] overflow-hidden glass-card">
+                      <img src={c.image} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                      <div className={`absolute top-2 left-2 w-7 h-7 rounded-full ${c.accent || 'accent-pink'} border-2 border-white flex items-center justify-center`}>
+                        <Gift className="w-3 h-3 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-gray-800 mt-1.5 leading-tight">{c.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bulk gifts card */}
+          <button onClick={() => navigate(SCREENS.BULK)} className="w-full glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-0.5 transition-transform">
+            <div className="relative aspect-video">
+              <img src={BULK_CTA_IMG} alt="Bulk gifts" className="w-full h-full object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+              <span className="absolute top-3 left-3 glass-overlay px-2.5 py-1 rounded-full text-[9px] font-bold tracking-widest text-gray-900">FROM 20 UNITS</span>
+              <div className="absolute bottom-3 left-4 right-4">
+                <p className="text-[9px] font-bold tracking-[0.2em] text-white/80 mb-0.5">FOR BIRTHDAYS · OFFICES · FESTIVALS</p>
+                <h3 className="font-display text-xl text-white leading-tight">Bulk Gifts Starting from 20 Units</h3>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 bg-white/80">
+              <div className="flex items-center gap-2">
+                <Boxes className="w-4 h-4 text-pink-600" />
+                <span className="text-sm font-bold text-gray-900">Plan Bulk Order</span>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-700" />
+            </div>
+          </button>
+
+          {/* Private collection teaser */}
+          <button onClick={() => navigate(SCREENS.PRIVATE)} className="w-full rounded-[24px] p-4 flex items-center gap-3 text-left relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg,#1a1126 0%,#2c1a3a 50%,#3d2150 100%)' }}>
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(229,197,137,0.3), transparent 70%)', filter: 'blur(20px)' }} />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg,#E5C589,#C9A45B)' }}>
+              <Lock className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] font-bold tracking-[0.25em]" style={{ color: '#E5C589' }}>PREMIUM MEMBERS ONLY</p>
+              <h3 className="font-display text-base text-white leading-tight mt-0.5">Private Premium Collection</h3>
+              <p className="text-[10px] text-white/50 mt-0.5">Exclusive · not shown to everyone</p>
+            </div>
+            <span className="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold" style={{ border: '1px solid #E5C589', color: '#E5C589' }}>Request access</span>
+          </button>
+        </div>
+      )}
 
       {/* Filter panel */}
       {showFilters && (

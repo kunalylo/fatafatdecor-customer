@@ -2,29 +2,101 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Bell, MapPin, Heart, Sparkles, ArrowRight, Users, ChevronDown, Wand2, Plus,
+  Bell, MapPin, Heart, Sparkles, ArrowRight, ChevronDown, Wand2, Plus,
   Cake, Baby, PartyPopper, Home as HomeIcon, Briefcase, Flame, Package, Gift,
-  Camera, CalendarCheck, Zap, IndianRupee, Loader2, ShieldCheck, Star, BadgeCheck,
+  Camera, CalendarCheck, IndianRupee, Loader2, ShieldCheck, Star, BadgeCheck,
+  CalendarClock, Building2, FileText, Truck, Lock,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { SCREENS, LOGO_URL } from '../lib/constants'
+import { SCREENS, api } from '../lib/constants'
 
 const OCCASIONS = [
-  { id: 'birthday',     name: 'Birthday',       icon: Cake,        accent: 'accent-peach',    occasion: 'birthday' },
-  { id: 'anniversary',  name: 'Anniversary',    icon: Heart,       accent: 'accent-pink',     occasion: 'anniversary' },
-  { id: 'baby-shower',  name: 'Baby Shower',    icon: Baby,        accent: 'accent-lavender', occasion: 'baby_shower' },
-  { id: 'surprise',     name: 'Surprise Room',  icon: PartyPopper, accent: 'accent-pink',     occasion: 'party' },
-  { id: 'housewarming', name: 'Housewarming',   icon: HomeIcon,    accent: 'accent-mint',     occasion: 'housewarming' },
-  { id: 'corporate',    name: 'Corporate',      icon: Briefcase,   accent: 'accent-lavender', occasion: 'corporate' },
-  { id: 'festival',     name: 'Festival Decor', icon: Flame,       accent: 'accent-peach',    occasion: 'festival' },
-  { id: 'romantic',     name: 'Romantic Setup', icon: Sparkles,    accent: 'accent-pink',     occasion: 'anniversary' },
+  { id: 'birthday',     name: 'Birthday',        icon: Cake,        accent: 'accent-peach',    occasion: 'birthday' },
+  { id: 'anniversary',  name: 'Anniversary',     icon: Heart,       accent: 'accent-pink',     occasion: 'anniversary' },
+  { id: 'baby-shower',  name: 'Baby Shower',     icon: Baby,        accent: 'accent-lavender', occasion: 'baby_shower' },
+  { id: 'surprise',     name: 'Surprise Room',   icon: PartyPopper, accent: 'accent-pink',     occasion: 'party' },
+  { id: 'housewarming', name: 'Housewarming',    icon: HomeIcon,    accent: 'accent-mint',     occasion: 'housewarming' },
+  { id: 'corporate',    name: 'Corporate Setup', icon: Briefcase,   accent: 'accent-lavender', occasion: 'corporate' },
+  { id: 'festival',     name: 'Festival Decor',  icon: Flame,       accent: 'accent-peach',    occasion: 'festival' },
+  { id: 'romantic',     name: 'Romantic Setup',  icon: Sparkles,    accent: 'accent-pink',     occasion: 'anniversary' },
+]
+
+const TRENDING = [
+  {
+    id: 'trend-birthday',
+    title: 'Elegant Birthday Celebration',
+    category: 'Birthday Decor',
+    accent: 'accent-peach',
+    occasion: 'birthday',
+    booked: 3,
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/03_trending_decorations/elegant_birthday_celebration_R-y1Ekkd9.jpg',
+  },
+  {
+    id: 'trend-anniversary',
+    title: 'Romantic Anniversary Setup',
+    category: 'Anniversary Decor',
+    accent: 'accent-pink',
+    occasion: 'anniversary',
+    booked: 2,
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/03_trending_decorations/romantic_anniversary_setup_40m64zJpb.jpg',
+  },
+  {
+    id: 'trend-babyshower',
+    title: 'Baby Shower Celebration',
+    category: 'Baby Shower Decor',
+    accent: 'accent-lavender',
+    occasion: 'baby_shower',
+    booked: 5,
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/03_trending_decorations/baby_shower_celebration_lkRvRboGZ.jpg',
+  },
+]
+
+const ADD_GIFTS = [
+  {
+    id: 'return',
+    name: 'Birthday Return Gifts',
+    desc: 'Curated for birthdays & parties',
+    accent: 'accent-peach',
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/05_add_gifts_to_your_celebration/add_gifts_birthday_return_gifts_FzMqKdNkj.jpg',
+  },
+  {
+    id: 'baby',
+    name: 'Baby Shower Gifts',
+    desc: 'Pastel hampers · sweet treats',
+    accent: 'accent-lavender',
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/05_add_gifts_to_your_celebration/add_gifts_baby_shower_gifts_J-l8sas6N.jpg',
+  },
+  {
+    id: 'premium',
+    name: 'Premium Gift Boxes',
+    desc: 'Luxury · personalised',
+    accent: 'accent-pink',
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/05_add_gifts_to_your_celebration/primium_gift_boxes_jpg_VACXO4qAq.jpg',
+  },
+  {
+    id: 'balloon',
+    name: 'Custom Balloon Gifts',
+    desc: 'Themed bubbles + chocolates',
+    accent: 'accent-pink',
+    image: 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/05_add_gifts_to_your_celebration/custome_ballon_gift_jpg_0wxN4J7b9.jpg',
+  },
+]
+
+const FOR_TWO_IMG = 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/07_for_two_romantic_anniversary_setup/for_two_romantic_anniversary_setup_tZlXpVP1y.jpg'
+const BULK_IMG = 'https://ik.imagekit.io/jcp2urr7b/content/02_home_page/08_planning_for_crowd/planning_for_crowd_jpg_B-RGyIjuR.jpg'
+
+const BULK_PERKS = [
+  { icon: Building2,  label: 'Bulk & corporate' },
+  { icon: FileText,   label: 'GST invoice' },
+  { icon: Truck,      label: 'Pan-India' },
+  { icon: BadgeCheck, label: 'Dedicated AM' },
 ]
 
 const STEPS = [
-  { n: 1, label: 'Upload Photo',    desc: 'Snap your space — any room works',         icon: Camera,        accent: 'accent-peach' },
-  { n: 2, label: 'Preview with AI', desc: 'See your celebration before it happens',   icon: Wand2,         accent: 'accent-pink' },
-  { n: 3, label: 'Book Decorators', desc: 'Pick a date, time and venue',              icon: CalendarCheck, accent: 'accent-lavender' },
-  { n: 4, label: 'Celebrate',       desc: 'Crew arrives, you only enjoy',             icon: PartyPopper,   accent: 'accent-mint' },
+  { n: 1, label: 'Upload Photo',    desc: 'Upload your room or venue photo',    icon: Camera,        accent: 'accent-peach' },
+  { n: 2, label: 'Preview with AI', desc: 'See your decor before booking',      icon: Wand2,         accent: 'accent-pink' },
+  { n: 3, label: 'Book Decorators', desc: 'Pick date, time and setup location', icon: CalendarCheck, accent: 'accent-lavender' },
+  { n: 4, label: 'Celebrate',       desc: 'Our team sets it up, you enjoy',     icon: PartyPopper,   accent: 'accent-mint' },
 ]
 
 const TRUST = [
@@ -40,9 +112,19 @@ export default function HomeScreen() {
     user, designs, orders, navigate, setSelectedDesign, setSelectedOrder,
     userAddress, locationLoading, locationDenied, detectLocation,
     setGiftMode, setGiftCart, gifts, loadGifts, uploadForm, setUploadForm, setPendingGiftId,
+    festivals, setFestivals, setSelectedFestivalId,
   } = useApp()
 
   useEffect(() => { if (gifts.length === 0) loadGifts() }, [])
+
+  useEffect(() => {
+    if (festivals.length > 0) return
+    let alive = true
+    api('festivals').then((data) => {
+      if (alive && Array.isArray(data)) setFestivals(data)
+    })
+    return () => { alive = false }
+  }, [])
 
   const cityLabel = userAddress?.city || userAddress?.area || 'your city'
 
@@ -60,6 +142,12 @@ export default function HomeScreen() {
   const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
   const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
   const openGift = (id) => { setGiftMode('standalone'); setPendingGiftId(id); navigate(SCREENS.GIFTS) }
+  const openFestival = (id) => { setSelectedFestivalId(id); navigate(SCREENS.FESTIVAL) }
+
+  const festMin = (f) => {
+    const prices = (f.hampers || []).map(h => h.price).filter(p => typeof p === 'number')
+    return prices.length ? Math.min(...prices) : null
+  }
 
   const thumbPos = [
     { className: 'top-16 left-2 -rotate-6 w-[72px] h-[72px]' },
@@ -115,9 +203,9 @@ export default function HomeScreen() {
               <span className="text-[10px] font-bold text-gray-900 tracking-widest uppercase">India&apos;s First AI-Powered Decor</span>
             </div>
             <h2 className="font-display text-[40px] font-medium text-gray-900 leading-[0.98] tracking-tight">
-              See your space<br />
-              <span className="italic font-normal iridescent-text">decorated</span><br />
-              <span className="text-gray-900">before you book</span>
+              See Your Space<br />
+              <span className="italic font-normal iridescent-text">Decorated</span><br />
+              <span className="text-gray-900">Before You Book</span>
             </h2>
           </div>
         </div>
@@ -126,7 +214,7 @@ export default function HomeScreen() {
       {/* ── AI Decorate floating CTA ── */}
       <div className="relative px-6 -mt-16 z-20">
         <p className="text-sm text-gray-700 leading-relaxed mb-4">
-          Click a photo of your room, see your decoration with Instant Decor AI, and book Fatafat Decor to set it up at your place — for birthdays, surprises and more.
+          Upload your room photo, preview your decor with AI, and book Fatafat Decor for birthdays, anniversaries, surprises, festivals and more.
         </p>
 
         <button onClick={() => navigate(SCREENS.UPLOAD)}
@@ -136,7 +224,7 @@ export default function HomeScreen() {
             <div className="absolute inset-0 rounded-2xl iridescent opacity-50 blur-md -z-10" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="eyebrow text-pink-600">AI Powered · {user?.credits || 0} credits</p>
+            <p className="eyebrow text-pink-600">AI Powered · Free for new users</p>
             <h3 className="text-gray-900 font-bold text-[15px] mt-0.5">Try Instant Decor AI</h3>
             <p className="text-gray-500 text-[11px] mt-0.5">Upload your room photo, see the decor</p>
           </div>
@@ -161,13 +249,16 @@ export default function HomeScreen() {
       {/* ── Main content ── */}
       <div className="px-6 mt-8 space-y-8 relative z-10">
 
-        {/* AI Credits card */}
+        {/* Decor Preview Credits card */}
         <button onClick={() => navigate(SCREENS.CREDITS)} className="w-full glass-floating rounded-[24px] p-4 flex items-center gap-3 text-left">
           <div className="w-12 h-12 rounded-2xl iridescent flex items-center justify-center flex-shrink-0">
             <Wand2 className="w-5 h-5 text-white" strokeWidth={2.2} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">AI Previews</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">AI Previews</p>
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-100 text-green-700 uppercase tracking-wide">Free for new users</span>
+            </div>
             <p className="text-sm font-bold text-gray-900 mt-1"><span className="iridescent-text">{user?.credits || 0}</span> credits left</p>
             <p className="text-[10px] text-gray-600 mt-0.5">Each credit = 1 AI room preview</p>
           </div>
@@ -194,49 +285,123 @@ export default function HomeScreen() {
           </div>
         </section>
 
-        {/* Recent AI Designs */}
-        {recentDesigns.length > 0 ? (
+        {/* Trending Decorations */}
+        <section>
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <p className="eyebrow text-gray-600">Near you</p>
+              <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Trending <span className="italic font-normal iridescent-text">Decorations</span></h3>
+            </div>
+            <button onClick={() => navigate(SCREENS.UPLOAD)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+          </div>
+          <div className="space-y-3">
+            {TRENDING.map((t) => (
+              <button key={t.id} onClick={() => startOccasion(t.occasion)}
+                className="w-full glass-floating rounded-[24px] p-3 flex items-center gap-3.5 text-left hover:-translate-y-0.5 transition-transform">
+                <div className="relative w-24 h-24 rounded-[18px] overflow-hidden flex-shrink-0">
+                  <img src={ik(t.image, 'w-192,h-192,q-80,c-maintain_ratio')} alt={t.title} className="w-full h-full object-cover" />
+                  <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ${t.accent} border border-white/70`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase">{t.category}</p>
+                  <h4 className="text-gray-900 font-bold text-[14px] leading-tight mt-0.5">{t.title}</h4>
+                  <p className="text-gray-500 text-[11px] mt-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" strokeWidth={2.2} /> Ranchi, Jharkhand
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex -space-x-1.5">
+                      <span className="w-5 h-5 rounded-full accent-peach border-2 border-white" />
+                      <span className="w-5 h-5 rounded-full accent-pink border-2 border-white" />
+                      <span className="w-5 h-5 rounded-full accent-lavender border-2 border-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-600">{t.booked} booked recently</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" strokeWidth={2.2} />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Festival hampers */}
+        {festivals.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-5">
               <div>
-                <p className="eyebrow text-gray-600">Your studio</p>
-                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Recent <span className="italic font-normal iridescent-text">designs</span></h3>
+                <p className="eyebrow text-gray-600">Limited season</p>
+                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Festival <span className="italic font-normal iridescent-text">hampers</span></h3>
               </div>
-              <button onClick={() => navigate(SCREENS.ORDERS)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+              <button onClick={() => openFestival(festivals[0].id)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
             </div>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
-              {recentDesigns.map((d) => (
-                <button key={d.id} onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}
-                  className="flex-shrink-0 w-44 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
-                  <div className="aspect-square relative bg-pink-50/50">
-                    {d.decorated_image ? <img src={ik(d.decorated_image, 'w-352,h-352,q-75,c-maintain_ratio')} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Sparkles className="w-8 h-8 text-pink-300" /></div>}
-                    <span className={`absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'ordered' ? 'bg-green-100 text-green-700' : 'bg-white/90 text-pink-600'}`}>{d.status === 'ordered' ? 'ORDERED' : 'READY'}</span>
-                  </div>
-                  <div className="p-3.5">
-                    <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1 capitalize">{d.occasion?.replace(/_/g, ' ')}</p>
-                    <h4 className="text-gray-900 font-bold text-[13px] leading-tight mb-2 capitalize">{d.room_type}</h4>
-                    <p className="text-gray-900 text-base font-bold flex items-center"><IndianRupee className="w-3.5 h-3.5" />{d.total_cost?.toLocaleString('en-IN')}</p>
-                  </div>
-                </button>
-              ))}
-              <button onClick={() => navigate(SCREENS.UPLOAD)} className="flex-shrink-0 w-32 rounded-[24px] glass-card border-2 border-dashed border-pink-200 flex flex-col items-center justify-center gap-2 hover:border-pink-400 transition-colors">
-                <Sparkles className="w-7 h-7 text-pink-400" />
-                <span className="text-xs font-bold text-pink-500">New Design</span>
-              </button>
-            </div>
-          </section>
-        ) : (
-          <section>
-            <div className="glass-floating rounded-[28px] p-6 text-center">
-              <div className="w-14 h-14 iridescent aurora-shimmer rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/60">
-                <Wand2 className="w-7 h-7 text-white" />
-              </div>
-              <h3 className="font-display text-2xl text-gray-900 mb-1">No designs yet</h3>
-              <p className="text-gray-500 text-xs mb-4 leading-relaxed">Upload a room photo and let AI create a stunning decoration plan for you</p>
-              <button onClick={() => navigate(SCREENS.UPLOAD)} className="btn-primary-luxury text-white font-bold text-sm px-6 py-3 rounded-2xl">Create your first design</button>
+              {festivals.map((f) => {
+                const min = festMin(f)
+                return (
+                  <button key={f.id} onClick={() => openFestival(f.id)}
+                    className="flex-shrink-0 w-64 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                    <div className="relative aspect-[5/4] bg-pink-50/50">
+                      {f.hero
+                        ? <img src={ik(f.hero, 'w-512,q-80')} alt={f.name} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }} />
+                      {typeof f.days === 'number' && (
+                        <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-white text-[9px] font-black tracking-wide uppercase">
+                          <CalendarClock className="w-3 h-3" strokeWidth={2.4} />
+                          {f.days <= 0 ? 'On now' : `${f.days} days to go`}
+                        </span>
+                      )}
+                      <div className="absolute bottom-3 left-4 right-4">
+                        {f.eyebrow && <p className="text-white/80 text-[9px] font-bold tracking-[0.25em] uppercase">{f.eyebrow}</p>}
+                        <h4 className="font-display text-white text-xl font-medium leading-tight mt-0.5">{f.name}</h4>
+                      </div>
+                    </div>
+                    <div className="p-4 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        {f.tagline && <p className="text-gray-500 text-[9px] font-bold tracking-[0.2em] uppercase truncate">{f.tagline}</p>}
+                        {min !== null && (
+                          <p className="text-gray-900 text-[13px] font-bold mt-1 flex items-center">
+                            Hampers starting from&nbsp;<IndianRupee className="w-3 h-3" />{min.toLocaleString('en-IN')}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: f.color || '#111827' }}>
+                        <ArrowRight className="w-4 h-4 text-white" strokeWidth={2.4} />
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </section>
         )}
+
+        {/* Add gifts to your celebration */}
+        <section>
+          <div className="mb-4">
+            <p className="eyebrow text-gray-600">Add-ons</p>
+            <h3 className="font-display text-3xl font-medium text-gray-900 mt-1 leading-tight">Add gifts to your <span className="italic font-normal iridescent-text">celebration</span></h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {ADD_GIFTS.map((c) => (
+              <button key={c.id} onClick={openGifts}
+                className="glass-floating rounded-[20px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                <div className="relative aspect-[5/4]">
+                  <img src={ik(c.image, 'w-360,q-80')} alt={c.name} className="w-full h-full object-cover" />
+                  <span className={`absolute top-2.5 left-2.5 w-8 h-8 rounded-full ${c.accent} flex items-center justify-center`}>
+                    <Gift className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
+                  </span>
+                </div>
+                <div className="p-3">
+                  <h4 className="text-gray-900 font-bold text-[13px] leading-tight">{c.name}</h4>
+                  <div className="flex items-center justify-between gap-1 mt-1">
+                    <p className="text-gray-500 text-[10px] leading-tight truncate">{c.desc}</p>
+                    <ArrowRight className="w-3 h-3 text-gray-400 flex-shrink-0" strokeWidth={2.4} />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {/* Top Picks — real gifts */}
         {featuredGifts.length > 0 && (
@@ -280,6 +445,139 @@ export default function HomeScreen() {
                   </div>
                 </button>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* For two — Featured */}
+        <section>
+          <div className="mb-4">
+            <p className="eyebrow text-gray-600">Featured</p>
+            <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">For two</h3>
+          </div>
+          <button onClick={() => startOccasion('anniversary')}
+            className="w-full glass-floating rounded-[28px] overflow-hidden text-left hover:-translate-y-0.5 transition-transform">
+            <div className="relative aspect-[16/11]">
+              <img src={ik(FOR_TWO_IMG, 'w-800,q-80')} alt="Romantic Anniversary Setup" className="w-full h-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.6) 100%)' }} />
+              <span className="absolute top-4 left-4 px-3 py-1.5 rounded-full glass-overlay text-[9px] font-black tracking-widest uppercase text-gray-900">Most loved</span>
+              <div className="absolute bottom-4 left-5 right-5">
+                <h4 className="font-display text-white text-2xl font-medium leading-tight">Romantic Anniversary Setup</h4>
+                <p className="text-white/80 text-[11px] mt-1">Setup + dismantling included</p>
+              </div>
+            </div>
+            <div className="p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Starting from</p>
+                <p className="text-gray-900 text-lg font-bold flex items-center mt-0.5"><IndianRupee className="w-4 h-4" />3,299</p>
+              </div>
+              <span className="px-4 py-2.5 rounded-full bg-gray-900 flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-white text-[11px] font-bold">Customise</span>
+                <ArrowRight className="w-3.5 h-3.5 text-white" strokeWidth={2.4} />
+              </span>
+            </div>
+          </button>
+        </section>
+
+        {/* Planning for a crowd — Bulk band */}
+        <section>
+          <div className="mb-4">
+            <p className="eyebrow text-gray-600">For 20+ guests</p>
+            <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Planning for <span className="italic font-normal iridescent-text">a crowd?</span></h3>
+          </div>
+          <button onClick={() => navigate(SCREENS.BULK)}
+            className="w-full glass-floating rounded-[28px] overflow-hidden text-left hover:-translate-y-0.5 transition-transform">
+            <div className="relative aspect-[16/10]">
+              <img src={ik(BULK_IMG, 'w-800,q-80')} alt="Bulk gifting" className="w-full h-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.62) 100%)' }} />
+              <span className="absolute top-4 left-4 px-3 py-1.5 rounded-full glass-overlay text-[9px] font-black tracking-widest uppercase text-gray-900">From 10 to 10,000</span>
+              <div className="absolute bottom-4 left-5 right-5">
+                <p className="text-white/80 text-[9px] font-bold tracking-[0.25em] uppercase">AI-curated bulk</p>
+                <h4 className="font-display text-white text-2xl font-medium leading-tight mt-0.5">Create bulk gift plan</h4>
+                <p className="text-white/80 text-[11px] mt-1">Return gifts · baby shower boxes · corporate hampers</p>
+              </div>
+            </div>
+            <div className="p-4 flex items-center gap-3">
+              <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-2">
+                {BULK_PERKS.map((p, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <p.icon className="w-3.5 h-3.5 text-pink-500 flex-shrink-0" strokeWidth={2.2} />
+                    <span className="text-[10px] font-bold text-gray-700">{p.label}</span>
+                  </div>
+                ))}
+              </div>
+              <span className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
+                <ArrowRight className="w-4 h-4 text-white" strokeWidth={2.4} />
+              </span>
+            </div>
+          </button>
+        </section>
+
+        {/* Private selection teaser */}
+        <button onClick={() => navigate(SCREENS.PRIVATE)}
+          className="w-full rounded-[28px] p-6 relative overflow-hidden text-left hover:-translate-y-0.5 transition-transform"
+          style={{ background: 'linear-gradient(135deg, #1a1126 0%, #2c1a3a 55%, #3d2150 100%)' }}>
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(229,197,137,0.22), transparent 70%)', filter: 'blur(6px)' }} />
+          <div className="absolute -bottom-12 -left-8 w-44 h-44 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(196,132,252,0.18), transparent 70%)', filter: 'blur(8px)' }} />
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #E5C589, #C9A45B)' }}>
+              <Lock className="w-5 h-5" strokeWidth={2.2} style={{ color: '#1a1126' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase" style={{ color: '#E5C589', letterSpacing: '0.32em' }}>
+                <Sparkles className="w-3 h-3" strokeWidth={2.4} /> Members only
+              </p>
+              <h4 className="font-display text-white text-xl font-medium leading-tight mt-1">
+                Private premium <span className="italic font-normal" style={{ color: '#E5C589' }}>gift selection</span>
+              </h4>
+              <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Exclusive hampers · custom selections</p>
+            </div>
+            <span className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+              <ArrowRight className="w-4 h-4 text-white" strokeWidth={2.4} />
+            </span>
+          </div>
+        </button>
+
+        {/* Recent AI Designs */}
+        {recentDesigns.length > 0 ? (
+          <section>
+            <div className="flex items-end justify-between mb-5">
+              <div>
+                <p className="eyebrow text-gray-600">Your studio</p>
+                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Recent <span className="italic font-normal iridescent-text">designs</span></h3>
+              </div>
+              <button onClick={() => navigate(SCREENS.ORDERS)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
+              {recentDesigns.map((d) => (
+                <button key={d.id} onClick={() => { setSelectedDesign(d); navigate(SCREENS.DESIGN) }}
+                  className="flex-shrink-0 w-44 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                  <div className="aspect-square relative bg-pink-50/50">
+                    {d.decorated_image ? <img src={ik(d.decorated_image, 'w-352,h-352,q-75,c-maintain_ratio')} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Sparkles className="w-8 h-8 text-pink-300" /></div>}
+                    <span className={`absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'ordered' ? 'bg-green-100 text-green-700' : 'bg-white/90 text-pink-600'}`}>{d.status === 'ordered' ? 'ORDERED' : 'READY'}</span>
+                  </div>
+                  <div className="p-3.5">
+                    <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1 capitalize">{d.occasion?.replace(/_/g, ' ')}</p>
+                    <h4 className="text-gray-900 font-bold text-[13px] leading-tight mb-2 capitalize">{d.room_type}</h4>
+                    <p className="text-gray-900 text-base font-bold flex items-center"><IndianRupee className="w-3.5 h-3.5" />{d.total_cost?.toLocaleString('en-IN')}</p>
+                  </div>
+                </button>
+              ))}
+              <button onClick={() => navigate(SCREENS.UPLOAD)} className="flex-shrink-0 w-32 rounded-[24px] glass-card border-2 border-dashed border-pink-200 flex flex-col items-center justify-center gap-2 hover:border-pink-400 transition-colors">
+                <Sparkles className="w-7 h-7 text-pink-400" />
+                <span className="text-xs font-bold text-pink-500">New Design</span>
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section>
+            <div className="glass-floating rounded-[28px] p-6 text-center">
+              <div className="w-14 h-14 iridescent aurora-shimmer rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/60">
+                <Wand2 className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="font-display text-2xl text-gray-900 mb-1">No designs yet</h3>
+              <p className="text-gray-500 text-xs mb-4 leading-relaxed">Upload a room photo and let AI create a stunning decoration plan for you</p>
+              <button onClick={() => navigate(SCREENS.UPLOAD)} className="btn-primary-luxury text-white font-bold text-sm px-6 py-3 rounded-2xl">Create your first design</button>
             </div>
           </section>
         )}
@@ -333,9 +631,9 @@ export default function HomeScreen() {
         {/* About / trust */}
         <section className="glass-floating rounded-[28px] p-6">
           <p className="eyebrow text-gray-600 mb-2">About</p>
-          <h3 className="font-display text-2xl font-medium text-gray-900 mb-3">Crafted to celebrate</h3>
+          <h3 className="font-display text-2xl font-medium text-gray-900 mb-3">Decor Crafted for Every Celebration</h3>
           <p className="text-gray-700 text-sm leading-relaxed mb-4">
-            Planning a moment can be a daunting task — especially when every detail matters. With our curated decor and AI-assisted ideation, every celebration becomes effortless.
+            Planning decor should be simple. Fatafat Decor helps you preview, choose and book beautiful balloon decor, gifting and event setups in Ranchi.
           </p>
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/40">
             {TRUST.map((t, i) => (

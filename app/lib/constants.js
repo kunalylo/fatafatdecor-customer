@@ -9,6 +9,7 @@ export const SCREENS = {
   DESIGN: 'design', BOOKING: 'booking', TRACKING: 'tracking', CREDITS: 'credits',
   ORDERS: 'orders', PROFILE: 'profile', ORDER_DETAIL: 'order_detail', ADDRESS: 'address',
   GIFTS: 'gifts', GIFT_BOOKING: 'gift_booking',
+  FESTIVAL: 'festival', BULK: 'bulk', CORPORATE: 'corporate', PRIVATE: 'private',
 }
 
 export const ROOM_TYPES = ['Dining Room', 'Living Room', 'Bedroom', 'Balcony', 'Garden', 'Hall', 'Office', 'Terrace']

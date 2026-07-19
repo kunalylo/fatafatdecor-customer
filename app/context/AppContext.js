@@ -50,6 +50,8 @@ export function AppProvider({ children }) {
   const ordersRef = useRef([])
   const [gifts, setGifts] = useState([])
   const [pendingGiftId, setPendingGiftId] = useState(null) // gift id to auto-open in GiftsScreen (from Home)
+  const [selectedFestivalId, setSelectedFestivalId] = useState(null) // festival to show on FESTIVAL screen
+  const [festivals, setFestivals] = useState([]) // cached GET /festivals (home carousel + landing)
   const [giftCart, setGiftCart] = useState(() => {
     try { const c = localStorage.getItem('fd_gift_cart'); return c ? JSON.parse(c) : [] } catch { return [] }
   })
@@ -869,6 +871,7 @@ export function AppProvider({ children }) {
     pendingGiftId, setPendingGiftId,
     giftOrders, setGiftOrders, selectedGiftOrder, setSelectedGiftOrder,
     loadGifts, handleCreateGiftOrder, handleGiftPayment,
+    selectedFestivalId, setSelectedFestivalId, festivals, setFestivals,
   }
 
   return <AppContext.Provider value={ctxValue}>{children}</AppContext.Provider>
