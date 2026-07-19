@@ -142,8 +142,11 @@ export default function DesignScreen() {
         <button onClick={() => navigate(SCREENS.HOME)} className="w-9 h-9 rounded-full glass-card flex items-center justify-center">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <h1 className="font-display text-2xl text-gray-900">Design <span className="italic iridescent-text">preview</span></h1>
-        <Badge className="ml-auto btn-primary-luxury border-0 text-white">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
+        <div className="flex-1 min-w-0">
+          <p className="eyebrow text-gray-700">Your AI design</p>
+          <h1 className="font-display text-2xl text-gray-900 leading-tight">Here&apos;s your <span className="italic iridescent-text">decor preview</span></h1>
+        </div>
+        <Badge className="ml-auto btn-primary-luxury border-0 text-white shrink-0">{d.occasion?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
       </div>
       <div className="px-4 space-y-4">
 
@@ -182,7 +185,7 @@ export default function DesignScreen() {
             >
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-pink-500" />
-                <h3 className="font-bold text-sm text-gray-800">What&apos;s Included ({snapshotItems.length} items)</h3>
+                <h3 className="font-bold text-sm text-gray-800">Items in your decor ({snapshotItems.length})</h3>
               </div>
               <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
             </button>
@@ -312,7 +315,8 @@ export default function DesignScreen() {
         {/* ── REFERENCE FLOW: Customer breakdown waterfall ──────────── */}
         {isReferenceFlow && breakdown && (
           <div className="glass-floating rounded-[22px] p-4">
-            <h3 className="font-bold text-sm text-gray-800 mb-3">Price Breakdown</h3>
+            <p className="eyebrow text-gray-500">Estimate</p>
+            <h3 className="font-bold text-sm text-gray-800 mb-3 mt-0.5">Price Breakdown</h3>
             <div className="space-y-1.5 text-sm">
               <PriceRow label="Decoration & Material" value={breakdown.decoration_total} />
               <PriceRow label="GST (18%)" value={breakdown.gst} muted />
@@ -395,11 +399,11 @@ export default function DesignScreen() {
                 handleCreateOrder(totalOverride, giftCart.length > 0 && giftMode === 'addon' ? giftCart : [], itemsOverride)
               }} disabled={loading}
                 className="w-full h-14 btn-primary-luxury border-0 text-white font-bold text-base rounded-2xl">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Order & Book Delivery</>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingBag className="w-5 h-5 mr-2" /> Book This Decor</>}
               </Button>
               <Button onClick={() => navigate(SCREENS.UPLOAD)} variant="outline"
                 className="w-full h-12 border-pink-200 bg-white/50 text-pink-500 font-semibold rounded-2xl hover:bg-pink-50">
-                <RefreshCw className="w-4 h-4 mr-2" /> Try Another Style
+                <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
               </Button>
             </>
           )}

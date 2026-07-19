@@ -16,6 +16,18 @@ const LEAD_STATUS = {
   'confirmed':        { label: 'Confirmed',        cls: 'bg-green-100 text-green-700' },
 }
 
+// Friendly order-status labels (delivery_status → display copy)
+const ORDER_STATUS = {
+  pending:    'Confirmed',
+  assigned:   'Assigned',
+  en_route:   'On the way',
+  arrived:    'Arrived',
+  decorating: 'Decorating',
+  delivered:  'Delivered',
+  cancelled:  'Cancelled',
+}
+const statusText = (s) => ORDER_STATUS[s] || s?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
 export default function OrdersScreen() {
   const { orders, setSelectedOrder, navigate, giftOrders, designs, setSelectedDesign, user } = useApp()
   const [tab, setTab] = useState('decoration')
@@ -29,32 +41,32 @@ export default function OrdersScreen() {
   return (
   <div className="slide-up pb-28 bg-aurora min-h-screen">
     <div className="p-4 pt-12">
-      <p className="eyebrow text-gray-400">Your history</p>
-      <h1 className="font-display text-3xl text-gray-900 leading-tight">My <span className="italic iridescent-text">orders</span></h1>
+      <p className="eyebrow text-gray-400">Your bookings</p>
+      <h1 className="font-display text-3xl text-gray-900 leading-tight">Orders</h1>
     </div>
 
     {/* Tab toggle */}
     <div className="px-4 mb-4">
-      <div className="flex glass-card rounded-2xl p-1">
+      <div className="flex glass-floating rounded-full p-1">
         <button
           onClick={() => setTab('decoration')}
-          className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'decoration' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+          className={`flex-1 py-2.5 rounded-full text-[11px] font-bold transition-all ${tab === 'decoration' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>
           Decoration
         </button>
         <button
           onClick={() => setTab('gifts')}
-          className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'gifts' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+          className={`flex-1 py-2.5 rounded-full text-[11px] font-bold transition-all ${tab === 'gifts' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>
           Gifts {giftOrders.filter(o => o.payment_status !== 'pending').length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{giftOrders.filter(o => o.payment_status !== 'pending').length}</span>}
         </button>
         <button
           onClick={() => setTab('designs')}
-          className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'designs' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+          className={`flex-1 py-2.5 rounded-full text-[11px] font-bold transition-all ${tab === 'designs' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>
           Designs {designs.length > 0 && <span className="ml-1 bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{designs.length}</span>}
         </button>
         {leads.length > 0 && (
           <button
             onClick={() => setTab('enquiries')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === 'enquiries' ? 'btn-primary-luxury text-white' : 'text-gray-500'}`}>
+            className={`flex-1 py-2.5 rounded-full text-[11px] font-bold transition-all ${tab === 'enquiries' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>
             Enquiries
           </button>
         )}
@@ -67,8 +79,9 @@ export default function OrdersScreen() {
           {orders.filter(o => o.payment_status !== 'pending').length === 0 ? (
             <div className="text-center py-12">
               <ShoppingBag className="w-12 h-12 text-pink-200 mx-auto mb-3" />
-              <p className="text-gray-400">No orders yet</p>
-              <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 btn-primary-luxury border-0 text-white">Create Design</Button>
+              <p className="font-bold text-sm text-gray-800">No active orders yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Generate an AI decor preview and book to see live tracking here.</p>
+              <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 btn-primary-luxury border-0 text-white">Try AI Decorate</Button>
             </div>
           ) : orders.filter(o => o.payment_status !== 'pending').map(o => (
             <div key={o.id} className="glass-floating rounded-[22px] cursor-pointer hover:scale-[1.01] transition-transform p-4"
@@ -79,13 +92,14 @@ export default function OrdersScreen() {
               }}>
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl accent-pink flex items-center justify-center"><Package className="w-5 h-5 text-white" /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800">Order #{o.id.slice(0, 8)}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Decoration · #{o.id.slice(0, 8)}</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">{o.items?.[0]?.name || 'Decoration setup'}</p>
                   <p className="text-xs text-gray-400">{new Date(o.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-pink-500 flex items-center justify-end"><IndianRupee className="w-3 h-3" />{o.total_cost}</p>
-                  <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'en_route' ? 'bg-blue-100 text-blue-600' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{o.delivery_status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
+                  <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.delivery_status === 'en_route' ? 'bg-pink-100 text-pink-700' : o.delivery_status === 'assigned' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'}`}>{statusText(o.delivery_status)}</Badge>
                 </div>
               </div>
             </div>
@@ -98,7 +112,8 @@ export default function OrdersScreen() {
           {giftOrders.filter(o => o.payment_status !== 'pending').length === 0 ? (
             <div className="text-center py-12">
               <Gift className="w-12 h-12 text-pink-200 mx-auto mb-3" />
-              <p className="text-gray-400">No gift orders yet</p>
+              <p className="font-bold text-sm text-gray-800">No gift orders yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Pick a gift and we&apos;ll deliver it with your decor or on its own.</p>
               <Button onClick={() => navigate(SCREENS.GIFTS)} className="mt-3 btn-primary-luxury border-0 text-white">Send Gifts</Button>
             </div>
           ) : giftOrders.filter(o => o.payment_status !== 'pending').map(o => (
@@ -109,8 +124,9 @@ export default function OrdersScreen() {
               }}>
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl accent-pink flex items-center justify-center"><Gift className="w-5 h-5 text-white" /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Gift · #{o.id.slice(0, 8)}</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
                     {o.gift_items?.[0]?.name || 'Gift Order'}
                     {o.gift_items?.length > 1 ? ` +${o.gift_items.length - 1} more` : ''}
                   </p>
@@ -118,8 +134,8 @@ export default function OrdersScreen() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-pink-500 flex items-center justify-end"><IndianRupee className="w-3 h-3" />{o.gift_total}</p>
-                  <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.payment_status === 'full' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                    {(o.delivery_status || (o.payment_status === 'full' ? 'paid' : 'pending'))?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  <Badge className={`text-[10px] ${o.delivery_status === 'delivered' ? 'bg-green-100 text-green-600' : o.payment_status === 'full' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {o.delivery_status ? statusText(o.delivery_status) : (o.payment_status === 'full' ? 'Paid' : 'Pending')}
                   </Badge>
                 </div>
               </div>
@@ -133,7 +149,8 @@ export default function OrdersScreen() {
           {leads.length === 0 ? (
             <div className="text-center py-12">
               <Inbox className="w-12 h-12 text-pink-200 mx-auto mb-3" />
-              <p className="text-gray-400">No enquiries yet</p>
+              <p className="font-bold text-sm text-gray-800">No gift plans yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Submit a Bulk or Corporate enquiry — your requests will appear here.</p>
             </div>
           ) : leads.map(l => {
             const st = LEAD_STATUS[l.status] || LEAD_STATUS['callback-pending']
@@ -168,8 +185,9 @@ export default function OrdersScreen() {
           {designs.length === 0 ? (
             <div className="text-center py-12">
               <Wand2 className="w-12 h-12 text-pink-200 mx-auto mb-3" />
-              <p className="text-gray-400">No designs yet</p>
-              <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 btn-primary-luxury border-0 text-white">Create Design</Button>
+              <p className="font-bold text-sm text-gray-800">No designs yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Upload a room photo and generate your first decor preview.</p>
+              <Button onClick={() => navigate(SCREENS.UPLOAD)} className="mt-3 btn-primary-luxury border-0 text-white">Try AI Decorate</Button>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">

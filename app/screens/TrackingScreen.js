@@ -86,8 +86,8 @@ export default function TrackingScreen() {
           <ChevronRight className="w-5 h-5 text-gray-600 rotate-180" />
         </button>
         <div>
-          <p className="eyebrow text-gray-400">Live</p>
-          <h1 className="font-display text-2xl text-gray-900 leading-tight">Live <span className="italic iridescent-text">tracking</span></h1>
+          <p className="eyebrow text-gray-400">Live progress</p>
+          <h1 className="font-display text-2xl text-gray-900 leading-tight">Track your <span className="italic iridescent-text">decor</span></h1>
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export default function TrackingScreen() {
 
             {/* Status Steps */}
             <div className="glass-floating rounded-[22px] p-4">
-              <h3 className="font-bold text-sm text-gray-800 mb-3">Status</h3>
+              <h3 className="font-bold text-sm text-gray-800 mb-3">Your booking journey</h3>
               <div className="space-y-3">
                 {statusSteps.map(({ key, label, icon }, i) => {
                   const isActive = statusOrder.indexOf(trackingData.delivery_status) >= i
@@ -167,7 +167,7 @@ export default function TrackingScreen() {
             {/* Decorator card — show name ONLY after decorator accepts */}
             {decoratorAccepted ? (
               <div className="glass-floating rounded-[22px] p-4">
-                <h3 className="font-bold text-sm text-gray-800 mb-3">Your Decorator</h3>
+                <h3 className="font-bold text-sm text-gray-800 mb-3">Your decorators</h3>
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full iridescent flex items-center justify-center border border-white/60">
                     <User className="w-5 h-5 text-white" />

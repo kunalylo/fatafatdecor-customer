@@ -35,7 +35,10 @@ export default function OrderDetailScreen() {
         <button onClick={() => navigate(SCREENS.ORDERS)} className="w-9 h-9 rounded-full glass-card flex items-center justify-center">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <h1 className="font-display text-2xl text-gray-900">Order <span className="italic iridescent-text">details</span></h1>
+        <div className="min-w-0">
+          <p className="eyebrow text-gray-500">Order · {String(o.id || '').slice(-6).toUpperCase()}</p>
+          <h1 className="font-display text-2xl text-gray-900 leading-tight">Order <span className="italic iridescent-text">details</span></h1>
+        </div>
         <Badge className={`ml-auto ${statusColor[o.delivery_status] || 'bg-gray-100 text-gray-500'}`}>
           {o.delivery_status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
         </Badge>
