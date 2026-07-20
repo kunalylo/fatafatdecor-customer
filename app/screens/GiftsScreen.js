@@ -35,6 +35,19 @@ const SORT_OPTIONS = [
   { label: 'Newest First', value: 'newest' },
 ]
 
+const PAGE_SIZE = 8
+
+// Some gift docs carry dirty category/occasion strings — a product name saved into
+// the category field, or a value written twice ("Mother's DayMother's Day"). Collapse
+// an exactly-doubled phrase and normalise whitespace so chips/filters stay clean.
+const cleanTag = (s) => {
+  if (!s || typeof s !== 'string') return ''
+  let t = s.trim().replace(/\s+/g, ' ')
+  const m = t.match(/^(.+?)\s?\1$/)
+  if (m) t = m[1].trim()
+  return t
+}
+
 export default function GiftsScreen() {
   const { gifts, giftCart, setGiftCart, giftMode, navigate, goBack, loadGifts, handleCreateGiftOrder, loading, user, pendingGiftId, setPendingGiftId } = useApp()
   const [search, setSearch] = useState('')
@@ -44,6 +57,7 @@ export default function GiftsScreen() {
   const [activeOccasion, setActiveOccasion] = useState('All')
   const [priceRange, setPriceRange] = useState(0)
   const [sortBy, setSortBy] = useState('default')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [showFilters, setShowFilters] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState(0)
@@ -78,14 +92,31 @@ export default function GiftsScreen() {
     setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  // Dynamic categories & occasions from gift data
+  // Dynamic categories & occasions from gift data — sanitised so junk values
+  // (product names mis-saved as a category, or doubled strings) never surface.
   const categories = useMemo(() => {
-    const cats = [...new Set(gifts.map(g => g.category).filter(Boolean))].sort()
+    const counts = {}
+    for (const g of gifts) {
+      const c = cleanTag(g.category)
+      if (c && c.length <= 22) counts[c] = (counts[c] || 0) + 1
+    }
+    // A real category recurs; a one-off is almost always a mislabelled product name.
+    const cats = Object.keys(counts)
+      .filter(c => counts[c] >= 2)
+      .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))
+      .slice(0, 8)
     return ['All', ...cats]
   }, [gifts])
 
   const occasions = useMemo(() => {
-    const occs = [...new Set(gifts.map(g => g.occasion).filter(Boolean))].sort()
+    const counts = {}
+    for (const g of gifts) {
+      const o = cleanTag(g.occasion)
+      if (o && o.length <= 22) counts[o] = (counts[o] || 0) + 1
+    }
+    const occs = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))
+      .slice(0, 10)
     return ['All', ...occs]
   }, [gifts])
 
@@ -95,8 +126,8 @@ export default function GiftsScreen() {
     return gifts
       .filter(g => {
         if (searchLower && !(g.name || '').toLowerCase().includes(searchLower) && !(g.description || '').toLowerCase().includes(searchLower)) return false
-        if (activeCategory !== 'All' && g.category !== activeCategory) return false
-        if (activeOccasion !== 'All' && g.occasion !== activeOccasion) return false
+        if (activeCategory !== 'All' && cleanTag(g.category) !== activeCategory) return false
+        if (activeOccasion !== 'All' && cleanTag(g.occasion) !== activeOccasion) return false
         if (g.price < range.min || g.price > range.max) return false
         return true
       })
@@ -109,6 +140,11 @@ export default function GiftsScreen() {
         }
       })
   }, [gifts, searchLower, activeCategory, activeOccasion, priceRange, sortBy])
+
+  // Any filter/search change restarts paging from the first page.
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [searchLower, activeCategory, activeOccasion, priceRange, sortBy])
+
+  const visibleGifts = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
 
   const getQty = (id) => (giftCart.find(g => g.gift_id === id)?.quantity || 0)
 
@@ -192,18 +228,20 @@ export default function GiftsScreen() {
           )}
         </div>
 
-        {/* Category chips */}
-        <div ref={catScrollRef} className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
-          {categories.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                activeCategory === cat
-                  ? 'btn-primary-luxury text-white'
-                  : 'bg-white/60 text-gray-600 border border-white/80'}`}>
-              {cat}
-            </button>
-          ))}
-        </div>
+        {/* Category chips — only when the data has real, recurring categories */}
+        {categories.length > 1 && (
+          <div ref={catScrollRef} className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setActiveCategory(cat)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  activeCategory === cat
+                    ? 'btn-primary-luxury text-white'
+                    : 'bg-white/60 text-gray-600 border border-white/80'}`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Discovery: categories, bulk, private (standalone mode, not while searching) ── */}
@@ -360,7 +398,7 @@ export default function GiftsScreen() {
 
         {giftsLoading && Array.from({ length: 6 }).map((_, i) => <GiftSkeleton key={i} />)}
 
-        {!giftsLoading && filtered.map(gift => {
+        {!giftsLoading && visibleGifts.map(gift => {
           const qty = getQty(gift.id)
           const imgs = getImgs(gift)
           const imgSrc = getImgSrc(imgs[0], 'thumb')
@@ -396,7 +434,7 @@ export default function GiftsScreen() {
 
               {/* Info */}
               <div className="p-3.5 flex flex-col flex-1">
-                {gift.occasion && <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1">{gift.occasion}</p>}
+                {cleanTag(gift.occasion) && <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase mb-1">{cleanTag(gift.occasion)}</p>}
                 <h4 onClick={() => { setSelectedGift(gift); setGalleryIndex(0) }}
                   className="text-gray-900 font-bold text-[13px] leading-tight mb-2 line-clamp-2 min-h-[34px] cursor-pointer">{gift.name}</h4>
                 <div className="flex items-center justify-between gap-2 mt-auto">
@@ -420,6 +458,20 @@ export default function GiftsScreen() {
             </div>
           )
         })}
+
+        {/* Paging — stop the endless scroll; reveal a page at a time */}
+        {!giftsLoading && filtered.length > visibleCount && (
+          <div className="col-span-2 flex flex-col items-center gap-2 pt-2 pb-1">
+            <button onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+              className="px-6 py-3 rounded-full glass-floating text-sm font-bold text-gray-800 active:scale-[0.97] transition-transform">
+              Load more gifts
+            </button>
+            <p className="text-[11px] text-gray-400">Showing {visibleCount} of {filtered.length}</p>
+          </div>
+        )}
+        {!giftsLoading && filtered.length > PAGE_SIZE && filtered.length <= visibleCount && (
+          <p className="col-span-2 text-center text-[11px] text-gray-400 pt-2 pb-1">That&apos;s all {filtered.length} gifts</p>
+        )}
 
         {!giftsLoading && filtered.length === 0 && gifts.length > 0 && (
           <div className="col-span-2 flex flex-col items-center justify-center py-16 text-gray-400">
