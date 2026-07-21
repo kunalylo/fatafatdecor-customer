@@ -202,11 +202,6 @@ export default function DesignScreen() {
                             <strong className="text-gray-800">{item.quantity}×</strong> {prettyName(item.name)}
                           </span>
                           <span className="text-xs font-semibold text-gray-700">Rs {((Number(item.unit_price) || 0) * (Number(item.quantity) || 1)).toFixed(0)}</span>
-                          {item.is_removable && (
-                            <button onClick={() => deleteSnapshotItem(snapshotItems.indexOf(item))} className="w-6 h-6 rounded bg-red-50 flex items-center justify-center">
-                              <Trash2 className="w-3 h-3 text-red-400" />
-                            </button>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -247,7 +242,6 @@ export default function DesignScreen() {
             <h3 className="font-bold text-sm text-gray-700 mb-2">
               <Plus className="w-4 h-4 inline text-purple-500 mr-1" />
               Add-on Items
-              {displayAddonItems.some(i => i.is_rentable) && <span className="ml-2 text-[10px] text-purple-400 font-normal">(tap trash to remove items)</span>}
             </h3>
             <div className="space-y-2">
               {displayAddonItems.map((item, i) => (
@@ -264,12 +258,6 @@ export default function DesignScreen() {
                   <p className="text-sm font-bold shrink-0 text-purple-500">
                     ₹{((item.price || item.selling_price_unit || 0) * (item.quantity || 1)).toFixed(0)}
                   </p>
-                  {item.is_rentable && (
-                    <button onClick={() => deleteAddonItem(item.id)}
-                      className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0 hover:bg-red-100 active:bg-red-200">
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                    </button>
-                  )}
                 </div>
               ))}
               <div className="flex justify-between px-1">
