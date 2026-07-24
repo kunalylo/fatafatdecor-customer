@@ -139,14 +139,24 @@ export default function HomeScreen() {
   const categories = ['All', ...[...new Set(gifts.map(g => g.category).filter(Boolean))].slice(0, 7)]
   const [activeCat, setActiveCat] = useState('All')
   const [trending, setTrending] = useState(TRENDING)   // admin-editable; TRENDING is the fallback
+  const [trendHampers, setTrendHampers] = useState([]) // admin-curated Trending hampers row
 
   useEffect(() => {
     let alive = true
     api('trending').then((data) => {
       if (alive && Array.isArray(data) && data.length) setTrending(data)
     }).catch(() => {})
+    api('trending-hampers').then((data) => {
+      if (alive && Array.isArray(data)) setTrendHampers(data)
+    }).catch(() => {})
     return () => { alive = false }
   }, [])
+
+  // Trending hampers cards: admin-curated collection if any, else derive from festivals.
+  const hamperCards = trendHampers.length
+    ? trendHampers
+    : festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
+  const openHamper = (c) => (c.festivalId ? openFestival(c.festivalId) : openGifts())
 
   const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
   const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
@@ -332,48 +342,45 @@ export default function HomeScreen() {
           </div>
         </section>
 
-        {/* Festival hampers */}
-        {festivals.length > 0 && (
+        {/* Trending hampers */}
+        {hamperCards.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-5">
               <div>
                 <p className="eyebrow text-gray-600">Limited season</p>
                 <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Trending <span className="italic font-normal iridescent-text">hampers</span></h3>
               </div>
-              <button onClick={() => openFestival(festivals[0].id)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+              <button onClick={() => openHamper(hamperCards[0])} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
             </div>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
-              {festivals.map((f) => {
-                const min = festMin(f)
-                return (
-                  <button key={f.id} onClick={() => openFestival(f.id)}
-                    className="flex-shrink-0 w-64 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
-                    <div className="relative aspect-[5/4] bg-pink-50/50">
-                      {f.hero
-                        ? <img src={ik(f.hero, 'w-512,q-80')} alt={f.name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }} />
-                      <div className="absolute bottom-3 left-4 right-4">
-                        {f.eyebrow && <p className="text-white/80 text-[9px] font-bold tracking-[0.25em] uppercase">{f.eyebrow}</p>}
-                        <h4 className="font-display text-white text-xl font-medium leading-tight mt-0.5">{f.name}</h4>
-                      </div>
+              {hamperCards.map((c) => (
+                <button key={c.id} onClick={() => openHamper(c)}
+                  className="flex-shrink-0 w-64 glass-floating rounded-[24px] overflow-hidden text-left hover:-translate-y-1 transition-transform">
+                  <div className="relative aspect-[5/4] bg-pink-50/50">
+                    {c.image
+                      ? <img src={ik(c.image, 'w-512,q-80')} alt={c.title} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }} />
+                    <div className="absolute bottom-3 left-4 right-4">
+                      {c.eyebrow && <p className="text-white/80 text-[9px] font-bold tracking-[0.25em] uppercase">{c.eyebrow}</p>}
+                      <h4 className="font-display text-white text-xl font-medium leading-tight mt-0.5">{c.title}</h4>
                     </div>
-                    <div className="p-4 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        {f.tagline && <p className="text-gray-500 text-[9px] font-bold tracking-[0.2em] uppercase truncate">{f.tagline}</p>}
-                        {min !== null && (
-                          <p className="text-gray-900 text-[13px] font-bold mt-1 flex items-center">
-                            Hampers starting from&nbsp;<IndianRupee className="w-3 h-3" />{min.toLocaleString('en-IN')}
-                          </p>
-                        )}
-                      </div>
-                      <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: f.color || '#111827' }}>
-                        <ArrowRight className="w-4 h-4 text-white" strokeWidth={2.4} />
-                      </span>
+                  </div>
+                  <div className="p-4 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      {c.tagline && <p className="text-gray-500 text-[9px] font-bold tracking-[0.2em] uppercase truncate">{c.tagline}</p>}
+                      {c.priceFrom != null && c.priceFrom > 0 && (
+                        <p className="text-gray-900 text-[13px] font-bold mt-1 flex items-center">
+                          Hampers starting from&nbsp;<IndianRupee className="w-3 h-3" />{Number(c.priceFrom).toLocaleString('en-IN')}
+                        </p>
+                      )}
                     </div>
-                  </button>
-                )
-              })}
+                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c.color || '#111827' }}>
+                      <ArrowRight className="w-4 h-4 text-white" strokeWidth={2.4} />
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           </section>
         )}
