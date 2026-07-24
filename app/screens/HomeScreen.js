@@ -138,6 +138,15 @@ export default function HomeScreen() {
 
   const categories = ['All', ...[...new Set(gifts.map(g => g.category).filter(Boolean))].slice(0, 7)]
   const [activeCat, setActiveCat] = useState('All')
+  const [trending, setTrending] = useState(TRENDING)   // admin-editable; TRENDING is the fallback
+
+  useEffect(() => {
+    let alive = true
+    api('trending').then((data) => {
+      if (alive && Array.isArray(data) && data.length) setTrending(data)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
   const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
@@ -295,7 +304,7 @@ export default function HomeScreen() {
             <button onClick={() => navigate(SCREENS.UPLOAD)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
           </div>
           <div className="space-y-3">
-            {TRENDING.map((t) => (
+            {trending.map((t) => (
               <button key={t.id} onClick={() => startOccasion(t.occasion)}
                 className="w-full glass-floating rounded-[24px] p-3 flex items-center gap-3.5 text-left hover:-translate-y-0.5 transition-transform">
                 <div className="relative w-24 h-24 rounded-[18px] overflow-hidden flex-shrink-0">
