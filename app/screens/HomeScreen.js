@@ -315,7 +315,7 @@ export default function HomeScreen() {
                   <p className="text-pink-600 text-[10px] font-bold tracking-wide uppercase">{t.category}</p>
                   <h4 className="text-gray-900 font-bold text-[14px] leading-tight mt-0.5">{t.title}</h4>
                   <p className="text-gray-500 text-[11px] mt-1 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" strokeWidth={2.2} /> Ranchi, Jharkhand
+                    <MapPin className="w-3 h-3" strokeWidth={2.2} /> {t.location || 'Ranchi, Jharkhand'}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex -space-x-1.5">
