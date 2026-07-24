@@ -152,12 +152,6 @@ export default function HomeScreen() {
     return () => { alive = false }
   }, [])
 
-  // Trending hampers cards: admin-curated collection if any, else derive from festivals.
-  const hamperCards = trendHampers.length
-    ? trendHampers
-    : festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
-  const openHamper = (c) => (c.festivalId ? openFestival(c.festivalId) : openGifts())
-
   const startOccasion = (occ) => { setUploadForm(p => ({ ...p, occasion: occ })); navigate(SCREENS.UPLOAD) }
   const openGifts = () => { setGiftMode('standalone'); navigate(SCREENS.GIFTS) }
   const openGift = (id) => { setGiftMode('standalone'); setPendingGiftId(id); navigate(SCREENS.GIFTS) }
@@ -167,6 +161,13 @@ export default function HomeScreen() {
     const prices = (f.hampers || []).map(h => h.price).filter(p => typeof p === 'number')
     return prices.length ? Math.min(...prices) : null
   }
+
+  // Trending hampers cards: admin-curated collection if any, else derive from festivals.
+  // (Defined AFTER festMin/openFestival/openGifts — they're referenced here.)
+  const hamperCards = trendHampers.length
+    ? trendHampers
+    : festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
+  const openHamper = (c) => (c.festivalId ? openFestival(c.festivalId) : openGifts())
 
   const thumbPos = [
     { className: 'top-16 left-2 -rotate-6 w-[72px] h-[72px]' },
