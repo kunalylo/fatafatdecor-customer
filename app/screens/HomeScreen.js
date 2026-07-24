@@ -139,15 +139,11 @@ export default function HomeScreen() {
   const categories = ['All', ...[...new Set(gifts.map(g => g.category).filter(Boolean))].slice(0, 7)]
   const [activeCat, setActiveCat] = useState('All')
   const [trending, setTrending] = useState(TRENDING)   // admin-editable; TRENDING is the fallback
-  const [trendHampers, setTrendHampers] = useState([]) // admin-curated Trending hampers row
 
   useEffect(() => {
     let alive = true
     api('trending').then((data) => {
       if (alive && Array.isArray(data) && data.length) setTrending(data)
-    }).catch(() => {})
-    api('trending-hampers').then((data) => {
-      if (alive && Array.isArray(data)) setTrendHampers(data)
     }).catch(() => {})
     return () => { alive = false }
   }, [])
@@ -162,11 +158,11 @@ export default function HomeScreen() {
     return prices.length ? Math.min(...prices) : null
   }
 
-  // Trending hampers cards: admin-curated collection if any, else derive from festivals.
-  // (Defined AFTER festMin/openFestival/openGifts — they're referenced here.)
-  const hamperCards = trendHampers.length
-    ? trendHampers
-    : festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
+  // Trending hampers = the festivals flagged "Feature on home carousel" in admin
+  // (fall back to all festivals if none are featured). Editing a festival in the
+  // admin "Trending Hampers" section updates its Home card directly.
+  const hamperSource = festivals.some(f => f.featured) ? festivals.filter(f => f.featured) : festivals
+  const hamperCards = hamperSource.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
   const openHamper = (c) => (c.festivalId ? openFestival(c.festivalId) : openGifts())
 
   const thumbPos = [

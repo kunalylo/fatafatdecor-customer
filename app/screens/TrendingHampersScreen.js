@@ -10,9 +10,8 @@ import { SCREENS, api } from '../lib/constants'
 const ik = (url, tr) => (url && url.includes('ik.imagekit.io') ? `${url}?tr=${tr}` : url)
 
 export default function TrendingHampersScreen() {
-  const { goBack, navigate, festivals, setGiftMode, setSelectedFestivalId } = useApp()
-  const [cards, setCards] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { goBack, navigate, festivals, setFestivals, setGiftMode, setSelectedFestivalId } = useApp()
+  const [loading, setLoading] = useState(festivals.length === 0)
 
   const festMin = (f) => {
     const prices = (f.hampers || []).map(h => h.price).filter(p => typeof p === 'number')
@@ -20,20 +19,19 @@ export default function TrendingHampersScreen() {
   }
 
   useEffect(() => {
+    if (festivals.length > 0) { setLoading(false); return }
     let alive = true
-    api('trending-hampers')
-      .then(d => { if (alive && Array.isArray(d)) setCards(d) })
+    api('festivals')
+      .then(d => { if (alive && Array.isArray(d)) setFestivals(d) })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
 
-  // Admin-curated cards if any, else derive from festivals.
+  // Every festival, shown as a hamper card (View All = all of them).
   const list = useMemo(() => (
-    cards.length
-      ? cards
-      : festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
-  ), [cards, festivals])
+    festivals.map(f => ({ id: f.id, festivalId: f.id, image: f.hero, eyebrow: f.eyebrow, title: f.name, tagline: f.tagline, priceFrom: festMin(f), color: f.color }))
+  ), [festivals])
 
   const openCard = (c) => {
     if (c.festivalId) { setSelectedFestivalId(c.festivalId); navigate(SCREENS.FESTIVAL) }
