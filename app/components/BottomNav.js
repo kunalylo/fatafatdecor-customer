@@ -16,6 +16,7 @@ const ITEMS = [
 // Map the current screen to an active tab id
 const matchTab = (s) => {
   if (s === SCREENS.HOME) return 'home'
+  if (s === SCREENS.TRENDING_HAMPERS) return 'home'
   if (s === SCREENS.GIFTS || s === SCREENS.GIFT_BOOKING || s === SCREENS.FESTIVAL || s === SCREENS.BULK || s === SCREENS.CORPORATE || s === SCREENS.PRIVATE || s === SCREENS.GIFT_BUILDER || s === SCREENS.INVITATIONS) return 'gifts'
   if (s === SCREENS.UPLOAD || s === SCREENS.GENERATING || s === SCREENS.DESIGN) return 'decorate'
   if (s === SCREENS.ORDERS || s === SCREENS.ORDER_DETAIL || s === SCREENS.TRACKING || s === SCREENS.BOOKING) return 'orders'

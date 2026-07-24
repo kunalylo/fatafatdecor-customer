@@ -350,7 +350,7 @@ export default function HomeScreen() {
                 <p className="eyebrow text-gray-600">Limited season</p>
                 <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Trending <span className="italic font-normal iridescent-text">hampers</span></h3>
               </div>
-              <button onClick={() => openHamper(hamperCards[0])} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
+              <button onClick={() => navigate(SCREENS.TRENDING_HAMPERS)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
             </div>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-6 px-6">
               {hamperCards.map((c) => (

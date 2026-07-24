@@ -21,6 +21,7 @@ import AddressScreen from './screens/AddressScreen'
 import GiftsScreen from './screens/GiftsScreen'
 import GiftBookingScreen from './screens/GiftBookingScreen'
 import FestivalScreen from './screens/FestivalScreen'
+import TrendingHampersScreen from './screens/TrendingHampersScreen'
 import BulkScreen from './screens/BulkScreen'
 import CorporateScreen from './screens/CorporateScreen'
 import PrivateScreen from './screens/PrivateScreen'
@@ -72,6 +73,7 @@ function AppContent() {
       {screen === SCREENS.GIFTS && <GiftsScreen />}
       {screen === SCREENS.GIFT_BOOKING && <GiftBookingScreen />}
       {screen === SCREENS.FESTIVAL && <FestivalScreen />}
+      {screen === SCREENS.TRENDING_HAMPERS && <TrendingHampersScreen />}
       {screen === SCREENS.BULK && <BulkScreen />}
       {screen === SCREENS.CORPORATE && <CorporateScreen />}
       {screen === SCREENS.PRIVATE && <PrivateScreen />}
