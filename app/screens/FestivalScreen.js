@@ -95,12 +95,6 @@ export default function FestivalScreen() {
 
         {/* Bottom copy */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-1 z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-overlay mb-3">
-            <CalendarClock className="w-3.5 h-3.5 text-gray-800" strokeWidth={2.2} />
-            <span className="text-[10px] font-bold tracking-widest uppercase text-gray-900">
-              {festival.days <= 0 ? 'On now' : `${festival.days} DAYS TO GO`}
-            </span>
-          </div>
           <p className="eyebrow text-pink-600">{festival.eyebrow}</p>
           <h1 className="font-display text-[44px] font-medium text-gray-900 leading-[1.02] mt-1">{festival.name}</h1>
           <p className="text-sm text-gray-700 leading-relaxed mt-2">{festival.description}</p>
@@ -155,9 +149,6 @@ export default function FestivalScreen() {
                 <div className="relative w-32 h-32 rounded-[20px] overflow-hidden glass-floating">
                   {f.hero && <img src={f.hero} alt={f.name} className="w-full h-full object-cover" loading="lazy" />}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                  <span className="absolute bottom-2 left-2.5 text-white text-[9px] font-bold tracking-widest uppercase">
-                    {f.days <= 0 ? 'On now' : daysLabel(f.days)}
-                  </span>
                 </div>
                 <p className="text-[12px] font-bold text-gray-900 mt-2 px-0.5">{f.name}</p>
               </button>

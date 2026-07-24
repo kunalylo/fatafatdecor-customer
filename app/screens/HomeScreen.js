@@ -338,7 +338,7 @@ export default function HomeScreen() {
             <div className="flex items-end justify-between mb-5">
               <div>
                 <p className="eyebrow text-gray-600">Limited season</p>
-                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Festival <span className="italic font-normal iridescent-text">hampers</span></h3>
+                <h3 className="font-display text-3xl font-medium text-gray-900 mt-1">Trending <span className="italic font-normal iridescent-text">hampers</span></h3>
               </div>
               <button onClick={() => openFestival(festivals[0].id)} className="text-xs font-bold text-gray-900 underline underline-offset-4">View All</button>
             </div>
@@ -353,12 +353,6 @@ export default function HomeScreen() {
                         ? <img src={ik(f.hero, 'w-512,q-80')} alt={f.name} className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center"><Gift className="w-8 h-8 text-pink-300" /></div>}
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)' }} />
-                      {typeof f.days === 'number' && (
-                        <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-white text-[9px] font-black tracking-wide uppercase">
-                          <CalendarClock className="w-3 h-3" strokeWidth={2.4} />
-                          {f.days <= 0 ? 'On now' : `${f.days} days to go`}
-                        </span>
-                      )}
                       <div className="absolute bottom-3 left-4 right-4">
                         {f.eyebrow && <p className="text-white/80 text-[9px] font-bold tracking-[0.25em] uppercase">{f.eyebrow}</p>}
                         <h4 className="font-display text-white text-xl font-medium leading-tight mt-0.5">{f.name}</h4>
