@@ -16,6 +16,7 @@ export function AppProvider({ children }) {
   // Refs so navigate/goBack don't need screen/prevScreen as deps (prevents re-render cascade)
   const screenRef = useRef(SCREENS.AUTH)
   const prevScreenRef = useRef(null)
+  const historyRef = useRef([])   // full back-stack so multi-level Back works (not just 1 level)
   const [authMode, setAuthMode] = useState('login')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState(null)
@@ -120,14 +121,26 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener('fd:auth-expired', onAuthExpired)
   }, [])
 
-  // Stable navigate/goBack — read current values from refs, never stale, no cascade re-renders
+  // Stable navigate/goBack — read current values from refs, never stale, no cascade re-renders.
+  // Maintains a real back-stack: navigating deeper pushes; goBack pops. Switching to a
+  // bottom-nav root (Home/Gifts/Orders/Profile) starts a fresh stack for that tab.
+  const ROOT_SCREENS = [SCREENS.HOME, SCREENS.GIFTS, SCREENS.ORDERS, SCREENS.PROFILE]
   const navigate = useCallback((s) => {
-    setPrevScreen(screenRef.current)
+    const cur = screenRef.current
+    if (cur === s) return
+    if (ROOT_SCREENS.includes(s)) {
+      historyRef.current = []
+    } else {
+      historyRef.current.push(cur)
+      if (historyRef.current.length > 25) historyRef.current.shift()
+    }
+    setPrevScreen(cur)
     setScreen(s)
   }, [])
 
   const goBack = useCallback(() => {
-    setScreen(prevScreenRef.current || SCREENS.HOME)
+    const prev = historyRef.current.pop()
+    setScreen(prev || SCREENS.HOME)
   }, [])
 
   // Request browser notification permission after login (Fix 2)

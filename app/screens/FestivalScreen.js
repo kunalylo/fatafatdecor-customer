@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { ChevronLeft, CalendarClock, ShoppingBag, Gift } from 'lucide-react'
+import { ChevronLeft, ShoppingBag, Gift } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, api } from '../lib/constants'
 
@@ -45,8 +45,6 @@ export default function FestivalScreen() {
 
   const cartCount = useMemo(() => giftCart.reduce((s, g) => s + g.quantity, 0), [giftCart])
   const cartTotal = useMemo(() => giftCart.reduce((s, g) => s + g.price * g.quantity, 0), [giftCart])
-
-  const daysLabel = (d) => (d > 30 ? `${Math.round(d / 30)} mo` : `${d} days`)
 
   // ── Loading / empty states ──
   if (!festival) {
