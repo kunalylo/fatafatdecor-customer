@@ -57,7 +57,7 @@ export const CREDIT_PACKAGES = [
   { credits: 10, price: 950, label: '10 Credits' }
 ]
 
-export const SUPPORT_PHONE = '6204711205'
+export const SUPPORT_PHONE = '8002266606'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
