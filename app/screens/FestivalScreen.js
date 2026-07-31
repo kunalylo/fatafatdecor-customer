@@ -91,13 +91,19 @@ export default function FestivalScreen() {
           </button>
         </div>
 
-        {/* Bottom copy */}
-        <div className="absolute bottom-0 left-0 right-0 px-6 pb-1 z-10">
+        {/* Bottom copy — eyebrow + title only (long text goes below the hero) */}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-4 z-10">
           <p className="eyebrow text-pink-600">{festival.eyebrow}</p>
-          <h1 className="font-display text-[44px] font-medium text-gray-900 leading-[1.02] mt-1">{festival.name}</h1>
-          <p className="text-sm text-gray-700 leading-relaxed mt-2">{festival.description}</p>
+          <h1 className="font-display text-[40px] font-medium text-gray-900 leading-[1.05] mt-1 line-clamp-2">{festival.name}</h1>
         </div>
       </div>
+
+      {/* Description — full readable paragraph on the light background */}
+      {festival.description && (
+        <div className="px-6 pt-4">
+          <p className="text-sm text-gray-600 leading-relaxed">{festival.description}</p>
+        </div>
+      )}
 
       {/* ── Hampers grid ── */}
       <div className="px-4 mt-6">
