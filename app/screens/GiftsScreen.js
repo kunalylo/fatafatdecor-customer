@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { SCREENS, api } from '../lib/constants'
-import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2, Boxes, Lock, ArrowRight, MailOpen } from 'lucide-react'
+import { ArrowLeft, Search, ShoppingBag, Plus, Minus, X, ChevronLeft, ChevronRight, SlidersHorizontal, Heart, Gift, Truck, ShieldCheck, Sparkles, Check, Package, Trash2, Boxes, Lock, ArrowRight, MailOpen, Maximize2 } from 'lucide-react'
 
 const BULK_CTA_IMG = 'https://ik.imagekit.io/jcp2urr7b/content/03_gifts_shop/04_bulk_order_cta/bulk_order_-LeEPQTyP.jpg'
 
@@ -61,6 +61,7 @@ export default function GiftsScreen() {
   const [showFilters, setShowFilters] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState(0)
+  const [imgZoom, setImgZoom] = useState(false)   // fullscreen image viewer
   const [wishlist, setWishlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fd_wishlist') || '[]') } catch { return [] }
   })
@@ -143,6 +144,7 @@ export default function GiftsScreen() {
 
   // Any filter/search change restarts paging from the first page.
   useEffect(() => { setVisibleCount(PAGE_SIZE) }, [searchLower, activeCategory, activeOccasion, priceRange, sortBy])
+  useEffect(() => { setImgZoom(false) }, [selectedGift])   // never leave the zoom open across gifts
 
   const visibleGifts = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
 
@@ -597,10 +599,17 @@ export default function GiftsScreen() {
               <div className="relative w-full aspect-square bg-gradient-to-br from-pink-50 to-rose-100">
                 {imgs.length > 0 ? (
                   <img src={getImgSrc(imgs[galleryIndex])} alt={selectedGift.name}
-                    className="w-full h-full object-cover transition-opacity duration-200"
+                    onClick={() => setImgZoom(true)}
+                    className="w-full h-full object-cover transition-opacity duration-200 cursor-zoom-in"
                     onError={e => { e.target.onerror = null; e.target.style.display = 'none' }} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><Gift className="w-16 h-16 text-pink-300" /></div>
+                )}
+                {imgs.length > 0 && (
+                  <button onClick={() => setImgZoom(true)}
+                    className="absolute top-3 right-3 glass-overlay rounded-full px-2.5 py-1 flex items-center gap-1 text-[10px] font-bold text-gray-700 active:scale-90 transition">
+                    <Maximize2 className="w-3 h-3" /> Tap to zoom
+                  </button>
                 )}
                 {imgs.length > 1 && (
                   <>
@@ -729,6 +738,48 @@ export default function GiftsScreen() {
                 </div>
               )}
             </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Fullscreen image viewer (swipe through all product images) ── */}
+      {imgZoom && selectedGift && (() => {
+        const imgs = getImgs(selectedGift)
+        if (imgs.length === 0) return null
+        return (
+          <div className="fixed inset-0 z-[70] bg-black flex flex-col" onClick={() => setImgZoom(false)}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+              <span className="text-white/80 text-sm font-semibold">{galleryIndex + 1} / {imgs.length}</span>
+              <button onClick={(e) => { e.stopPropagation(); setImgZoom(false) }}
+                className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center relative min-h-0" onClick={(e) => e.stopPropagation()}>
+              <img src={getImgSrc(imgs[galleryIndex])} alt={selectedGift.name} className="max-w-full max-h-full object-contain" />
+              {imgs.length > 1 && (
+                <>
+                  <button onClick={() => setGalleryIndex(i => (i - 1 + imgs.length) % imgs.length)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition">
+                    <ChevronLeft className="w-5 h-5 text-white" />
+                  </button>
+                  <button onClick={() => setGalleryIndex(i => (i + 1) % imgs.length)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition">
+                    <ChevronRight className="w-5 h-5 text-white" />
+                  </button>
+                </>
+              )}
+            </div>
+            {imgs.length > 1 && (
+              <div className="flex gap-2 px-4 py-4 overflow-x-auto no-scrollbar shrink-0 justify-center" onClick={(e) => e.stopPropagation()}>
+                {imgs.map((url, i) => (
+                  <button key={i} onClick={() => setGalleryIndex(i)}
+                    className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${i === galleryIndex ? 'border-white' : 'border-white/25 opacity-60'}`}>
+                    <img src={getImgSrc(url, 'thumb')} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )
       })()}
